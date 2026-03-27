@@ -45,7 +45,7 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
             <div className="flex flex-col gap-4 h-full w-full min-h-0">
               <div className="flex-1 min-h-0 overflow-hidden">
                 <Conversation className="h-full min-h-0">
-                  <ConversationContent className="min-h-full">
+                  <ConversationContent className="max-w-200 mx-auto px-4 pt-4">
                     <MessageRenderer messages={convertedOldMessages} />
                     <MessageRenderer messages={liveMessages} />
                   </ConversationContent>

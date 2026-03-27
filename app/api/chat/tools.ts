@@ -8,7 +8,8 @@ type ProductFromAPI = {
   extracted_price: string;
   description: string;
   rating: number;
-  thumnail: string;
+  thumbnail?: string;
+  thumnail?: string;
   product_link: string;
 };
 
@@ -18,7 +19,7 @@ type Product = {
   description: string;
   price: string;
   rating: number;
-  thumnail: string;
+  thumbnail: string;
   product_link: string;
 };
 
@@ -73,7 +74,7 @@ export const productTool = tool(
             description: product.description,
             price: product.extracted_price,
             rating: product.rating,
-            thumnail: product.thumnail,
+            thumbnail: product.thumbnail || product.thumnail || "",
             product_link: product.product_link + "&utm_source=aichatwave.in ",
           };
         });
