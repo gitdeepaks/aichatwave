@@ -50,6 +50,7 @@ type YahooFinanceSearchResponse = {
     publisher?: string;
     link?: string;
     providerPublishTime?: number;
+    relatedTickers?: string[];
     thumbnail?: {
       resolutions?: Array<{
         url?: string;
@@ -57,6 +58,51 @@ type YahooFinanceSearchResponse = {
     };
   }>;
 };
+
+function tokenizeQuery(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter((token) => token.length > 1);
+}
+
+function scoreNewsItem(params: {
+  query: string;
+  title: string;
+  publisher: string;
+  relatedTickers: string[];
+  providerPublishTime?: number;
+}): number {
+  const { query, title, publisher, relatedTickers, providerPublishTime } = params;
+  const q = query.toLowerCase();
+  const titleLower = title.toLowerCase();
+  const publisherLower = publisher.toLowerCase();
+  const tokens = tokenizeQuery(query);
+
+  let score = 0;
+
+  if (titleLower.includes(q)) score += 16;
+  if (publisherLower.includes(q)) score += 4;
+
+  for (const token of tokens) {
+    if (titleLower.includes(token)) score += 5;
+    if (publisherLower.includes(token)) score += 2;
+  }
+
+  const tickerMatch = relatedTickers.some((ticker) => ticker.toLowerCase() === q);
+  const partialTickerMatch = relatedTickers.some((ticker) => ticker.toLowerCase().includes(q));
+  if (tickerMatch) score += 22;
+  else if (partialTickerMatch) score += 8;
+
+  if (typeof providerPublishTime === "number" && Number.isFinite(providerPublishTime)) {
+    const ageHours = (Date.now() - providerPublishTime * 1000) / (1000 * 60 * 60);
+    if (ageHours <= 6) score += 8;
+    else if (ageHours <= 24) score += 6;
+    else if (ageHours <= 72) score += 3;
+  }
+
+  return score;
+}
 
 /** SerpAPI rejects bare ISO codes (e.g. `US`); use canonical names from https://serpapi.com/locations-api */
 const LOCALE_ALIASES: Record<string, string> = {
@@ -210,10 +256,11 @@ export const weatherTool = tool(
 
       if (!current) {
         return {
-          location: `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
-            /,\s*$/,
-            "",
-          ),
+          location:
+            `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
+              /,\s*$/,
+              "",
+            ),
           temperature: 0,
           feelsLike: 0,
           humidity: 0,
@@ -225,10 +272,11 @@ export const weatherTool = tool(
       }
 
       return {
-        location: `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
-          /,\s*$/,
-          "",
-        ),
+        location:
+          `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
+            /,\s*$/,
+            "",
+          ),
         temperature: Number(current.temperature_2m ?? 0),
         feelsLike: Number(current.apparent_temperature ?? 0),
         humidity: Number(current.relative_humidity_2m ?? 0),
@@ -274,6 +322,11 @@ export const newsTool = tool(
 
       const endpoint = new URL("https://query2.finance.yahoo.com/v1/finance/search");
       endpoint.searchParams.set("q", trimmedQuery);
+      endpoint.searchParams.set("newsCount", "20");
+      endpoint.searchParams.set("quotesCount", "0");
+      endpoint.searchParams.set("listsCount", "0");
+      endpoint.searchParams.set("enableFuzzyQuery", "false");
+      endpoint.searchParams.set("enableEnhancedTrivialQuery", "true");
 
       const response = await fetch(endpoint.toString(), {
         headers: {
@@ -286,20 +339,50 @@ export const newsTool = tool(
       }
 
       const data = (await response.json()) as YahooFinanceSearchResponse;
-      const news = (data.news ?? []).slice(0, 5).map((item, index) => {
-        const publishTime = item.providerPublishTime
-          ? new Date(item.providerPublishTime * 1000).toLocaleString()
-          : "";
+      const scoredNews = (data.news ?? [])
+        .map((item, index) => {
+          const title = item.title || "Untitled headline";
+          const publisher = item.publisher || "Unknown source";
+          const link = item.link || "";
+          const relatedTickers = Array.isArray(item.relatedTickers) ? item.relatedTickers : [];
+          const score = scoreNewsItem({
+            query: trimmedQuery,
+            title,
+            publisher,
+            relatedTickers,
+            providerPublishTime: item.providerPublishTime,
+          });
 
-        return {
-          uuid: item.uuid || `${trimmedQuery}-${index}`,
-          title: item.title || "Untitled headline",
-          publisher: item.publisher || "Unknown source",
-          link: item.link || "",
-          publishTime,
-          thumbnail: item.thumbnail?.resolutions?.[0]?.url ?? null,
-        };
+          return {
+            uuid: item.uuid || `${trimmedQuery}-${index}`,
+            title,
+            publisher,
+            link,
+            publishTime: item.providerPublishTime
+              ? new Date(item.providerPublishTime * 1000).toLocaleString()
+              : "",
+            thumbnail: item.thumbnail?.resolutions?.[0]?.url ?? null,
+            providerPublishTime: item.providerPublishTime ?? 0,
+            score,
+          };
+        })
+        .filter((item) => item.link.length > 0);
+
+      scoredNews.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (b.providerPublishTime ?? 0) - (a.providerPublishTime ?? 0);
       });
+
+      const seen = new Set<string>();
+      const deduped = scoredNews.filter((item) => {
+        const key = `${item.title.toLowerCase().trim()}|${item.publisher.toLowerCase().trim()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const picked = (deduped.length > 0 ? deduped : scoredNews).slice(0, 5);
+      const news = picked.map(({ providerPublishTime, score, ...item }) => item);
 
       const summary =
         news.length > 0
@@ -329,7 +412,7 @@ export const newsTool = tool(
   {
     name: "display_news",
     description:
-      "Fetch the latest finance news headlines for a stock, cryptocurrency, or company and show them as clickable news cards.",
+      "Fetch the latest finance news headlines for a Geopolitical events, wars (if any),tensions between countries(if any),stock, cryptocurrency, or company and show them as clickable news cards.",
     schema: z.object({
       query: z.string().describe('Search term like "AAPL", "Bitcoin", or "Tesla"'),
     }),
