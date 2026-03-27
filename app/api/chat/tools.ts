@@ -41,6 +41,19 @@ type WeatherResponse = {
     weather_code?: number;
     wind_speed_10m?: number;
   };
+  hourly?: {
+    time?: string[];
+    temperature_2m?: number[];
+    weather_code?: number[];
+  };
+  daily?: {
+    time?: string[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+    sunrise?: string[];
+    sunset?: string[];
+    weather_code?: number[];
+  };
 };
 
 type YahooFinanceSearchResponse = {
@@ -243,6 +256,11 @@ export const weatherTool = tool(
         "current",
         "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m",
       );
+      weatherUrl.searchParams.set("hourly", "temperature_2m,weather_code");
+      weatherUrl.searchParams.set(
+        "daily",
+        "temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code",
+      );
       weatherUrl.searchParams.set("wind_speed_unit", "mph");
       weatherUrl.searchParams.set("timezone", "auto");
 
@@ -271,6 +289,75 @@ export const weatherTool = tool(
         };
       }
 
+      const hourly = (() => {
+        const times = weatherData.hourly?.time ?? [];
+        const temps = weatherData.hourly?.temperature_2m ?? [];
+        const codes = weatherData.hourly?.weather_code ?? [];
+        const out: Array<{ time: string; temperature: number; weatherCode: number }> = [];
+
+        const nowTs = Date.now();
+        for (let i = 0; i < times.length; i++) {
+          const t = times[i];
+          const temp = temps[i];
+          const code = codes[i];
+          if (typeof t !== "string") continue;
+          const ts = new Date(t).getTime();
+          if (!Number.isFinite(ts) || ts < nowTs) continue;
+          if (typeof temp !== "number" || typeof code !== "number") continue;
+          out.push({
+            time: new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+            temperature: temp,
+            weatherCode: code,
+          });
+          if (out.length >= 8) break;
+        }
+        return out;
+      })();
+
+      const daily = (() => {
+        const days = weatherData.daily?.time ?? [];
+        const maxs = weatherData.daily?.temperature_2m_max ?? [];
+        const mins = weatherData.daily?.temperature_2m_min ?? [];
+        const codes = weatherData.daily?.weather_code ?? [];
+        const out: Array<{ day: string; min: number; max: number; weatherCode: number }> = [];
+
+        for (let i = 0; i < days.length && i < 7; i++) {
+          const d = days[i];
+          const max = maxs[i];
+          const min = mins[i];
+          const code = codes[i];
+          if (typeof d !== "string") continue;
+          if (typeof max !== "number" || typeof min !== "number" || typeof code !== "number") continue;
+          out.push({
+            day: new Date(d).toLocaleDateString(undefined, { weekday: "short" }),
+            min,
+            max,
+            weatherCode: code,
+          });
+        }
+        return out;
+      })();
+
+      const sunriseRaw = weatherData.daily?.sunrise?.[0];
+      const sunsetRaw = weatherData.daily?.sunset?.[0];
+      const sunrise =
+        typeof sunriseRaw === "string"
+          ? new Date(sunriseRaw).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+          : "";
+      const sunset =
+        typeof sunsetRaw === "string"
+          ? new Date(sunsetRaw).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+          : "";
+
+      const todayHigh =
+        typeof weatherData.daily?.temperature_2m_max?.[0] === "number"
+          ? Number(weatherData.daily?.temperature_2m_max?.[0])
+          : null;
+      const todayLow =
+        typeof weatherData.daily?.temperature_2m_min?.[0] === "number"
+          ? Number(weatherData.daily?.temperature_2m_min?.[0])
+          : null;
+
       return {
         location:
           `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
@@ -283,6 +370,12 @@ export const weatherTool = tool(
         windSpeed: Number(current.wind_speed_10m ?? 0),
         isDay: Number(current.is_day ?? 1) === 1,
         weatherCode: Number(current.weather_code ?? 0),
+        ...(todayHigh === null ? {} : { todayHigh }),
+        ...(todayLow === null ? {} : { todayLow }),
+        ...(sunrise ? { sunrise } : {}),
+        ...(sunset ? { sunset } : {}),
+        ...(hourly.length ? { hourly } : {}),
+        ...(daily.length ? { daily } : {}),
       };
     } catch (error) {
       console.error("Error fetching weather", error);

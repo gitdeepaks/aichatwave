@@ -26,6 +26,12 @@ type DisplayWeatherPayload = {
   windSpeed?: unknown;
   isDay?: unknown;
   weatherCode?: unknown;
+  todayHigh?: unknown;
+  todayLow?: unknown;
+  sunrise?: unknown;
+  sunset?: unknown;
+  hourly?: unknown;
+  daily?: unknown;
   error?: string;
 };
 
@@ -100,6 +106,12 @@ const parseDisplayWeatherPayload = (output: unknown): DisplayWeatherPayload => {
     windSpeed: payload.windSpeed,
     isDay: payload.isDay,
     weatherCode: payload.weatherCode,
+    todayHigh: payload.todayHigh,
+    todayLow: payload.todayLow,
+    sunrise: payload.sunrise,
+    sunset: payload.sunset,
+    hourly: payload.hourly,
+    daily: payload.daily,
     error: typeof payload.error === "string" ? payload.error : undefined,
   };
 };
@@ -163,6 +175,31 @@ const normalizeProducts = (products: unknown[]): CarouselProduct[] => {
 };
 
 const normalizeWeather = (payload: DisplayWeatherPayload): WeatherCardProps => {
+  const hourly =
+    Array.isArray(payload.hourly) &&
+    payload.hourly.every((h) => typeof h === "object" && h !== null)
+      ? (payload.hourly as Array<Record<string, unknown>>)
+          .map((h) => ({
+            time: typeof h.time === "string" ? h.time : "",
+            temperature: toNumber(h.temperature),
+            weatherCode: toNumber(h.weatherCode),
+          }))
+          .filter((h) => h.time.length > 0)
+      : undefined;
+
+  const daily =
+    Array.isArray(payload.daily) &&
+    payload.daily.every((d) => typeof d === "object" && d !== null)
+      ? (payload.daily as Array<Record<string, unknown>>)
+          .map((d) => ({
+            day: typeof d.day === "string" ? d.day : "",
+            min: toNumber(d.min),
+            max: toNumber(d.max),
+            weatherCode: toNumber(d.weatherCode),
+          }))
+          .filter((d) => d.day.length > 0)
+      : undefined;
+
   return {
     location: payload.location ?? "",
     temperature: toNumber(payload.temperature),
@@ -171,6 +208,12 @@ const normalizeWeather = (payload: DisplayWeatherPayload): WeatherCardProps => {
     windSpeed: toNumber(payload.windSpeed),
     isDay: typeof payload.isDay === "boolean" ? payload.isDay : Number(payload.isDay) === 1,
     weatherCode: toNumber(payload.weatherCode),
+    todayHigh: toNumber(payload.todayHigh),
+    todayLow: toNumber(payload.todayLow),
+    sunrise: typeof payload.sunrise === "string" ? payload.sunrise : "",
+    sunset: typeof payload.sunset === "string" ? payload.sunset : "",
+    hourly,
+    daily,
     error: payload.error,
   };
 };
