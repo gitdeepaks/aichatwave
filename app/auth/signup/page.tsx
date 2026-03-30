@@ -121,7 +121,7 @@ export default function SignupForm() {
 							className="size-9"
 							height={36}
 							width={36}
-							alt="AI Chat"
+							alt="AIChatWave"
 						/>
 					</div>
 					<div className="space-y-2">
@@ -133,7 +133,8 @@ export default function SignupForm() {
 							Create your account
 						</CardTitle>
 						<CardDescription className="mx-auto max-w-[19rem] text-[15px] leading-relaxed text-zinc-400">
-							Join AI Chat for smarter answers and a workspace built for ideas.
+							Join AIChatWave for smarter answers and a workspace built for
+							ideas.
 						</CardDescription>
 					</div>
 				</CardHeader>

@@ -1,9 +1,8 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AiChatWaveDropdown } from "@/components/chat/aichatwave-dropdown";
 import { ModelSelectorComponent } from "@/components/model-selector";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import dynamic from "next/dynamic";
-import { AiChatDropdown } from "@/components/chat/ai-chat-dropdown";
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -12,7 +11,6 @@ import {
 
 import { UpgradeComponent } from "@/components/upgrade-component";
 import { auth } from "@/lib/auth";
-import { SessionUser } from "@/types";
 
 export default async function ChatPageLayout({
 	children,
@@ -37,7 +35,7 @@ export default async function ChatPageLayout({
 							<SidebarTrigger />
 						</div>
 						<div className="items-center hidden md:flex">
-							<AiChatDropdown />
+							<AiChatWaveDropdown />
 						</div>
 
 						<UpgradeComponent />

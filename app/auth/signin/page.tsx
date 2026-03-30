@@ -115,7 +115,7 @@ export default function LoginForm() {
 							className="size-9"
 							height={36}
 							width={36}
-							alt="AI Chat"
+							alt="AIChatWave"
 						/>
 					</div>
 					<div className="space-y-2">
@@ -124,7 +124,7 @@ export default function LoginForm() {
 							Welcome back
 						</div>
 						<CardTitle className="text-balance text-[1.65rem] font-semibold tracking-tight text-white sm:text-[1.75rem]">
-							Sign in to AI Chat
+							Sign in to AIChatWave
 						</CardTitle>
 						<CardDescription className="mx-auto max-w-[19rem] text-[15px] leading-relaxed text-zinc-400">
 							Smarter replies, uploads, and more — pick up where you left off.
