@@ -91,7 +91,9 @@ export function WeatherCard({
     : "bg-gradient-to-br from-indigo-600/25 via-slate-800/25 to-slate-950/25";
   const AccentIcon = isDay ? CloudSun : CloudMoon;
   const highLowText =
-    typeof todayHigh === "number" && typeof todayLow === "number" && (todayHigh !== 0 || todayLow !== 0)
+    typeof todayHigh === "number" &&
+    typeof todayLow === "number" &&
+    (todayHigh !== 0 || todayLow !== 0)
       ? `H:${Math.round(todayHigh)}°  L:${Math.round(todayLow)}°`
       : null;
   const hourlyItems = (hourly ?? []).slice(0, 8);
@@ -103,8 +105,12 @@ export function WeatherCard({
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <CardTitle className="text-lg font-semibold leading-tight">{location || "Current weather"}</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">{condition} · {formattedDate}</p>
+              <CardTitle className="text-lg font-semibold leading-tight">
+                {location || "Current weather"}
+              </CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {condition} · {formattedDate}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               {highLowText ? (
@@ -127,7 +133,8 @@ export function WeatherCard({
                 <div>
                   <div className="text-5xl font-bold leading-none">{Math.round(temperature)}°C</div>
                   <div className="mt-1 text-sm text-white/75">
-                    Feels like <span className="font-semibold text-white">{Math.round(feelsLike)}°C</span>
+                    Feels like{" "}
+                    <span className="font-semibold text-white">{Math.round(feelsLike)}°C</span>
                   </div>
                 </div>
               </div>
@@ -150,7 +157,9 @@ export function WeatherCard({
                       className="min-w-[92px] shrink-0 rounded-xl border border-white/10 bg-black/45 px-2.5 py-2.5 text-center"
                     >
                       <div className="text-xs text-white/70 whitespace-nowrap">{h.time}</div>
-                      <div className="mt-1 text-2xl font-semibold leading-none">{Math.round(h.temperature)}°</div>
+                      <div className="mt-1 text-2xl font-semibold leading-none">
+                        {Math.round(h.temperature)}°
+                      </div>
                       <div className="mt-1 text-[11px] leading-tight text-white/70">
                         {weatherCodeToLabel(h.weatherCode)}
                       </div>
@@ -180,7 +189,9 @@ export function WeatherCard({
 
             <div className="rounded-xl border bg-background/60 p-3">
               <div className="text-xs text-muted-foreground">Sunrise / Sunset</div>
-              <div className="mt-1 text-sm font-semibold">{sunrise || "—"} / {sunset || "—"}</div>
+              <div className="mt-1 text-sm font-semibold">
+                {sunrise || "—"} / {sunset || "—"}
+              </div>
             </div>
           </div>
 
@@ -189,9 +200,14 @@ export function WeatherCard({
               <div className="mb-2 text-sm font-semibold">5-day forecast</div>
               <div className="space-y-1.5">
                 {dailyItems.map((d, idx) => (
-                  <div key={`${d.day}-${idx}`} className="flex items-center justify-between rounded-lg px-2 py-1.5">
+                  <div
+                    key={`${d.day}-${idx}`}
+                    className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                  >
                     <div className="w-11 text-sm font-medium">{d.day}</div>
-                    <div className="flex-1 text-xs text-muted-foreground">{weatherCodeToLabel(d.weatherCode)}</div>
+                    <div className="flex-1 text-xs text-muted-foreground">
+                      {weatherCodeToLabel(d.weatherCode)}
+                    </div>
                     <div className="text-sm">
                       <span className="text-muted-foreground">{Math.round(d.min)}°</span> /{" "}
                       <span className="font-semibold">{Math.round(d.max)}°</span>
