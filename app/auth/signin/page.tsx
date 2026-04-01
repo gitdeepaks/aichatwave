@@ -21,6 +21,7 @@ import {
 import { FieldError, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { BRAND_LOGO_SRC } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 import { GithubIcon, GoogleIcon } from "../icons";
 
@@ -111,11 +112,13 @@ export default function LoginForm() {
 				<CardHeader className="space-y-5 px-8 pt-10 pb-2 text-center sm:px-10">
 					<div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/25 to-red-600/12 ring-1 ring-white/10">
 						<Image
-							src="/logo.png"
-							className="size-9"
-							height={36}
-							width={36}
+							src={BRAND_LOGO_SRC}
+							className="size-9 object-contain"
+							width={512}
+							height={285}
 							alt="AIChatWave"
+							priority
+							unoptimized
 						/>
 					</div>
 					<div className="space-y-2">
