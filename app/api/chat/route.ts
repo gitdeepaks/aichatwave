@@ -9,9 +9,8 @@ import { headers } from "next/headers";
 import { toUIMessageStream } from "@ai-sdk/langchain";
 
 export const POST = async (req: Request) => {
-  const { threadId, messageContent } = await req.json();
-  //todo: get the selected model from the frontend
-  const selectedModel = "gpt-5-mini";
+  const { threadId, messageContent, selectedModel } = await req.json();
+
   const authData = await auth.api.getSession({
     headers: await headers(),
   });

@@ -14,6 +14,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useChatStore } from "@/store/chat-store";
 
 function InputContainer() {
+  const { selectedModel } = useChatStore();
   const router = useRouter();
   const params = useParams();
   const finalThreadURLId = params.thread_id as string;
@@ -35,7 +36,7 @@ function InputContainer() {
           sendMessage(message, {
             body: {
               threadId: finalThreadId,
-              //todo: selected model
+              selectedModel: selectedModel,
             },
           });
 
