@@ -19,6 +19,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
+import { useQuery } from "@tanstack/react-query";
+import { isCustomerHaveSubscription } from "@/lib/polar";
+import { session } from "@/db/schema/auth-schema";
+import { authClient } from "@/lib/auth-client";
 
 const models = [
   {
@@ -107,7 +111,17 @@ export const ModelSelectorComponent = () => {
 
   const { selectedModel, setSelectedModel } = useChatStore();
 
-  const userHaveProPlan = false;
+  const { data: session, isPending } = authClient.useSession();
+
+  const { data: userHaveProPlan } = useQuery({
+    queryKey: ["customer_subscription"],
+    queryFn: async () => {
+      return isCustomerHaveSubscription(session?.user.id as string);
+    },
+  });
+
+  // const userHaveProPlan = false;
+
   const handleModelSelect = useCallback(
     (id: string) => {
       setSelectedModel(id);

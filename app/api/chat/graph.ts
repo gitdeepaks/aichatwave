@@ -11,7 +11,7 @@ import { ingestEventToPolar } from "@/lib/polar";
 import { waitUntil } from "@vercel/functions";
 
 const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
-  //todo: reciev this modelID from frontend
+  //todo: receive this modelID from frontend
   const selectedModel = runtime.context?.selectedModel;
   const userId = runtime.context?.userId;
   const modelId = getEffectiveModelId(selectedModel);
@@ -25,7 +25,7 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   ]);
   // TODO:emit the event to polar
 
-  console.log(response);
+  // console.log(response);
   const usage = response.usage_metadata;
   waitUntil(
     ingestEventToPolar({

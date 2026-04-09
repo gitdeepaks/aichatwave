@@ -9,13 +9,13 @@ type ModelId = "gpt-5-mini" | "gpt-5-nano" | "gemini-3.1-pro" | "claude-sonnet-4
 
 type DynamicChatModel = ChatOpenAI | ChatGoogleGenerativeAI | ChatAnthropic;
 
-type ModelConfig = {
+export type ModelConfig = {
   provider: ModelProvider;
   tier: ModelTier;
   options?: Record<string, unknown>;
 };
 
-const MODEL_REGISTRY: Record<string, ModelConfig> = {
+export const MODEL_REGISTRY: Record<string, ModelConfig> = {
   "gpt-5-mini": {
     provider: "openai",
     tier: "free",
@@ -81,13 +81,11 @@ export function getEffectiveModelId(modelId: string | undefined): ModelId {
   return "gpt-5-nano";
 }
 
-export const getDynamicModel = (modelId: string | undefined) => {
+export const getDynamicModel = (modelId: string) => {
   const resolved = getEffectiveModelId(modelId);
   const config = MODEL_REGISTRY[resolved];
 
   if (!config) return defaultModel;
 
-  // TODO: once subscription status is available from DB, we can decide whether to allow/deny models.
-  // For now, always return a real chat model so callers can safely use `.invoke(...)`.
   return createModel(resolved, config);
 };

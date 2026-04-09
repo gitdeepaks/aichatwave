@@ -7,11 +7,12 @@ import {
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { v4 as uuidv4 } from "uuid";
 import { useParams, useRouter } from "next/navigation";
 import { useChatStore } from "@/store/chat-store";
+import { toast } from "sonner";
 
 function InputContainer() {
   const { selectedModel } = useChatStore();
@@ -23,9 +24,16 @@ function InputContainer() {
   const [input, setInput] = useState("");
   const { chatInstance } = useChatStore();
 
-  const { messages, sendMessage } = useChat({
+  const { sendMessage, error } = useChat({
     chat: chatInstance,
   });
+
+  useEffect(() => {
+    if (!error) return;
+    toast.error(error.message || "Something went wrong", {
+      id: "chat-send-error",
+    });
+  }, [error]);
 
   return (
     <div className="flex flex-col items-center w-full max-w-200 mx-auto pb-6">

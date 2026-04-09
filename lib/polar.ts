@@ -49,9 +49,8 @@ export async function getCustomerMeters(userId: string) {
     externalCustomerId: session.user.id,
   });
 
-  console.log("meters", meters.result.items);
-
-  return meters.result.items[0];
+  const first = meters.result.items[0];
+  return first ?? null;
 }
 
 export async function ingestEventToPolar(data: IngestData) {
