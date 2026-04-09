@@ -10,5 +10,8 @@ import type * as React from "react";
 export function ThemeProvider({
 	children,
 }: React.PropsWithChildren<Record<string, unknown>>) {
-	return children;
+	// Multiple layout children (e.g. QueryProvider + Toaster) arrive as an array.
+	// Returning that array directly triggers React's "unique key" warning; wrap so
+	// we return a single tree root.
+	return <div className="contents">{children}</div>;
 }

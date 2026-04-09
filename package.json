@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev",
-    "build": "next build",
+    "build": "cross-env NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -72,6 +72,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "cross-env": "^10.1.0",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9.38.0",
     "eslint-config-next": "16.2.0",
