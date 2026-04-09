@@ -1,4 +1,4 @@
-import { getDynamicModel } from "@/app/api/chat/model";
+import { getDynamicModel, getEffectiveModelId } from "@/app/api/chat/model";
 import { MessagesState } from "@/app/api/chat/state";
 import { productTool } from "@/app/api/chat/tools";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
@@ -7,10 +7,15 @@ import { END, MemorySaver, START, StateGraph, type GraphNode } from "@langchain/
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { tools } from "./tools";
+import { ingestEventToPolar } from "@/lib/polar";
+import { waitUntil } from "@vercel/functions";
 
-const llmCall: GraphNode<typeof MessagesState> = async (state) => {
+const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   //todo: reciev this modelID from frontend
-  const model = getDynamicModel("gpt-5-mini");
+  const selectedModel = runtime.context?.selectedModel;
+  const userId = runtime.context?.userId;
+  const modelId = getEffectiveModelId(selectedModel);
+  const model = getDynamicModel(selectedModel);
   const modelWithTools = model.bindTools(tools);
   const response = await modelWithTools.invoke([
     new SystemMessage(
@@ -18,6 +23,20 @@ const llmCall: GraphNode<typeof MessagesState> = async (state) => {
     ),
     ...state.messages,
   ]);
+  // TODO:emit the event to polar
+
+  console.log(response);
+  const usage = response.usage_metadata;
+  waitUntil(
+    ingestEventToPolar({
+      userId,
+      model: modelId,
+      inputTokens: usage?.input_tokens || 0,
+      outputTokens: usage?.output_tokens || 0,
+      totalTokens: usage?.total_tokens || 0,
+    }),
+  );
+
   return {
     messages: [response],
   };

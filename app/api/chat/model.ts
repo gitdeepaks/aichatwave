@@ -73,12 +73,21 @@ function createModel(modelId: ModelId, config: ModelConfig): DynamicChatModel {
     return defaultModel;
   }
 }
-export const getDynamicModel = (modelId: ModelId) => {
-  const config = MODEL_REGISTRY[modelId];
+/** Same id `getDynamicModel` actually uses when the request omits or unknown model id. */
+export function getEffectiveModelId(modelId: string | undefined): ModelId {
+  if (modelId && modelId in MODEL_REGISTRY) {
+    return modelId as ModelId;
+  }
+  return "gpt-5-nano";
+}
+
+export const getDynamicModel = (modelId: string | undefined) => {
+  const resolved = getEffectiveModelId(modelId);
+  const config = MODEL_REGISTRY[resolved];
 
   if (!config) return defaultModel;
 
   // TODO: once subscription status is available from DB, we can decide whether to allow/deny models.
   // For now, always return a real chat model so callers can safely use `.invoke(...)`.
-  return createModel(modelId, config);
+  return createModel(resolved, config);
 };

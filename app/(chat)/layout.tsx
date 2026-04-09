@@ -9,7 +9,7 @@ import {
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-import { UpgradeComponent } from "@/components/upgrade-component";
+import { ProUpgradeCta } from "@/components/pro-upgrade-cta";
 import { auth } from "@/lib/auth";
 
 export default async function ChatPageLayout({
@@ -38,7 +38,7 @@ export default async function ChatPageLayout({
 							<AiChatWaveDropdown />
 						</div>
 
-						<UpgradeComponent />
+						<ProUpgradeCta />
 
 						<div className="flex items-center">
 							<ModelSelectorComponent />
