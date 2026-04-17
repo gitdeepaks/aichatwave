@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Plus } from "lucide-react";
+import { ArrowUp, Loader2, Plus } from "lucide-react";
 import {
   PromptInput,
   PromptInputBody,
@@ -8,13 +8,20 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { SpeechInput } from "@/components/ai-elements/speech-input";
 import { useEffect, useState } from "react";
-import { useChat } from "@ai-sdk/react";
 import { v4 as uuidv4 } from "uuid";
 import { useParams, useRouter } from "next/navigation";
 import { useChatStore } from "@/store/chat-store";
 import { toast } from "sonner";
+import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { ChatStatus, ChatRequestOptions } from "ai";
 
-function InputContainer() {
+type InputContainerProps = {
+  sendMessage?: (message: PromptInputMessage, options?: ChatRequestOptions) => void | Promise<void>;
+  status?: ChatStatus;
+  error?: Error | null;
+};
+
+function InputContainer({ sendMessage, status = "ready", error }: InputContainerProps) {
   const { selectedModel } = useChatStore();
   const router = useRouter();
   const params = useParams();
@@ -22,11 +29,6 @@ function InputContainer() {
   const [generateId, setGenerateId] = useState(() => uuidv4());
   const finalThreadId = finalThreadURLId ?? generateId;
   const [input, setInput] = useState("");
-  const { chatInstance } = useChatStore();
-
-  const { sendMessage, error } = useChat({
-    chat: chatInstance,
-  });
 
   useEffect(() => {
     if (!error) return;
@@ -35,13 +37,14 @@ function InputContainer() {
     });
   }, [error]);
 
+  const isBusy = status === "submitted" || status === "streaming";
+
   return (
     <div className="flex flex-col items-center w-full max-w-200 mx-auto pb-6">
       <PromptInput
         className="w-full bg-[#2f2f2f] rounded-[32px]"
         onSubmit={(message) => {
-          console.log(message);
-          sendMessage(message, {
+          sendMessage?.(message, {
             body: {
               threadId: finalThreadId,
               selectedModel: selectedModel,
@@ -85,9 +88,10 @@ function InputContainer() {
 
             <button
               type="submit"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black hover:bg-[#ececec] transition-all"
+              disabled={isBusy || input.trim().length === 0}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black hover:bg-[#ececec] transition-all disabled:opacity-60 disabled:hover:bg-white"
             >
-              <ArrowUp />
+              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
             </button>
           </div>
         </PromptInputBody>

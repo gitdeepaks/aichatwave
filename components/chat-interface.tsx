@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import InputContainer from "./input-container";
 import { useChatStore } from "@/store/chat-store";
 import { MessageRenderer } from "@/components/custom/message-renderer";
-import type { UIMessage } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import type { StoredMessage } from "@langchain/core/messages";
 import { convertLangChainToUI } from "@/lib/converters";
 import {
@@ -13,11 +13,12 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { toast } from "sonner";
 
 export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[] }) => {
   const { chatInstance } = useChatStore();
 
-  const { messages, setMessages } = useChat({
+  const { messages, setMessages, sendMessage, status, error } = useChat({
     chat: chatInstance,
   });
 
@@ -25,6 +26,14 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
     const convertedOldMessages = convertLangChainToUI(oldMessages);
     setMessages(convertedOldMessages);
   }, [oldMessages, setMessages]);
+
+  useEffect(() => {
+    if (!error) return;
+    toast.error(error.message || "Something went wrong", {
+      id: "chat-send-error",
+    });
+  }, [error]);
+
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -33,6 +42,7 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
 
   // Keep initial client render aligned with SSR to avoid hydration mismatch.
   const liveMessages = isHydrated ? (messages as UIMessage[]) : [];
+  const liveStatus = status as ChatStatus;
   return (
     <>
       {liveMessages.length === 0 && messages.length === 0 ? (
@@ -41,7 +51,7 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
             <h1 className="text-3xl font-normal mb-8 tracking-tight text-white">
               What can I help with ?
             </h1>
-            <InputContainer />
+            <InputContainer sendMessage={sendMessage as any} status={liveStatus} error={error} />
           </main>
         </div>
       ) : (
@@ -51,13 +61,13 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
               <div className="flex-1 min-h-0 overflow-hidden">
                 <Conversation className="h-full min-h-0">
                   <ConversationContent className="max-w-200 mx-auto px-4 pt-4">
-                    <MessageRenderer messages={messages} />
+                    <MessageRenderer messages={liveMessages} status={liveStatus} />
                   </ConversationContent>
                   <ConversationScrollButton />
                 </Conversation>
               </div>
               <div className="flex flex-col gap-4">
-                <InputContainer />
+                <InputContainer sendMessage={sendMessage as any} status={liveStatus} error={error} />
               </div>
             </div>
           </main>

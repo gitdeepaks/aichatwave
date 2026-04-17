@@ -71,6 +71,7 @@ export const POST = async (req: Request) => {
       version: "v2",
       context: {
         userId: authData?.user.id,
+        selectedModel,
         model: selectedModel,
       },
     },

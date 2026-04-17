@@ -8,7 +8,7 @@ import { Message } from "@/components/ai-elements/message";
 import { NewsCard, type NewsItem } from "@/components/gen-ui/news-card";
 import { ProductCarousel, type Product as CarouselProduct } from "@/components/gen-ui/product-carousel";
 import { WeatherCard, type WeatherCardProps } from "@/components/gen-ui/weather-card";
-import type { UIMessage } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import { CopyIcon, RefreshCcwIcon } from "lucide-react";
 import { Fragment } from "react";
 
@@ -239,9 +239,24 @@ const normalizeNews = (news: unknown[]): NewsItem[] => {
     .filter((item): item is NewsItem => item !== null);
 };
 
-export const MessageRenderer = ({ messages }: { messages: UIMessage[] }) => {
+const TypingDots = () => (
+  <div className="flex items-center gap-1">
+    <span className="h-1.5 w-1.5 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.2s]" />
+    <span className="h-1.5 w-1.5 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.1s]" />
+    <span className="h-1.5 w-1.5 rounded-full bg-foreground/60 animate-bounce" />
+  </div>
+);
+
+export const MessageRenderer = ({
+  messages,
+  status,
+}: {
+  messages: UIMessage[];
+  status?: ChatStatus;
+}) => {
+  const isStreaming = status === "streaming" || status === "submitted";
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-3">
       {messages.map((message: UIMessage, messageIndex: number) => (
         <Fragment key={message.id}>
           {message.parts.map((part, i) => {
@@ -252,7 +267,11 @@ export const MessageRenderer = ({ messages }: { messages: UIMessage[] }) => {
                   <Fragment key={`${message.id}-${i}`}>
                     <Message from={message.role}>
                       <MessageContent>
-                        <MessageResponse>{part.text}</MessageResponse>
+                        <MessageResponse>
+                          {message.role === "assistant" && isLastMessage && isStreaming
+                            ? `${part.text}\n\n▍`
+                            : part.text}
+                        </MessageResponse>
                       </MessageContent>
                     </Message>
                     {message.role === "assistant" && isLastMessage && (
@@ -330,6 +349,14 @@ export const MessageRenderer = ({ messages }: { messages: UIMessage[] }) => {
           })}
         </Fragment>
       ))}
+
+      {isStreaming && messages.at(-1)?.role === "user" && (
+        <Message from="assistant">
+          <MessageContent>
+            <TypingDots />
+          </MessageContent>
+        </Message>
+      )}
     </div>
   );
 };
