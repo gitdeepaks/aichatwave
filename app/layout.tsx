@@ -20,7 +20,11 @@ const geistMono = Geist_Mono({
 
 const TITLE = "AIChatWave";
 const DESCRIPTION = "AIChatWave — chat for coders who want to work with AI";
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.BETTER_AUTH_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+).replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -63,7 +67,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
-  manifest: `${BASE_URL}/site.webmanifest`,
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

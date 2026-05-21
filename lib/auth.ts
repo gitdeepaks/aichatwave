@@ -11,7 +11,7 @@ export const polarClient = new Polar({
 });
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: process.env.BETTER_AUTH_URL?.replace(/\/$/, ""),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,
