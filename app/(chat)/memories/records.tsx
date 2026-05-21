@@ -13,6 +13,8 @@ import {
 import { Clock, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Memory } from "./page";
+import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
+import { cn } from "@/lib/utils";
 
 function Records({ memories }: { memories: Memory[] }) {
   const [search, setSearch] = useState("");
@@ -24,24 +26,24 @@ function Records({ memories }: { memories: Memory[] }) {
   }, [memories, search]);
 
   return (
-    <Card className="rounded-2xl border shadow-sm">
-      <CardHeader className="pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <Card className={cn("rounded-2xl", brandGlassCardClass)}>
+      <CardHeader className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <CardTitle className="text-lg">
+          <CardTitle className="text-lg text-white">
             Memory Records ({memories.length})
           </CardTitle>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs text-zinc-400">
             Structured contextual entries stored by the AI system
           </CardDescription>
         </div>
 
         <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <Input
             placeholder="Search memories..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 rounded-xl h-9"
+            className="h-10 rounded-xl border-white/10 bg-white/[0.04] pl-9 text-zinc-100 shadow-inner shadow-black/20 placeholder:text-zinc-500 focus-visible:border-orange-400/50 focus-visible:ring-orange-500/25"
           />
         </div>
       </CardHeader>
@@ -50,7 +52,7 @@ function Records({ memories }: { memories: Memory[] }) {
         <ScrollArea className="pr-4">
           <div className="divide-y">
             {filtered.length === 0 && (
-              <div className="py-10 text-center text-muted-foreground text-sm">
+              <div className="py-10 text-center text-sm text-zinc-500">
                 No matching memories found.
               </div>
             )}
@@ -58,7 +60,7 @@ function Records({ memories }: { memories: Memory[] }) {
             {filtered.map((memory, index) => (
               <div
                 key={memory.id}
-                className="py-4 px-4 hover:bg-muted/40 transition-colors"
+                className="px-4 py-4 transition-colors hover:bg-white/[0.04]"
               >
                 <div className="flex items-start justify-between gap-6">
                   <div className="space-y-1 max-w-3xl">

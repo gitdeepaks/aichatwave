@@ -1,29 +1,96 @@
 "use client";
 
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
-import type { ComponentProps } from "react";
-import { useCallback } from "react";
-import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
+import type { ComponentProps, RefObject } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type ConversationProps = ComponentProps<typeof StickToBottom>;
+type ScrollToBottomOptions = { animation?: ScrollBehavior | "instant" };
 
-export const Conversation = ({ className, ...props }: ConversationProps) => (
-  <StickToBottom
-    className={cn("relative flex-1 overflow-y-hidden", className)}
-    initial="smooth"
-    resize="smooth"
-    role="log"
-    {...props}
-  />
-);
+type ConversationContextValue = {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  isAtBottom: boolean;
+  stopScroll: () => void;
+  scrollToBottom: (options?: ScrollToBottomOptions) => void;
+};
 
-export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>;
+const ConversationContext = createContext<ConversationContextValue | null>(null);
 
-export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
-  <StickToBottom.Content className={cn("flex flex-col gap-8 p-4", className)} {...props} />
-);
+export function useConversationContext() {
+  const context = useContext(ConversationContext);
+
+  if (!context) {
+    throw new Error("Conversation components must be used within Conversation");
+  }
+
+  return context;
+}
+
+export type ConversationProps = ComponentProps<"div">;
+
+export const Conversation = ({ className, children, ...props }: ConversationProps) => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const updateIsAtBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 24);
+  }, []);
+
+  const scrollToBottom = useCallback((options?: ScrollToBottomOptions) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: options?.animation === "instant" ? "auto" : options?.animation,
+    });
+    setIsAtBottom(true);
+  }, []);
+
+  const value = useMemo(
+    () => ({ scrollRef, isAtBottom, stopScroll: updateIsAtBottom, scrollToBottom }),
+    [isAtBottom, scrollToBottom, updateIsAtBottom],
+  );
+
+  return (
+    <ConversationContext.Provider value={value}>
+      <div
+        className={cn("relative flex min-h-0 flex-1 flex-col overflow-hidden", className)}
+        role="log"
+        {...props}
+      >
+        {children}
+      </div>
+    </ConversationContext.Provider>
+  );
+};
+
+export type ConversationContentProps = ComponentProps<"div"> & {
+  scrollClassName?: string;
+};
+
+export const ConversationContent = ({
+  className,
+  scrollClassName,
+  ...props
+}: ConversationContentProps) => {
+  const { scrollRef, stopScroll } = useConversationContext();
+
+  return (
+    <div
+      className={cn("min-h-0 flex-1 overflow-y-auto overscroll-y-contain", scrollClassName)}
+      onScroll={stopScroll}
+      ref={scrollRef}
+    >
+      <div
+        className={cn("mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 py-5 sm:px-4", className)}
+        {...props}
+      />
+    </div>
+  );
+};
 
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
   title?: string;
@@ -64,7 +131,7 @@ export const ConversationScrollButton = ({
   className,
   ...props
 }: ConversationScrollButtonProps) => {
-  const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const { isAtBottom, scrollToBottom } = useConversationContext();
 
   const handleScrollToBottom = useCallback(() => {
     scrollToBottom();
@@ -74,7 +141,7 @@ export const ConversationScrollButton = ({
     !isAtBottom && (
       <Button
         className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted",
+          "absolute bottom-4 left-1/2 z-20 size-10 -translate-x-1/2 rounded-full border-white/10 bg-zinc-900/90 text-zinc-100 shadow-[0_14px_35px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md transition hover:bg-zinc-800 dark:bg-zinc-900/90 dark:hover:bg-zinc-800",
           className,
         )}
         onClick={handleScrollToBottom}

@@ -40,9 +40,9 @@ function InputContainer({ sendMessage, status = "ready", error }: InputContainer
   const isBusy = status === "submitted" || status === "streaming";
 
   return (
-    <div className="flex flex-col items-center w-full max-w-200 mx-auto pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col items-center pb-4 sm:pb-5">
       <PromptInput
-        className="w-full bg-[#2f2f2f] rounded-[32px]"
+        className="w-full rounded-[28px] border border-white/10 bg-zinc-900/85 shadow-[0_18px_55px_-30px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition-[border-color,box-shadow,background-color] focus-within:border-orange-300/35 focus-within:bg-zinc-900/95 focus-within:ring-2 focus-within:ring-orange-500/15"
         onSubmit={(message) => {
           sendMessage?.(message, {
             body: {
@@ -58,28 +58,28 @@ function InputContainer({ sendMessage, status = "ready", error }: InputContainer
           }
         }}
       >
-        <PromptInputBody className="flex items-end w-full">
+        <PromptInputBody className="flex w-full items-end gap-1 p-2">
           <button
             type="button"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#b4b4b4] hover:bg-[#3f3f3f] transition-colors mb-0.5"
+            className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/8 hover:text-zinc-100"
           >
             <Plus size={24} strokeWidth={1.5} />
           </button>
 
-          <div className="flex-1 min-w-0 items-center justify-center w-full h-full">
+          <div className="flex h-full min-w-0 flex-1 items-center justify-center">
             <PromptInputTextarea
               onChange={(e) => {
                 setInput(e.target.value);
               }}
               value={input}
-              placeholder="Ask anything"
-              className="w-full flex items-center justify-center bg-transparent border-none focus:ring-0 focus-visible:ring-0 py-3 text-[18px] text-zinc-100 placeholder:text-[#676767] resize-none min-h-11 max-h-50 leading-tight"
+              placeholder="Ask AIChatWave anything..."
+              className="flex max-h-48 min-h-11 w-full resize-none items-center justify-center border-none bg-transparent py-3 text-[16px] leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:ring-0 focus-visible:ring-0 sm:text-[17px]"
             />
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 mb-0.5">
+          <div className="mb-0.5 flex shrink-0 items-center gap-1.5">
             <SpeechInput
-              className="shrink-0  h-10 w-10 bg-transparent text-white"
+              className="h-10 w-10 shrink-0 bg-transparent text-zinc-300 hover:bg-white/8 hover:text-white"
               onTranscriptionChange={(text) => {}}
               size="icon-lg"
               variant="ghost"
@@ -89,7 +89,7 @@ function InputContainer({ sendMessage, status = "ready", error }: InputContainer
             <button
               type="submit"
               disabled={isBusy || input.trim().length === 0}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black hover:bg-[#ececec] transition-all disabled:opacity-60 disabled:hover:bg-white"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-300 text-zinc-950 shadow-[0_12px_30px_-18px_rgba(251,146,60,0.9)] transition-all hover:bg-orange-200 disabled:bg-white/20 disabled:text-zinc-500 disabled:opacity-100 disabled:shadow-none"
             >
               {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
             </button>

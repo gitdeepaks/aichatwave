@@ -139,7 +139,10 @@ export const ModelSelectorComponent = () => {
     <div className="flex size-full items-center justify-center">
       <ModelSelector onOpenChange={setOpen} open={open}>
         <ModelSelectorTrigger asChild>
-          <Button className="w-50 justify-between" variant="outline">
+          <Button
+            className="w-50 justify-between rounded-xl border-white/12 bg-white/[0.06] text-zinc-100 shadow-sm transition-colors hover:bg-white/[0.1] hover:text-white"
+            variant="outline"
+          >
             <div className="flex items-center gap-2">
               {selectedModelData?.chefSlug && (
                 <ModelSelectorLogo provider={selectedModelData.chefSlug} />
@@ -150,7 +153,7 @@ export const ModelSelectorComponent = () => {
             </div>
           </Button>
         </ModelSelectorTrigger>
-        <ModelSelectorContent>
+        <ModelSelectorContent className="max-h-[min(70vh,520px)] overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 text-zinc-100 shadow-[0_24px_80px_-12px_rgba(0,0,0,0.65)] backdrop-blur-xl">
           <ModelSelectorInput placeholder="Search models..." />
           <ModelSelectorList>
             <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>

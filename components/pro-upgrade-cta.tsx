@@ -46,7 +46,7 @@ export function ProUpgradeCta() {
           });
         }}
         variant="default"
-        className="rounded-full bg-[#373669] border-[#3e3e4a] text-white hover:bg-[#373669]/60 text-[12px] h-8 px-4 font-medium"
+        className="h-8 rounded-full border border-white/10 bg-gradient-to-r from-orange-500 to-red-600 px-4 text-[12px] font-semibold text-white shadow-lg shadow-orange-950/40 transition-[transform,box-shadow] hover:from-orange-400 hover:to-red-500 hover:shadow-red-950/30 active:scale-[0.98]"
       >
         ✦ Get Pro
       </Button>
