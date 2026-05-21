@@ -23,54 +23,68 @@ type Product = {
   product_link: string;
 };
 
-type GeocodingResult = {
-  results?: Array<{
-    name?: string;
-    country?: string;
-    latitude?: number;
-    longitude?: number;
-  }>;
-};
+const geocodingResultSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        name: z.string().optional(),
+        country: z.string().optional(),
+        latitude: z.number().optional(),
+        longitude: z.number().optional(),
+      }),
+    )
+    .optional(),
+});
 
-type WeatherResponse = {
-  current?: {
-    temperature_2m?: number;
-    relative_humidity_2m?: number;
-    apparent_temperature?: number;
-    is_day?: number;
-    weather_code?: number;
-    wind_speed_10m?: number;
-  };
-  hourly?: {
-    time?: string[];
-    temperature_2m?: number[];
-    weather_code?: number[];
-  };
-  daily?: {
-    time?: string[];
-    temperature_2m_max?: number[];
-    temperature_2m_min?: number[];
-    sunrise?: string[];
-    sunset?: string[];
-    weather_code?: number[];
-  };
-};
+const weatherResponseSchema = z.object({
+  current: z
+    .object({
+      temperature_2m: z.number().optional(),
+      relative_humidity_2m: z.number().optional(),
+      apparent_temperature: z.number().optional(),
+      is_day: z.number().optional(),
+      weather_code: z.number().optional(),
+      wind_speed_10m: z.number().optional(),
+    })
+    .optional(),
+  hourly: z
+    .object({
+      time: z.array(z.string()).optional(),
+      temperature_2m: z.array(z.number()).optional(),
+      weather_code: z.array(z.number()).optional(),
+    })
+    .optional(),
+  daily: z
+    .object({
+      time: z.array(z.string()).optional(),
+      temperature_2m_max: z.array(z.number()).optional(),
+      temperature_2m_min: z.array(z.number()).optional(),
+      sunrise: z.array(z.string()).optional(),
+      sunset: z.array(z.string()).optional(),
+      weather_code: z.array(z.number()).optional(),
+    })
+    .optional(),
+});
 
-type YahooFinanceSearchResponse = {
-  news?: Array<{
-    uuid?: string;
-    title?: string;
-    publisher?: string;
-    link?: string;
-    providerPublishTime?: number;
-    relatedTickers?: string[];
-    thumbnail?: {
-      resolutions?: Array<{
-        url?: string;
-      }>;
-    };
-  }>;
-};
+const yahooFinanceSearchResponseSchema = z.object({
+  news: z
+    .array(
+      z.object({
+        uuid: z.string().optional(),
+        title: z.string().optional(),
+        publisher: z.string().optional(),
+        link: z.string().optional(),
+        providerPublishTime: z.number().optional(),
+        relatedTickers: z.array(z.string()).optional(),
+        thumbnail: z
+          .object({
+            resolutions: z.array(z.object({ url: z.string().optional() })).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .optional(),
+});
 
 function tokenizeQuery(query: string): string[] {
   return query
@@ -141,9 +155,6 @@ function serpShoppingLocation(raw: string | undefined): string | undefined {
 export const productTool = tool(
   async ({ query, location = "India" }: { query: string; location?: string }) => {
     try {
-      console.log("query", query);
-      console.log("location", location);
-
       const resolved = serpShoppingLocation(location);
       const result = await getJson({
         engine: "google_shopping",
@@ -229,7 +240,7 @@ export const weatherTool = tool(
         throw new Error(`Geocoding failed with status ${geocodeResponse.status}`);
       }
 
-      const geocodeData = (await geocodeResponse.json()) as GeocodingResult;
+      const geocodeData = geocodingResultSchema.parse(await geocodeResponse.json());
       const resolvedLocation = geocodeData.results?.[0];
 
       if (
@@ -269,7 +280,7 @@ export const weatherTool = tool(
         throw new Error(`Weather fetch failed with status ${weatherResponse.status}`);
       }
 
-      const weatherData = (await weatherResponse.json()) as WeatherResponse;
+      const weatherData = weatherResponseSchema.parse(await weatherResponse.json());
       const current = weatherData.current;
 
       if (!current) {
@@ -327,7 +338,8 @@ export const weatherTool = tool(
           const min = mins[i];
           const code = codes[i];
           if (typeof d !== "string") continue;
-          if (typeof max !== "number" || typeof min !== "number" || typeof code !== "number") continue;
+          if (typeof max !== "number" || typeof min !== "number" || typeof code !== "number")
+            continue;
           out.push({
             day: new Date(d).toLocaleDateString(undefined, { weekday: "short" }),
             min,
@@ -342,11 +354,17 @@ export const weatherTool = tool(
       const sunsetRaw = weatherData.daily?.sunset?.[0];
       const sunrise =
         typeof sunriseRaw === "string"
-          ? new Date(sunriseRaw).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+          ? new Date(sunriseRaw).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            })
           : "";
       const sunset =
         typeof sunsetRaw === "string"
-          ? new Date(sunsetRaw).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+          ? new Date(sunsetRaw).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            })
           : "";
 
       const todayHigh =
@@ -431,7 +449,7 @@ export const newsTool = tool(
         throw new Error(`Yahoo Finance search failed with status ${response.status}`);
       }
 
-      const data = (await response.json()) as YahooFinanceSearchResponse;
+      const data = yahooFinanceSearchResponseSchema.parse(await response.json());
       const scoredNews = (data.news ?? [])
         .map((item, index) => {
           const title = item.title || "Untitled headline";

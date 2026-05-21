@@ -3,18 +3,18 @@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Memory } from "./page";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
+
+const memoryDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+});
 
 function Records({ memories }: { memories: Memory[] }) {
   const [search, setSearch] = useState("");
@@ -26,12 +26,15 @@ function Records({ memories }: { memories: Memory[] }) {
   }, [memories, search]);
 
   return (
-    <Card className={cn("rounded-2xl", brandGlassCardClass)}>
-      <CardHeader className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
+    <Card
+      className={cn(
+        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl",
+        brandGlassCardClass,
+      )}
+    >
+      <CardHeader className="shrink-0 flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <CardTitle className="text-lg text-white">
-            Memory Records ({memories.length})
-          </CardTitle>
+          <CardTitle className="text-lg text-white">Memory Records ({memories.length})</CardTitle>
           <CardDescription className="text-xs text-zinc-400">
             Structured contextual entries stored by the AI system
           </CardDescription>
@@ -48,8 +51,8 @@ function Records({ memories }: { memories: Memory[] }) {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
-        <ScrollArea className="pr-4">
+      <CardContent className="min-h-0 flex-1 overflow-hidden pt-0">
+        <ScrollArea className="h-full min-h-0 pr-4">
           <div className="divide-y">
             {filtered.length === 0 && (
               <div className="py-10 text-center text-sm text-zinc-500">
@@ -58,29 +61,21 @@ function Records({ memories }: { memories: Memory[] }) {
             )}
 
             {filtered.map((memory, index) => (
-              <div
-                key={memory.id}
-                className="px-4 py-4 transition-colors hover:bg-white/[0.04]"
-              >
+              <div key={memory.id} className="px-4 py-4 transition-colors hover:bg-white/[0.04]">
                 <div className="flex items-start justify-between gap-6">
                   <div className="space-y-1 max-w-3xl">
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="rounded-md text-xs capitalize"
-                      >
+                      <Badge variant="outline" className="rounded-md text-xs capitalize">
                         {index}
                       </Badge>
                       <h3 className="font-medium text-md">{memory.content}</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {memory.id}
-                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{memory.id}</p>
                   </div>
 
                   <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
                     <Clock className="h-3 w-3" />
-                    {new Date(memory.createdAt).toLocaleDateString()}
+                    {memoryDateFormatter.format(new Date(memory.createdAt))}
                   </div>
                 </div>
               </div>
@@ -93,4 +88,3 @@ function Records({ memories }: { memories: Memory[] }) {
 }
 
 export default Records;
-

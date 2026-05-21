@@ -17,22 +17,28 @@ const profileCardClass = cn("rounded-2xl", brandGlassCardClass);
 
 export default function ChatbotUserProfile() {
   const { data: session, isPending } = authClient.useSession();
+  const userId = session?.user.id;
 
   const { data: isProSubscription, isSuccess: isProSubscriptionSuccess } = useQuery({
     queryKey: ["is_customer_have_subscription"],
     queryFn: async () => {
-      return isCustomerHaveSubscription(session?.user.id as string);
+      if (!userId) return false;
+      return isCustomerHaveSubscription(userId);
     },
+    enabled: Boolean(userId),
   });
   const {
     data: usageData,
     isSuccess: isUsageDataSuccess,
     isError,
+    error,
   } = useQuery({
     queryKey: ["customer_meters"],
     queryFn: async () => {
-      return getCustomerMeters(session?.user.id as string);
+      if (!userId) return null;
+      return getCustomerMeters(userId);
     },
+    enabled: Boolean(userId),
   });
 
   if (!session) {
@@ -42,7 +48,7 @@ export default function ChatbotUserProfile() {
   if (isError) {
     return (
       <div className="mx-auto max-w-lg p-6 text-center text-sm text-red-300">
-        Error: {(isError as unknown as Error)?.message}
+        Error: {error?.message ?? "Unable to load profile data."}
       </div>
     );
   }
@@ -169,12 +175,16 @@ export default function ChatbotUserProfile() {
                     <div className="flex items-center gap-2 text-sm text-zinc-400">
                       <Zap className="h-4 w-4" /> Monthly Limit
                     </div>
-                    <p className="pt-2 text-xl font-semibold text-white">{usageData.creditedUnits}</p>
+                    <p className="pt-2 text-xl font-semibold text-white">
+                      {usageData.creditedUnits}
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                     <div className="text-sm text-zinc-400">Current Usage</div>
-                    <p className="pt-2 text-xl font-semibold text-white">{usageData.consumedUnits}</p>
+                    <p className="pt-2 text-xl font-semibold text-white">
+                      {usageData.consumedUnits}
+                    </p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">

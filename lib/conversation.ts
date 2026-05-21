@@ -8,7 +8,9 @@ export const getConversationHistory = async ({
   threadId,
   userId,
 }: {
-  graph: any;
+  graph: {
+    getState: (config: { configurable: { thread_id: string } }) => Promise<unknown>;
+  };
   threadId: string;
   userId: string;
 }) => {
@@ -30,12 +32,18 @@ export const getConversationHistory = async ({
     },
   };
   const state = await graph.getState(config);
-  const stateRecord = (state && typeof state === "object" ? state : {}) as Record<string, unknown>;
-  const stateContainer = (["values", "value"]
-    .map((key) => stateRecord[key])
-    .find((candidate) => candidate && typeof candidate === "object") ?? {}) as Record<string, unknown>;
+  const stateRecord = isRecord(state) ? state : {};
+  const stateContainer = ["values", "value"].map((key) => stateRecord[key]).find(isRecord) ?? {};
   const rawMessages = stateContainer["messages"];
-  const messages = Array.isArray(rawMessages) ? (rawMessages as BaseMessage[]) : [];
+  const messages = Array.isArray(rawMessages) ? rawMessages.filter(isBaseMessage) : [];
   const serializedMessages = mapChatMessagesToStoredMessages(messages);
   return serializedMessages;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBaseMessage(value: unknown): value is BaseMessage {
+  return isRecord(value) && "_getType" in value;
+}

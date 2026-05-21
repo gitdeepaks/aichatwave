@@ -25,7 +25,8 @@ function InputContainer({ sendMessage, status = "ready", error }: InputContainer
   const { selectedModel } = useChatStore();
   const router = useRouter();
   const params = useParams();
-  const finalThreadURLId = params.thread_id as string;
+  const threadIdParam = params.thread_id;
+  const finalThreadURLId = typeof threadIdParam === "string" ? threadIdParam : threadIdParam?.[0];
   const [generateId, setGenerateId] = useState(() => uuidv4());
   const finalThreadId = finalThreadURLId ?? generateId;
   const [input, setInput] = useState("");

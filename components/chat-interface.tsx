@@ -43,8 +43,8 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
   }, []);
 
   // Keep initial client render aligned with SSR to avoid hydration mismatch.
-  const liveMessages = isHydrated ? (messages as UIMessage[]) : [];
-  const liveStatus = status as ChatStatus;
+  const liveMessages: UIMessage[] = isHydrated ? messages : [];
+  const liveStatus: ChatStatus = status;
   return (
     <>
       {liveMessages.length === 0 && messages.length === 0 ? (
@@ -62,7 +62,7 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
                 Code, research, and creative work — with memory that remembers your stack and goals.
               </p>
             </div>
-            <InputContainer sendMessage={sendMessage as any} status={liveStatus} error={error} />
+            <InputContainer sendMessage={sendMessage} status={liveStatus} error={error} />
           </main>
         </div>
       ) : (
@@ -82,7 +82,7 @@ export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[]
                 </Conversation>
               </div>
               <div className="shrink-0 border-t border-white/10 bg-zinc-950/35 px-3 pt-4 backdrop-blur-md sm:px-5">
-                <InputContainer sendMessage={sendMessage as any} status={liveStatus} error={error} />
+                <InputContainer sendMessage={sendMessage} status={liveStatus} error={error} />
               </div>
             </div>
           </main>

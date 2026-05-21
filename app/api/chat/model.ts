@@ -15,7 +15,7 @@ export type ModelConfig = {
   options?: Record<string, unknown>;
 };
 
-export const MODEL_REGISTRY: Record<string, ModelConfig> = {
+export const MODEL_REGISTRY: Record<ModelId, ModelConfig> = {
   "gpt-5-mini": {
     provider: "openai",
     tier: "free",
@@ -54,6 +54,10 @@ const defaultModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+function isModelId(modelId: string): modelId is ModelId {
+  return modelId in MODEL_REGISTRY;
+}
+
 function createModel(modelId: ModelId, config: ModelConfig): DynamicChatModel {
   const base = { model: modelId, ...config.options };
 
@@ -75,8 +79,8 @@ function createModel(modelId: ModelId, config: ModelConfig): DynamicChatModel {
 }
 /** Same id `getDynamicModel` actually uses when the request omits or unknown model id. */
 export function getEffectiveModelId(modelId: string | undefined): ModelId {
-  if (modelId && modelId in MODEL_REGISTRY) {
-    return modelId as ModelId;
+  if (modelId && isModelId(modelId)) {
+    return modelId;
   }
   return "gpt-5-nano";
 }

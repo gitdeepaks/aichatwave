@@ -6,7 +6,10 @@ import {
 } from "@/components/ai-elements/message";
 import { Message } from "@/components/ai-elements/message";
 import { NewsCard, type NewsItem } from "@/components/gen-ui/news-card";
-import { ProductCarousel, type Product as CarouselProduct } from "@/components/gen-ui/product-carousel";
+import {
+  ProductCarousel,
+  type Product as CarouselProduct,
+} from "@/components/gen-ui/product-carousel";
 import { WeatherCard, type WeatherCardProps } from "@/components/gen-ui/weather-card";
 import type { ChatStatus, UIMessage } from "ai";
 import { CopyIcon, RefreshCcwIcon } from "lucide-react";
@@ -73,15 +76,23 @@ const parseJsonIfString = (value: unknown): unknown => {
   }
 };
 
-const parseDisplayProductsPayload = (output: unknown): DisplayProductsPayload => {
-  const resolvedOutput = parseJsonIfString(output) as Record<string, unknown> | undefined;
-  const kwargs = parseJsonIfString(resolvedOutput?.kwargs) as Record<string, unknown> | undefined;
-  const content = parseJsonIfString(kwargs?.content) as
-    | Record<string, unknown>
-    | DisplayProductsPayload
-    | undefined;
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === "object" && value !== null;
+};
 
-  const payload = (content ?? {}) as DisplayProductsPayload;
+const readToolPayload = (output: unknown): Record<string, unknown> => {
+  const resolvedOutput = parseJsonIfString(output);
+  if (!isRecord(resolvedOutput)) return {};
+
+  const kwargs = parseJsonIfString(resolvedOutput.kwargs);
+  if (!isRecord(kwargs)) return {};
+
+  const content = parseJsonIfString(kwargs.content);
+  return isRecord(content) ? content : {};
+};
+
+const parseDisplayProductsPayload = (output: unknown): DisplayProductsPayload => {
+  const payload = readToolPayload(output);
   return {
     query: typeof payload.query === "string" ? payload.query : "",
     products: Array.isArray(payload.products) ? payload.products : [],
@@ -90,14 +101,7 @@ const parseDisplayProductsPayload = (output: unknown): DisplayProductsPayload =>
 };
 
 const parseDisplayWeatherPayload = (output: unknown): DisplayWeatherPayload => {
-  const resolvedOutput = parseJsonIfString(output) as Record<string, unknown> | undefined;
-  const kwargs = parseJsonIfString(resolvedOutput?.kwargs) as Record<string, unknown> | undefined;
-  const content = parseJsonIfString(kwargs?.content) as
-    | Record<string, unknown>
-    | DisplayWeatherPayload
-    | undefined;
-
-  const payload = (content ?? {}) as DisplayWeatherPayload;
+  const payload = readToolPayload(output);
   return {
     location: typeof payload.location === "string" ? payload.location : "",
     temperature: payload.temperature,
@@ -117,14 +121,7 @@ const parseDisplayWeatherPayload = (output: unknown): DisplayWeatherPayload => {
 };
 
 const parseDisplayNewsPayload = (output: unknown): DisplayNewsPayload => {
-  const resolvedOutput = parseJsonIfString(output) as Record<string, unknown> | undefined;
-  const kwargs = parseJsonIfString(resolvedOutput?.kwargs) as Record<string, unknown> | undefined;
-  const content = parseJsonIfString(kwargs?.content) as
-    | Record<string, unknown>
-    | DisplayNewsPayload
-    | undefined;
-
-  const payload = (content ?? {}) as DisplayNewsPayload;
+  const payload = readToolPayload(output);
   return {
     query: typeof payload.query === "string" ? payload.query : "",
     news: Array.isArray(payload.news) ? payload.news : [],
@@ -145,8 +142,9 @@ const toNumber = (value: unknown): number => {
 
 const normalizeProducts = (products: unknown[]): CarouselProduct[] => {
   return products
-    .map((raw, index) => {
-      const p = (raw ?? {}) as RawProduct;
+    .map((raw, index): CarouselProduct | null => {
+      if (!isRecord(raw)) return null;
+      const p: RawProduct = raw;
       const title = typeof p.title === "string" ? p.title : `Product ${index + 1}`;
       const description = typeof p.description === "string" ? p.description : "";
       const thumbnail =
@@ -168,37 +166,37 @@ const normalizeProducts = (products: unknown[]): CarouselProduct[] => {
         price: toNumber(p.price ?? p.extracted_price),
         rating: toNumber(p.rating),
         thumbnail,
-        product_link: typeof p.product_link === "string" ? p.product_link : undefined,
+        ...(typeof p.product_link === "string" ? { product_link: p.product_link } : {}),
       } satisfies CarouselProduct;
     })
-    .filter((p) => p.title.length > 0);
+    .filter((p): p is CarouselProduct => p !== null && p.title.length > 0);
+};
+
+const isRecordArray = (value: unknown): value is Array<Record<string, unknown>> => {
+  return Array.isArray(value) && value.every(isRecord);
 };
 
 const normalizeWeather = (payload: DisplayWeatherPayload): WeatherCardProps => {
-  const hourly =
-    Array.isArray(payload.hourly) &&
-    payload.hourly.every((h) => typeof h === "object" && h !== null)
-      ? (payload.hourly as Array<Record<string, unknown>>)
-          .map((h) => ({
-            time: typeof h.time === "string" ? h.time : "",
-            temperature: toNumber(h.temperature),
-            weatherCode: toNumber(h.weatherCode),
-          }))
-          .filter((h) => h.time.length > 0)
-      : undefined;
+  const hourly = isRecordArray(payload.hourly)
+    ? payload.hourly
+        .map((h) => ({
+          time: typeof h.time === "string" ? h.time : "",
+          temperature: toNumber(h.temperature),
+          weatherCode: toNumber(h.weatherCode),
+        }))
+        .filter((h) => h.time.length > 0)
+    : undefined;
 
-  const daily =
-    Array.isArray(payload.daily) &&
-    payload.daily.every((d) => typeof d === "object" && d !== null)
-      ? (payload.daily as Array<Record<string, unknown>>)
-          .map((d) => ({
-            day: typeof d.day === "string" ? d.day : "",
-            min: toNumber(d.min),
-            max: toNumber(d.max),
-            weatherCode: toNumber(d.weatherCode),
-          }))
-          .filter((d) => d.day.length > 0)
-      : undefined;
+  const daily = isRecordArray(payload.daily)
+    ? payload.daily
+        .map((d) => ({
+          day: typeof d.day === "string" ? d.day : "",
+          min: toNumber(d.min),
+          max: toNumber(d.max),
+          weatherCode: toNumber(d.weatherCode),
+        }))
+        .filter((d) => d.day.length > 0)
+    : undefined;
 
   return {
     location: payload.location ?? "",
@@ -221,12 +219,16 @@ const normalizeWeather = (payload: DisplayWeatherPayload): WeatherCardProps => {
 const normalizeNews = (news: unknown[]): NewsItem[] => {
   return news
     .map((raw, index) => {
-      const item = (raw ?? {}) as RawNews;
+      if (!isRecord(raw)) return null;
+      const item: RawNews = raw;
       if (typeof item.link !== "string" || item.link.length === 0) return null;
 
       return {
         uuid: typeof item.uuid === "string" ? item.uuid : `news-${index}`,
-        title: typeof item.title === "string" && item.title.length > 0 ? item.title : "Untitled headline",
+        title:
+          typeof item.title === "string" && item.title.length > 0
+            ? item.title
+            : "Untitled headline",
         publisher:
           typeof item.publisher === "string" && item.publisher.length > 0
             ? item.publisher
