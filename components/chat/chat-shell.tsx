@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
 import type { StoredMessage } from "@langchain/core/messages";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatComposer } from "@/components/chat/chat-composer";
 import { ChatEmptyState } from "@/components/chat/chat-empty-state";
@@ -15,11 +15,14 @@ import { useChatStore } from "@/store/chat-store";
 
 export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
   const { chatInstance } = useChatStore();
-  const { messages, setMessages, sendMessage, status, error } = useChat({ chat: chatInstance });
+  const { messages, setMessages, sendMessage, status, error, regenerate, clearError } = useChat({
+    chat: chatInstance,
+  });
   const [isHydrated, setIsHydrated] = useState(false);
-  const [starterPrompt, setStarterPrompt] = useState("");
+  const [starterPrompt, setStarterPrompt] = useState({ text: "", version: 0 });
+  const composerRef = useRef<HTMLDivElement | null>(null);
 
-  useChatViewport();
+  useChatViewport(composerRef);
 
   useEffect(() => {
     const convertedOldMessages = convertLangChainToUI(oldMessages);
@@ -42,17 +45,29 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
   const visibleStatus = useChatVisibleStatus({ status: liveStatus, error, messages: liveMessages });
   const isEmpty = liveMessages.length === 0 && messages.length === 0;
 
+  const handleRetry = useCallback(() => {
+    clearError();
+    void regenerate();
+  }, [clearError, regenerate]);
+
+  const handlePromptSelect = useCallback((prompt: string) => {
+    setStarterPrompt((current) => ({ text: prompt, version: current.version + 1 }));
+  }, []);
+
   if (isEmpty) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-4 sm:px-6">
+      <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-3 py-4 [height:var(--chat-viewport-height,100dvh)] sm:px-6">
         <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center justify-end rounded-[2rem] border border-white/10 bg-zinc-950/25 px-4 pb-0 shadow-[0_24px_90px_-46px_rgba(0,0,0,0.85)] backdrop-blur-sm md:justify-center md:px-8">
-          <ChatEmptyState onPromptSelect={setStarterPrompt} />
+          <ChatEmptyState onPromptSelect={handlePromptSelect} />
           <div className="w-full">
             <ChatComposer
               sendMessage={sendMessage}
               status={liveStatus}
               visibleStatus={visibleStatus}
-              initialInput={starterPrompt}
+              initialInput={starterPrompt.text}
+              initialInputVersion={starterPrompt.version}
+              containerRef={composerRef}
+              onRetry={handleRetry}
             />
           </div>
         </main>
@@ -61,7 +76,7 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-3 sm:px-6 sm:pt-4">
+    <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-3 pt-3 [height:var(--chat-viewport-height,100dvh)] sm:px-6 sm:pt-4">
       <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col items-center overflow-hidden rounded-t-[2rem] border-x border-t border-white/10 bg-zinc-950/20 shadow-[0_24px_90px_-46px_rgba(0,0,0,0.85)] backdrop-blur-sm">
         <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ChatMessageList messages={liveMessages} status={liveStatus} />
@@ -69,7 +84,10 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
             sendMessage={sendMessage}
             status={liveStatus}
             visibleStatus={visibleStatus}
-            initialInput={starterPrompt}
+            initialInput={starterPrompt.text}
+            initialInputVersion={starterPrompt.version}
+            containerRef={composerRef}
+            onRetry={handleRetry}
           />
         </section>
       </main>

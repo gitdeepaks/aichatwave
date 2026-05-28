@@ -11,27 +11,46 @@ import { ChatStatusBar } from "@/components/chat/chat-status-bar";
 import { useChatComposer } from "@/components/chat/hooks/use-chat-composer";
 import type { ChatVisibleStatus, SendChatMessage } from "@/components/chat/types";
 import type { ChatStatus } from "ai";
+import type { RefObject } from "react";
 
 export function ChatComposer({
   sendMessage,
   status,
   visibleStatus,
   initialInput,
+  initialInputVersion,
+  containerRef,
+  onRetry,
 }: {
   sendMessage?: SendChatMessage;
   status: ChatStatus;
   visibleStatus: ChatVisibleStatus;
   initialInput?: string;
+  initialInputVersion?: number;
+  containerRef?: RefObject<HTMLDivElement | null>;
+  onRetry?: () => void;
 }) {
-  const composer = useChatComposer({ sendMessage, status, initialInput });
+  const {
+    input,
+    setInput,
+    canSubmit,
+    isBusy,
+    handleSubmit,
+    handleKeyDown,
+    handleTranscriptionChange,
+    textareaRef,
+  } = useChatComposer({ sendMessage, status, initialInput, initialInputVersion });
 
   return (
-    <div className="shrink-0 border-t border-white/10 bg-zinc-950/35 px-3 pt-3 pb-[calc(var(--chat-safe-bottom,env(safe-area-inset-bottom))+0.75rem)] backdrop-blur-md sm:px-5">
-      <ChatStatusBar status={visibleStatus} />
+    <div
+      ref={containerRef}
+      className="shrink-0 border-t border-white/10 bg-zinc-950/35 px-3 pt-3 pb-[calc(var(--chat-safe-bottom,env(safe-area-inset-bottom))+0.75rem)] backdrop-blur-md sm:px-5"
+    >
+      <ChatStatusBar status={visibleStatus} onRetry={onRetry} />
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
         <PromptInput
           className="w-full rounded-[28px] border border-white/10 bg-zinc-900/85 shadow-[0_18px_55px_-30px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition-[border-color,box-shadow,background-color] focus-within:border-orange-300/35 focus-within:bg-zinc-900/95 focus-within:ring-2 focus-within:ring-orange-500/15 motion-reduce:transition-none"
-          onSubmit={composer.handleSubmit}
+          onSubmit={handleSubmit}
         >
           <PromptInputBody className="flex w-full items-end gap-1 p-2">
             <button
@@ -44,9 +63,10 @@ export function ChatComposer({
 
             <div className="flex h-full min-w-0 flex-1 items-center justify-center">
               <PromptInputTextarea
-                onChange={(event) => composer.setInput(event.target.value)}
-                onKeyDown={composer.handleKeyDown}
-                value={composer.input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleKeyDown}
+                ref={textareaRef}
+                value={input}
                 placeholder="Ask AIChatWave anything..."
                 className="flex max-h-48 min-h-11 w-full resize-none items-center justify-center border-none bg-transparent py-3 text-[16px] leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:ring-0 focus-visible:ring-0 sm:text-[17px]"
               />
@@ -55,7 +75,7 @@ export function ChatComposer({
             <div className="mb-0.5 flex shrink-0 items-center gap-1.5">
               <SpeechInput
                 className="h-10 w-10 shrink-0 bg-transparent text-zinc-300 hover:bg-white/8 hover:text-white"
-                onTranscriptionChange={composer.handleTranscriptionChange}
+                onTranscriptionChange={handleTranscriptionChange}
                 size="icon-lg"
                 variant="ghost"
                 aria-label="Speech input"
@@ -63,11 +83,11 @@ export function ChatComposer({
 
               <button
                 type="submit"
-                disabled={!composer.canSubmit}
+                disabled={!canSubmit}
                 aria-label="Send message"
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-300 text-zinc-950 shadow-[0_12px_30px_-18px_rgba(251,146,60,0.9)] transition-all hover:bg-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:bg-white/20 disabled:text-zinc-500 disabled:opacity-100 disabled:shadow-none motion-reduce:transition-none"
               >
-                {composer.isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
+                {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
               </button>
             </div>
           </PromptInputBody>

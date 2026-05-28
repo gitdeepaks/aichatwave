@@ -1,5 +1,5 @@
 import type { ChatRequestOptions, ChatStatus } from "ai";
-import type { KeyboardEventHandler } from "react";
+import type { KeyboardEventHandler, RefObject } from "react";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 export type SendChatMessage = (
@@ -22,6 +22,7 @@ export type ChatComposerController = {
   handleSubmit: (message: PromptInputMessage) => void | Promise<void>;
   handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
   handleTranscriptionChange: (text: string) => void;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
 };
 
 export type ChatComposerSubmitArgs = {

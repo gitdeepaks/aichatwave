@@ -2,7 +2,7 @@
 
 import type { ChatStatus } from "ai";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useChatStore } from "@/store/chat-store";
 import type { ChatComposerController, SendChatMessage } from "@/components/chat/types";
@@ -12,10 +12,12 @@ export function useChatComposer({
   sendMessage,
   status,
   initialInput = "",
+  initialInputVersion = 0,
 }: {
   sendMessage?: SendChatMessage;
   status: ChatStatus;
   initialInput?: string;
+  initialInputVersion?: number;
 }): ChatComposerController {
   const { selectedModel } = useChatStore();
   const router = useRouter();
@@ -24,13 +26,14 @@ export function useChatComposer({
   const threadIdFromUrl = typeof threadIdParam === "string" ? threadIdParam : threadIdParam?.[0];
   const [generatedThreadId] = useState(() => uuidv4());
   const [input, setInput] = useState(initialInput);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const finalThreadId = threadIdFromUrl ?? generatedThreadId;
   const isBusy = status === "submitted" || status === "streaming";
   const canSubmit = input.trim().length > 0 && !isBusy;
 
   useEffect(() => {
     setInput(initialInput);
-  }, [initialInput]);
+  }, [initialInput, initialInputVersion]);
 
   const handleSubmit = useCallback<ChatComposerController["handleSubmit"]>(
     async (message: PromptInputMessage) => {
@@ -68,6 +71,9 @@ export function useChatComposer({
     const trimmed = text.trim();
     if (!trimmed) return;
     setInput((current) => (current.trim().length === 0 ? trimmed : `${current.trimEnd()} ${trimmed}`));
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
   }, []);
 
   return useMemo(
@@ -79,6 +85,7 @@ export function useChatComposer({
       handleSubmit,
       handleKeyDown,
       handleTranscriptionChange,
+      textareaRef,
     }),
     [canSubmit, handleKeyDown, handleSubmit, handleTranscriptionChange, input, isBusy],
   );
