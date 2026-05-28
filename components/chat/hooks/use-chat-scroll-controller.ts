@@ -6,14 +6,11 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   getDistanceFromBottom,
   getScrollAnchor,
+  CHAT_SCROLL_THRESHOLDS,
   isWithinBottomThreshold,
   restoreScrollAnchor,
   type ScrollAnchor,
 } from "@/components/chat/utils/chat-scroll";
-
-const NEAR_BOTTOM_PX = 96;
-const LEAVE_BOTTOM_PX = 140;
-const PROGRAMMATIC_SCROLL_QUIET_MS = 180;
 
 export type ChatScrollController = {
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -42,14 +39,14 @@ export function useChatScrollController({
   const animationFrameRef = useRef<number | null>(null);
 
   const updateBottomState = useCallback((element: HTMLElement) => {
-    const nextIsNearBottom = isWithinBottomThreshold(element, NEAR_BOTTOM_PX);
+    const nextIsNearBottom = isWithinBottomThreshold(element, CHAT_SCROLL_THRESHOLDS.nearBottomPx);
     const distance = getDistanceFromBottom(element);
 
     setIsNearBottom(nextIsNearBottom);
     setShowScrollButton(!nextIsNearBottom);
     wasNearBottomRef.current = nextIsNearBottom;
 
-    if (distance > LEAVE_BOTTOM_PX) {
+    if (distance > CHAT_SCROLL_THRESHOLDS.leaveBottomPx) {
       userHasLeftBottomRef.current = true;
     } else if (nextIsNearBottom) {
       userHasLeftBottomRef.current = false;
@@ -60,7 +57,8 @@ export function useChatScrollController({
     const element = scrollRef.current;
     if (!element) return;
 
-    programmaticScrollUntilRef.current = performance.now() + PROGRAMMATIC_SCROLL_QUIET_MS;
+    programmaticScrollUntilRef.current =
+      performance.now() + CHAT_SCROLL_THRESHOLDS.programmaticScrollQuietMs;
     element.scrollTo({ top: element.scrollHeight, behavior });
     userHasLeftBottomRef.current = false;
     setIsNearBottom(true);
@@ -72,7 +70,7 @@ export function useChatScrollController({
     (event) => {
       const element = event.currentTarget;
       const now = performance.now();
-      const nextIsNearBottom = isWithinBottomThreshold(element, NEAR_BOTTOM_PX);
+      const nextIsNearBottom = isWithinBottomThreshold(element, CHAT_SCROLL_THRESHOLDS.nearBottomPx);
       const distance = getDistanceFromBottom(element);
 
       setIsNearBottom(nextIsNearBottom);
@@ -83,7 +81,7 @@ export function useChatScrollController({
         return;
       }
 
-      if (distance > LEAVE_BOTTOM_PX) {
+      if (distance > CHAT_SCROLL_THRESHOLDS.leaveBottomPx) {
         userHasLeftBottomRef.current = true;
       } else if (nextIsNearBottom) {
         userHasLeftBottomRef.current = false;
@@ -95,12 +93,6 @@ export function useChatScrollController({
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    previousAnchorRef.current = getScrollAnchor(element);
-  });
-
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
 
     const previousMessageCount = previousMessageCountRef.current;
     const previousLastMessageId = previousLastMessageIdRef.current;
@@ -108,12 +100,15 @@ export function useChatScrollController({
     const messageCountChanged = messages.length !== previousMessageCount;
     const lastMessageChanged = lastMessage?.id !== previousLastMessageId;
     const isNewUserMessage = Boolean(lastMessageChanged && lastMessage?.role === "user");
-    const isHydratingHistory = messageCountChanged && !isNewUserMessage && previousMessageCount === 0;
+    const previousAnchor = previousAnchorRef.current;
+    const isInitialHistoryMount = previousMessageCount === 0 && messages.length > 0;
+    const isHistoryInsertedAbove =
+      messageCountChanged && !isNewUserMessage && Boolean(previousAnchor) && !wasNearBottomRef.current;
 
-    if (isNewUserMessage) {
+    if (isNewUserMessage || isInitialHistoryMount) {
       scrollToBottom("auto");
-    } else if (isHydratingHistory && previousAnchorRef.current) {
-      restoreScrollAnchor(element, previousAnchorRef.current);
+    } else if (isHistoryInsertedAbove && previousAnchor) {
+      restoreScrollAnchor(element, previousAnchor);
       updateBottomState(element);
     } else if (status === "streaming" && wasNearBottomRef.current && !userHasLeftBottomRef.current) {
       if (animationFrameRef.current !== null) {
@@ -128,7 +123,15 @@ export function useChatScrollController({
 
     previousMessageCountRef.current = messages.length;
     previousLastMessageIdRef.current = lastMessage?.id;
+    previousAnchorRef.current = getScrollAnchor(element);
   }, [messages, status, scrollToBottom, updateBottomState]);
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    previousAnchorRef.current = getScrollAnchor(element);
+    updateBottomState(element);
+  }, [updateBottomState]);
 
   useLayoutEffect(
     () => () => {
