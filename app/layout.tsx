@@ -7,6 +7,7 @@ import "./globals.css";
 import QueryProvider from "@/components/custom/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { env, publicEnv } from "@/lib/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,9 +22,9 @@ const geistMono = Geist_Mono({
 const TITLE = "AIChatWave";
 const DESCRIPTION = "AIChatWave — chat for coders who want to work with AI";
 const BASE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ??
-  process.env.BETTER_AUTH_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+  publicEnv.NEXT_PUBLIC_APP_URL ??
+  env.BETTER_AUTH_URL ??
+  (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : "http://localhost:3000")
 ).replace(/\/$/, "");
 
 export const metadata: Metadata = {

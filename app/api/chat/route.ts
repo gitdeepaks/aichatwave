@@ -7,17 +7,43 @@ import { createUIMessageStreamResponse } from "ai";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { toUIMessageStream } from "@ai-sdk/langchain";
-import { getEffectiveModelId, MODEL_REGISTRY } from "@/app/api/chat/model";
+import { MODEL_REGISTRY } from "@/app/api/chat/model";
+import { chatRequestSchema, formatChatValidationError } from "@/app/api/chat/schema";
 
 export const POST = async (req: Request) => {
-  const { threadId, messageContent, selectedModel } = await req.json();
+  let body: unknown;
+
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json(
+      {
+        error: {
+          code: "INVALID_JSON",
+          message: "Request body must be valid JSON.",
+        },
+      },
+      { status: 400 },
+    );
+  }
+
+  const parsedBody = chatRequestSchema.safeParse(body);
+
+  if (!parsedBody.success) {
+    return Response.json(formatChatValidationError(parsedBody.error), { status: 400 });
+  }
+
+  const { threadId, messageContent, selectedModel } = parsedBody.data;
 
   const authData = await auth.api.getSession({
     headers: await headers(),
   });
 
   if (!authData?.user.id) {
-    return new Response("Forbidden: You dont have access to this thread", { status: 403 });
+    return Response.json(
+      { error: { code: "FORBIDDEN", message: "You don't have access to this thread." } },
+      { status: 403 },
+    );
   }
 
   //todo: check if thread exists
@@ -34,11 +60,13 @@ export const POST = async (req: Request) => {
     });
   }
   if (existingThread && existingThread?.userId !== authData?.user.id) {
-    return new Response("Forbidden: You dont have access to this thread", { status: 403 });
+    return Response.json(
+      { error: { code: "FORBIDDEN", message: "You don't have access to this thread." } },
+      { status: 403 },
+    );
   }
 
-  const resolvedModelId = getEffectiveModelId(selectedModel);
-  const modelConfig = MODEL_REGISTRY[resolvedModelId];
+  const modelConfig = MODEL_REGISTRY[selectedModel];
 
   let hasAccess = modelConfig?.tier === "free";
 
@@ -56,8 +84,13 @@ export const POST = async (req: Request) => {
   }
 
   if (!hasAccess) {
-    return new Response(
-      "You don't have access to this model. Please upgrade to a Pro subscription.",
+    return Response.json(
+      {
+        error: {
+          code: "MODEL_ACCESS_DENIED",
+          message: "You don't have access to this model. Please upgrade to a Pro subscription.",
+        },
+      },
       { status: 403 },
     );
   }
@@ -70,9 +103,8 @@ export const POST = async (req: Request) => {
       },
       version: "v2",
       context: {
-        userId: authData?.user.id,
+        userId: authData.user.id,
         selectedModel,
-        model: selectedModel,
       },
     },
   );

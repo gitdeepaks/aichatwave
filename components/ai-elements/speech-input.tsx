@@ -55,6 +55,16 @@ declare global {
 
 type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
 
+function isSpeechRecognitionEvent(event: Event): event is SpeechRecognitionEvent {
+  const candidate = event as Partial<SpeechRecognitionEvent>;
+  return (
+    typeof candidate.resultIndex === "number" &&
+    typeof candidate.results === "object" &&
+    candidate.results !== null &&
+    typeof candidate.results.length === "number"
+  );
+}
+
 export type SpeechInputProps = ComponentProps<typeof Button> & {
   onTranscriptionChange?: (text: string) => void;
   /**
@@ -128,13 +138,15 @@ export const SpeechInput = ({
     };
 
     const handleResult = (event: Event) => {
-      const speechEvent = event as SpeechRecognitionEvent;
+      if (!isSpeechRecognitionEvent(event)) return;
+
       let finalTranscript = "";
 
-      for (let i = speechEvent.resultIndex; i < speechEvent.results.length; i += 1) {
-        const result = speechEvent.results[i];
-        if (result && result.isFinal) {
-          finalTranscript += result[0]?.transcript ?? "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const transcript = result?.[0]?.transcript;
+        if (result?.isFinal && typeof transcript === "string") {
+          finalTranscript += transcript;
         }
       }
 

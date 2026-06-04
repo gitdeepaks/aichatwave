@@ -1,4 +1,4 @@
-import { getDynamicModel, getEffectiveModelId } from "@/app/api/chat/model";
+import { getDynamicModel, getEffectiveModelId, type ModelId } from "@/app/api/chat/model";
 import { MessagesState } from "@/app/api/chat/state";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
 import { ingestEventToPolar } from "@/lib/polar";
@@ -12,19 +12,34 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { waitUntil } from "@vercel/functions";
 import { tools } from "./tools";
 import { v4 as uuidv4 } from "uuid";
+import { env } from "@/lib/env";
 
 const checkpointer = PostgresSaver.fromConnString(
-  pgConnectionStringWithExplicitVerifyFull(process.env.DATABASE_URL!),
+  pgConnectionStringWithExplicitVerifyFull(env.DATABASE_URL),
 );
 
 const store = await getStore();
 
+type ChatRuntimeContext = {
+  userId: string;
+  selectedModel: ModelId;
+};
+
+type ChatRuntime = {
+  context?: Partial<ChatRuntimeContext>;
+};
+
+function getRuntimeUserId(runtime: ChatRuntime): string | undefined {
+  const userId = runtime.context?.userId;
+  return typeof userId === "string" && userId.length > 0 ? userId : undefined;
+}
+
 const memoryRememberNode: GraphNode<typeof MessagesState> = async (
   state: typeof MessagesState.State,
-  runtime: any,
+  runtime: ChatRuntime,
 ) => {
   try {
-    const userId = runtime.context?.userId;
+    const userId = getRuntimeUserId(runtime);
     if (!userId) return {};
 
     const namespace = [userId, "memories"];
@@ -69,12 +84,10 @@ const memoryRememberNode: GraphNode<typeof MessagesState> = async (
 
 const llmCall: GraphNode<typeof MessagesState> = async (
   state: typeof MessagesState.State,
-  runtime: any,
+  runtime: ChatRuntime,
 ) => {
-  const selectedModel =
-    (runtime.context?.selectedModel as string | undefined) ??
-    (runtime.context?.model as string | undefined);
-  const userId = runtime.context?.userId;
+  const selectedModel = runtime.context?.selectedModel;
+  const userId = getRuntimeUserId(runtime);
 
   const modelId = getEffectiveModelId(selectedModel);
   const model = getDynamicModel(modelId);

@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { getJson } from "serpapi";
+import { env } from "@/lib/env";
 
 type ProductFromAPI = {
   product_id: string;
@@ -159,7 +160,7 @@ export const productTool = tool(
       const result = await getJson({
         engine: "google_shopping",
         q: query,
-        api_key: process.env.SERP_API_KEY,
+        api_key: env.SERP_API_KEY,
         ...(resolved ? { location: resolved } : {}),
       });
 

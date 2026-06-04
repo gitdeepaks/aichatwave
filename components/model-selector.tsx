@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 import { useQuery } from "@tanstack/react-query";
 import { isCustomerHaveSubscription } from "@/lib/polar";
-import { session } from "@/db/schema/auth-schema";
 import { authClient } from "@/lib/auth-client";
+import type { ModelId } from "@/app/api/chat/model-registry";
 
 const models = [
   {
@@ -44,7 +44,7 @@ const models = [
   {
     chef: "Google",
     chefSlug: "google",
-    id: "gemini-3.1-pro-preview",
+    id: "gemini-3.1-pro",
     name: "Gemini 3.1 Pro",
     providers: ["google", "google-vertex"],
     isProOnly: true,
@@ -57,12 +57,19 @@ const models = [
     providers: ["anthropic", "azure", "google-vertex", "amazon-bedrock"],
     isProOnly: true,
   },
-];
+] satisfies Array<{
+  chef: string;
+  chefSlug: string;
+  id: ModelId;
+  name: string;
+  providers: string[];
+  isProOnly: boolean;
+}>;
 
 interface ModelItemProps {
   model: (typeof models)[0];
-  selectedModel: string;
-  onSelect: (id: string) => void;
+  selectedModel: ModelId;
+  onSelect: (id: ModelId) => void;
   isLocked: boolean;
 }
 
@@ -112,18 +119,23 @@ export const ModelSelectorComponent = () => {
   const { selectedModel, setSelectedModel } = useChatStore();
 
   const { data: session, isPending } = authClient.useSession();
+  const userId = session?.user.id;
 
-  const { data: userHaveProPlan } = useQuery({
-    queryKey: ["customer_subscription"],
+  const { data: userHaveProPlan = false } = useQuery({
+    queryKey: ["customer_subscription", userId],
+    enabled: typeof userId === "string" && userId.length > 0,
     queryFn: async () => {
-      return isCustomerHaveSubscription(session?.user.id as string);
+      if (typeof userId !== "string" || userId.length === 0) {
+        return false;
+      }
+      return isCustomerHaveSubscription(userId);
     },
   });
 
   // const userHaveProPlan = false;
 
   const handleModelSelect = useCallback(
-    (id: string) => {
+    (id: ModelId) => {
       setSelectedModel(id);
       setOpen(false);
     },

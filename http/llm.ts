@@ -2,8 +2,9 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { BaseMessage, SystemMessage } from "@langchain/core/messages";
+import { env } from "@/lib/env";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 const MemoryItemSchema = z.object({
   text: z.string().describe("Atomic user memory as a short sentence"),
@@ -59,4 +60,3 @@ export async function callOpenAIModel(params: {
 
   return response.choices[0]?.message?.content ?? null;
 }
-

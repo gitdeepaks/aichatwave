@@ -2,20 +2,27 @@ import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
+import { isModelId, type ModelId } from "@/app/api/chat/model-registry";
 
 type ChatRequestBody = {
   threadId?: string;
-  selectedModel?: string;
+  selectedModel?: ModelId;
 };
 
 function isChatRequestBody(body: unknown): body is ChatRequestBody {
-  return typeof body === "object" && body !== null;
+  if (typeof body !== "object" || body === null) return false;
+
+  const value = body as Record<string, unknown>;
+  const hasValidThreadId = value.threadId === undefined || typeof value.threadId === "string";
+  const hasValidModel = value.selectedModel === undefined || isModelId(value.selectedModel);
+
+  return hasValidThreadId && hasValidModel;
 }
 
 export interface ChatStoreState {
   chatInstance: Chat<UIMessage>;
-  selectedModel: string;
-  setSelectedModel: (modelId: string) => void;
+  selectedModel: ModelId;
+  setSelectedModel: (modelId: ModelId) => void;
 }
 
 function createChat() {
@@ -29,7 +36,8 @@ function createChat() {
       const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
       const messageContent = lastUserMessage?.parts.find((p) => p.type === "text")?.text ?? "";
       const requestBody = isChatRequestBody(body) ? body : undefined;
-      const threadId = requestBody?.threadId ?? fallbackThreadId;
+      const requestThreadId = requestBody?.threadId;
+      const threadId = requestThreadId && requestThreadId.length > 0 ? requestThreadId : fallbackThreadId;
 
       return {
         body: {
@@ -48,5 +56,5 @@ function createChat() {
 export const useChatStore = create<ChatStoreState>((set) => ({
   chatInstance: createChat(),
   selectedModel: "gpt-5-mini",
-  setSelectedModel: (modelId: string) => set({ selectedModel: modelId }),
+  setSelectedModel: (modelId: ModelId) => set({ selectedModel: modelId }),
 }));

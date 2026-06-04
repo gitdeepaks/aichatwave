@@ -12,6 +12,17 @@ export default [
     ],
     rules: {
       'no-console': 'off',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSAnyKeyword',
+          message: 'Do not use explicit `any`. Validate or narrow from `unknown` instead.',
+        },
+        {
+          selector: 'TSAsExpression > TSAnyKeyword',
+          message: 'Do not use `as any`. Validate or narrow from `unknown` instead.',
+        },
+      ],
       'react/no-children-prop': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/purity': 'off',

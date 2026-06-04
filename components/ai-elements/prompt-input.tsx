@@ -86,7 +86,10 @@ const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
 		return new Promise((resolve) => {
 			const reader = new FileReader();
 			// oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-			reader.onloadend = () => resolve(reader.result as string);
+			reader.onloadend = () => {
+				const { result } = reader;
+				resolve(typeof result === "string" ? result : null);
+			};
 			// oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
 			reader.onerror = () => resolve(null);
 			reader.readAsDataURL(blob);
@@ -727,7 +730,8 @@ export const PromptInput = ({
 				? controller.textInput.value
 				: (() => {
 						const formData = new FormData(form);
-						return (formData.get("message") as string) || "";
+						const value = formData.get("message");
+						return typeof value === "string" ? value : "";
 					})();
 
 			// Reset form immediately after capturing text to avoid race condition
@@ -862,10 +866,8 @@ export const PromptInputTextarea = ({
 
 				// Check if the submit button is disabled before submitting
 				const { form } = e.currentTarget;
-				const submitButton = form?.querySelector(
-					'button[type="submit"]'
-				) as HTMLButtonElement | null;
-				if (submitButton?.disabled) {
+				const submitButton = form?.querySelector('button[type="submit"]');
+				if (submitButton instanceof HTMLButtonElement && submitButton.disabled) {
 					return;
 				}
 

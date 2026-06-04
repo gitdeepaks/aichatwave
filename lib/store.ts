@@ -1,11 +1,12 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { PostgresStore } from "@langchain/langgraph-checkpoint-postgres/store";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
+import { env } from "@/lib/env";
 
 const embeddings = new OpenAIEmbeddings({ model: "text-embedding-3-small" });
 
 const store = PostgresStore.fromConnString(
-  pgConnectionStringWithExplicitVerifyFull(process.env.DATABASE_URL!),
+  pgConnectionStringWithExplicitVerifyFull(env.DATABASE_URL),
   {
     index: {
       dims: 1536,
@@ -23,4 +24,3 @@ export async function getStore() {
   }
   return store;
 }
-
