@@ -1,18 +1,6 @@
 import { z } from "zod";
-import { DEFAULT_MODEL_ID, isModelId, type ModelId } from "@/app/api/chat/model";
-
-export const chatRequestErrorCode = "INVALID_CHAT_REQUEST";
-
-export type ChatValidationErrorResponse = {
-  error: {
-    code: typeof chatRequestErrorCode;
-    message: string;
-    issues: Array<{
-      path: string;
-      message: string;
-    }>;
-  };
-};
+import { DEFAULT_MODEL_ID, isModelId, type ModelId } from "@/lib/ai/model-registry";
+import { AppError, type AppErrorIssue } from "@/server/lib/app-error";
 
 export const chatRequestSchema = z
   .object({
@@ -41,15 +29,11 @@ export type ChatRequest = {
   selectedModel: ModelId;
 };
 
-export function formatChatValidationError(error: z.ZodError): ChatValidationErrorResponse {
-  return {
-    error: {
-      code: chatRequestErrorCode,
-      message: "Invalid chat request.",
-      issues: error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    },
-  };
+export function chatValidationError(error: z.ZodError): AppError {
+  const issues: AppErrorIssue[] = error.issues.map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+
+  return new AppError("INVALID_CHAT_REQUEST", "Invalid chat request.", { issues });
 }

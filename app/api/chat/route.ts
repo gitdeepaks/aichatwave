@@ -1,117 +1,42 @@
-import { agent } from "@/app/api/chat/graph";
-import { db } from "@/db";
-import { thread } from "@/db/schema/chat-schema";
-import { auth, polarClient } from "@/lib/auth";
-import { HumanMessage } from "@langchain/core/messages";
-import { createUIMessageStreamResponse } from "ai";
-import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
-import { toUIMessageStream } from "@ai-sdk/langchain";
-import { MODEL_REGISTRY } from "@/app/api/chat/model";
-import { chatRequestSchema, formatChatValidationError } from "@/app/api/chat/schema";
+import { chatRequestSchema, chatValidationError } from "@/app/api/chat/schema";
+import { requireSessionUserId } from "@/server/auth/session";
+import { streamChat } from "@/server/chat/chat-service";
+import { AppError, appErrorResponse, isAppError, toAppError } from "@/server/lib/app-error";
+import { logger } from "@/server/lib/logger";
+import { resolveRequestId } from "@/server/lib/request-id";
 
-export const POST = async (req: Request) => {
-  let body: unknown;
+async function parseJsonBody(req: Request): Promise<unknown> {
+  try {
+    return await req.json();
+  } catch (error) {
+    throw new AppError("INVALID_JSON", "Request body must be valid JSON.", { cause: error });
+  }
+}
+
+export const POST = async (req: Request): Promise<Response> => {
+  const requestId = resolveRequestId(req.headers);
+  const log = logger.child({ requestId, route: "POST /api/chat" });
 
   try {
-    body = await req.json();
-  } catch {
-    return Response.json(
-      {
-        error: {
-          code: "INVALID_JSON",
-          message: "Request body must be valid JSON.",
-        },
-      },
-      { status: 400 },
-    );
-  }
+    const body = await parseJsonBody(req);
 
-  const parsedBody = chatRequestSchema.safeParse(body);
-
-  if (!parsedBody.success) {
-    return Response.json(formatChatValidationError(parsedBody.error), { status: 400 });
-  }
-
-  const { threadId, messageContent, selectedModel } = parsedBody.data;
-
-  const authData = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!authData?.user.id) {
-    return Response.json(
-      { error: { code: "FORBIDDEN", message: "You don't have access to this thread." } },
-      { status: 403 },
-    );
-  }
-
-  //todo: check if thread exists
-  const threadsFromDb = await db.select().from(thread).where(eq(thread.id, threadId)).limit(1);
-
-  const existingThread = threadsFromDb[0]; //undefined
-  if (!existingThread) {
-    const title = messageContent.trim().slice(0, 30) || "New Chat";
-
-    await db.insert(thread).values({
-      id: threadId,
-      title: title,
-      userId: authData?.user.id,
-    });
-  }
-  if (existingThread && existingThread?.userId !== authData?.user.id) {
-    return Response.json(
-      { error: { code: "FORBIDDEN", message: "You don't have access to this thread." } },
-      { status: 403 },
-    );
-  }
-
-  const modelConfig = MODEL_REGISTRY[selectedModel];
-
-  let hasAccess = modelConfig?.tier === "free";
-
-  if (modelConfig?.tier === "subscription") {
-    try {
-      const data = await polarClient.subscriptions.list({
-        externalCustomerId: authData.user.id,
-        active: true,
-      });
-      hasAccess = data.result.items.length > 0;
-    } catch (error) {
-      console.error("Error checking subscription", error);
-      hasAccess = false;
+    const parsedBody = chatRequestSchema.safeParse(body);
+    if (!parsedBody.success) {
+      throw chatValidationError(parsedBody.error);
     }
-  }
 
-  if (!hasAccess) {
-    return Response.json(
-      {
-        error: {
-          code: "MODEL_ACCESS_DENIED",
-          message: "You don't have access to this model. Please upgrade to a Pro subscription.",
-        },
-      },
-      { status: 403 },
+    const userId = await requireSessionUserId();
+    const { threadId, messageContent, selectedModel } = parsedBody.data;
+
+    return await streamChat({ userId, threadId, messageContent, selectedModel, requestId });
+  } catch (error) {
+    const appError = toAppError(error);
+    const level = appError.status >= 500 ? "error" : "warn";
+    log[level](
+      "chat.request_failed",
+      { code: appError.code, status: appError.status },
+      isAppError(error) ? error.cause : error,
     );
+    return appErrorResponse(appError, requestId);
   }
-
-  const stream = await agent.streamEvents(
-    { messages: [new HumanMessage(messageContent)] },
-    {
-      configurable: {
-        thread_id: threadId,
-      },
-      version: "v2",
-      context: {
-        userId: authData.user.id,
-        selectedModel,
-      },
-    },
-  );
-
-  const streamResponse = createUIMessageStreamResponse({
-    stream: toUIMessageStream(stream),
-  });
-
-  return streamResponse;
 };

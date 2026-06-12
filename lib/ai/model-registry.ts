@@ -1,5 +1,10 @@
-type ModelProvider = "openai" | "google" | "anthropic";
-type ModelTier = "free" | "subscription";
+/**
+ * Single source of truth for model ids, providers, and plan tiers.
+ * Client-safe: pure data and guards only, no env access or provider SDKs.
+ */
+
+export type ModelProvider = "openai" | "google" | "anthropic";
+export type ModelTier = "free" | "subscription";
 
 export type ModelConfig = {
   provider: ModelProvider;
@@ -52,4 +57,13 @@ export function getEffectiveModelId(value: unknown): ModelId {
     return value;
   }
   return DEFAULT_MODEL_ID;
+}
+
+export function getModelConfig(modelId: ModelId): ModelConfig {
+  return MODEL_REGISTRY[modelId];
+}
+
+/** Pure access policy: free-tier models are open, subscription models need an active plan. */
+export function isModelAccessible(modelId: ModelId, hasActiveSubscription: boolean): boolean {
+  return MODEL_REGISTRY[modelId].tier === "free" || hasActiveSubscription;
 }

@@ -1,37 +1,20 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Database, Sparkles } from "lucide-react";
 import Records from "./records";
-import { getStore } from "@/lib/store";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { getSessionUserId } from "@/server/auth/session";
+import { listMemories } from "@/server/memory/memory-service";
 import { redirect } from "next/navigation";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 
-export interface Memory {
-  id: string;
-  content: string;
-  createdAt: Date;
-}
-
 export default async function UserMemoriesPanel() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const userId = await getSessionUserId();
 
-  if (!session) {
+  if (!userId) {
     redirect("/auth/signin");
   }
 
-  const store = await getStore();
-  const namespaceForMemory = [session.user.id, "memories"];
-  const allmemories = await store.search(namespaceForMemory);
-
-  const newMemories: Memory[] = allmemories.map((item) => ({
-    id: item.key,
-    content: item.value?.data ?? "",
-    createdAt: item.createdAt,
-  }));
+  const memories = await listMemories(userId);
 
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden p-4">
@@ -54,7 +37,7 @@ export default async function UserMemoriesPanel() {
         </CardContent>
       </Card>
 
-      <Records memories={newMemories} />
+      <Records memories={memories} />
     </div>
   );
 }

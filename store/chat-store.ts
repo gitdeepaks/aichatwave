@@ -2,7 +2,7 @@ import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import { isModelId, type ModelId } from "@/app/api/chat/model-registry";
+import { isModelId, type ModelId } from "@/lib/ai/model-registry";
 
 type ChatRequestBody = {
   threadId?: string;

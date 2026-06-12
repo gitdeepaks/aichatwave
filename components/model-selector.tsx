@@ -22,7 +22,7 @@ import { useChatStore } from "@/store/chat-store";
 import { useQuery } from "@tanstack/react-query";
 import { isCustomerHaveSubscription } from "@/lib/polar";
 import { authClient } from "@/lib/auth-client";
-import type { ModelId } from "@/app/api/chat/model-registry";
+import type { ModelId } from "@/lib/ai/model-registry";
 
 const models = [
   {

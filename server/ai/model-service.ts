@@ -1,3 +1,8 @@
+/**
+ * Model service: owns provider client setup for every model in the registry.
+ * Server-only — reads provider API keys from validated env.
+ */
+
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
@@ -5,15 +10,24 @@ import { env } from "@/lib/env";
 import {
   DEFAULT_MODEL_ID,
   getEffectiveModelId,
+  getModelConfig,
+  isModelAccessible,
   isModelId,
   MODEL_REGISTRY,
   type ModelConfig,
   type ModelId,
-} from "@/app/api/chat/model-registry";
+} from "@/lib/ai/model-registry";
 
-type DynamicChatModel = ChatOpenAI | ChatGoogleGenerativeAI | ChatAnthropic;
+export type DynamicChatModel = ChatOpenAI | ChatGoogleGenerativeAI | ChatAnthropic;
 
-export { DEFAULT_MODEL_ID, getEffectiveModelId, isModelId, MODEL_REGISTRY };
+export {
+  DEFAULT_MODEL_ID,
+  getEffectiveModelId,
+  getModelConfig,
+  isModelAccessible,
+  isModelId,
+  MODEL_REGISTRY,
+};
 export type { ModelConfig, ModelId };
 
 function createModel(modelId: ModelId, config: ModelConfig): DynamicChatModel {

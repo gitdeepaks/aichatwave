@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Memory } from "./page";
+import type { MemoryRecord } from "@/server/memory/memory-service";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ const memoryDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-function Records({ memories }: { memories: Memory[] }) {
+function Records({ memories }: { memories: MemoryRecord[] }) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {

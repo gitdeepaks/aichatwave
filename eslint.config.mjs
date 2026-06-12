@@ -32,4 +32,11 @@ export default [
       'import/no-anonymous-default-export': 'off',
     },
   },
+  {
+    // Server-owned code must log through the structured logger wrapper.
+    files: ['server/**/*.ts', 'app/api/**/*.ts', 'lib/**/*.ts', 'db/**/*.ts'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
 ];

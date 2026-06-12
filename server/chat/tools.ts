@@ -2,6 +2,7 @@ import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { getJson } from "serpapi";
 import { env } from "@/lib/env";
+import { logger } from "@/server/lib/logger";
 
 type ProductFromAPI = {
   product_id: string;
@@ -190,7 +191,7 @@ export const productTool = tool(
         products,
       };
     } catch (error) {
-      console.error("Error fetching the shopping products", error);
+      logger.error("tool.products_fetch_failed", { tool: "display_products", query }, error);
       return {
         query,
         products: [],
@@ -397,7 +398,7 @@ export const weatherTool = tool(
         ...(daily.length ? { daily } : {}),
       };
     } catch (error) {
-      console.error("Error fetching weather", error);
+      logger.error("tool.weather_fetch_failed", { tool: "display_weather", location }, error);
       return {
         location,
         temperature: 0,
@@ -512,7 +513,7 @@ export const newsTool = tool(
         summary,
       };
     } catch (error) {
-      console.error("Error fetching Yahoo Finance news", error);
+      logger.error("tool.news_fetch_failed", { tool: "display_news", query }, error);
       return {
         query,
         news: [],
