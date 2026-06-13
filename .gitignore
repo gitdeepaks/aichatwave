@@ -13,7 +13,6 @@
 # testing
 /coverage
 
-/docs
 /.firecrawl
 
 # next.js
