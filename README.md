@@ -70,12 +70,12 @@ See `LONG_TERM_MEMORY_GUIDE.md` for the detailed implementation walkthrough.
 
 Configured models live in `app/api/chat/model.ts`.
 
-| Model | Provider | Tier |
-| --- | --- | --- |
-| `gpt-5-mini` | OpenAI | Free |
-| `gpt-5-nano` | OpenAI | Free |
-| `gemini-3.1-pro` | Google | Pro |
-| `claude-sonnet-4-20250514` | Anthropic | Pro |
+| Model                      | Provider  | Tier |
+| -------------------------- | --------- | ---- |
+| `gpt-5-mini`               | OpenAI    | Free |
+| `gpt-5-nano`               | OpenAI    | Free |
+| `gemini-3.1-pro`           | Google    | Pro  |
+| `claude-sonnet-4-20250514` | Anthropic | Pro  |
 
 The app falls back to `gpt-5-nano` when an unknown or missing model id is provided.
 
@@ -136,6 +136,8 @@ GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 POLAR_ACCESS_TOKEN=
+POLAR_PRODUCT_ID=
+POLAR_SERVER=sandbox
 ```
 
 Notes:
@@ -147,6 +149,8 @@ Notes:
 - `SERP_API_KEY` is required for product search.
 - OAuth variables are required only when Google or GitHub sign-in is enabled.
 - `POLAR_ACCESS_TOKEN` is required for subscriptions, checkout, billing portal, and usage tracking.
+- `POLAR_PRODUCT_ID` must match the product in the selected Polar environment.
+- `POLAR_SERVER` can be `sandbox` or `production`; it defaults to `sandbox` if omitted.
 
 ## Getting Started
 

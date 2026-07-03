@@ -41,7 +41,6 @@ export function ProUpgradeCta() {
       <Button
         onClick={async () => {
           await authClient.checkout({
-            products: ["c00cd16b-c7f1-460b-804a-6b8a2c015154"],
             slug: "Pro",
           });
         }}
