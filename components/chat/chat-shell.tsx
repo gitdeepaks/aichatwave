@@ -56,8 +56,9 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
 
   if (isEmpty) {
     return (
-      <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-3 py-4 [height:var(--chat-viewport-height,100dvh)] sm:px-6">
-        <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center justify-end rounded-[2rem] border border-white/10 bg-zinc-950/25 px-4 pb-0 shadow-[0_24px_90px_-46px_rgba(0,0,0,0.85)] backdrop-blur-sm md:justify-center md:px-8">
+      <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-2 py-3 [height:var(--chat-viewport-height,100dvh)] sm:px-6 sm:py-5">
+        <main className="relative mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col items-center justify-end overflow-hidden rounded-[2rem] border border-white/10 bg-zinc-950/35 px-4 pb-0 shadow-[0_28px_120px_-52px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl md:justify-center md:px-8">
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/45 to-transparent" aria-hidden />
           <ChatEmptyState onPromptSelect={handlePromptSelect} />
           <div className="w-full">
             <ChatComposer
@@ -76,8 +77,9 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-3 pt-3 [height:var(--chat-viewport-height,100dvh)] sm:px-6 sm:pt-4">
-      <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col items-center overflow-hidden rounded-t-[2rem] border-x border-t border-white/10 bg-zinc-950/20 shadow-[0_24px_90px_-46px_rgba(0,0,0,0.85)] backdrop-blur-sm">
+    <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden px-2 pt-2 [height:var(--chat-viewport-height,100dvh)] sm:px-5 sm:pt-4">
+      <main className="relative mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col items-center overflow-hidden rounded-t-[2rem] border-x border-t border-white/10 bg-zinc-950/30 shadow-[0_30px_120px_-54px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-2xl">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/40 to-transparent" aria-hidden />
         <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ChatMessageList messages={liveMessages} status={liveStatus} />
           <ChatComposer

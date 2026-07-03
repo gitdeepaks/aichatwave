@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Sora } from "next/font/google";
 
 import "streamdown/styles.css";
 import "./globals.css";
@@ -9,8 +9,8 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { env, publicEnv } from "@/lib/env";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sora = Sora({
+  variable: "--font-sora",
   subsets: ["latin"],
 });
 
@@ -79,7 +79,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100`}
+        className={`${sora.variable} ${geistMono.variable} bg-zinc-950 text-zinc-100 antialiased`}
         suppressHydrationWarning
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>

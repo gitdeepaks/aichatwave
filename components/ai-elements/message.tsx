@@ -21,7 +21,7 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full max-w-[92%] flex-col gap-2 sm:max-w-[86%]",
+      "group flex w-full max-w-[94%] flex-col gap-2 sm:max-w-[84%]",
       from === "user"
         ? "is-user ml-auto items-end justify-end"
         : "is-assistant mr-auto items-start",
@@ -36,9 +36,9 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-[15px] leading-relaxed shadow-[0_16px_45px_-32px_rgba(0,0,0,0.9)]",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-[1.35rem] group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-orange-200/10 group-[.is-user]:bg-gradient-to-br group-[.is-user]:from-orange-300/18 group-[.is-user]:to-white/[0.07] group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-zinc-50",
-      "group-[.is-assistant]:rounded-[1.35rem] group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-white/10 group-[.is-assistant]:bg-white/[0.055] group-[.is-assistant]:px-4 group-[.is-assistant]:py-3 group-[.is-assistant]:text-zinc-100 group-[.is-assistant]:backdrop-blur-sm",
+      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-[15px] leading-relaxed shadow-[0_18px_50px_-34px_rgba(0,0,0,0.95)]",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-[1.45rem] group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-orange-100/15 group-[.is-user]:bg-gradient-to-br group-[.is-user]:from-orange-300/22 group-[.is-user]:via-orange-200/12 group-[.is-user]:to-white/[0.075] group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-zinc-50",
+      "group-[.is-assistant]:rounded-[1.45rem] group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-white/10 group-[.is-assistant]:bg-zinc-900/68 group-[.is-assistant]:px-4 group-[.is-assistant]:py-3 group-[.is-assistant]:text-zinc-100 group-[.is-assistant]:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_50px_-36px_rgba(0,0,0,0.95)] group-[.is-assistant]:backdrop-blur-md",
       className,
     )}
     {...props}
