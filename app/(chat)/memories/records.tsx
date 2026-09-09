@@ -4,11 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Search } from "lucide-react";
+import { Clock, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { MemoryRecord } from "@/server/memory/memory-service";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { memoriesApi } from "@/lib/api/client";
+import type { MemoryDto } from "@/lib/api/contracts";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
+
+const MEMORIES_QUERY_KEY = ["memories"] as const;
 
 const memoryDateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
@@ -16,13 +21,31 @@ const memoryDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-function Records({ memories }: { memories: MemoryRecord[] }) {
+function Records({ memories: initialMemories }: { memories: MemoryDto[] }) {
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+
+  // Seeded from the server render, then owned by the query cache so a deletion
+  // updates the list without a full page reload.
+  const { data: memories = initialMemories } = useQuery({
+    queryKey: MEMORIES_QUERY_KEY,
+    queryFn: () => memoriesApi.list(),
+    initialData: initialMemories,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (memoryId: string) => memoriesApi.remove(memoryId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: MEMORIES_QUERY_KEY });
+      toast.success("Memory forgotten");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return memories;
-    return memories.filter((m) => (m.content ?? "").toLowerCase().includes(q));
+    return memories.filter((m) => m.content.toLowerCase().includes(q));
   }, [memories, search]);
 
   return (
@@ -73,9 +96,20 @@ function Records({ memories }: { memories: MemoryRecord[] }) {
                     <p className="text-xs text-muted-foreground leading-relaxed">{memory.id}</p>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                    <Clock className="h-3 w-3" />
-                    {memoryDateFormatter.format(new Date(memory.createdAt))}
+                  <div className="flex items-center gap-3 whitespace-nowrap">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      {memoryDateFormatter.format(new Date(memory.createdAt))}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Forget memory: ${memory.content}`}
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate(memory.id)}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-red-500/15 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>

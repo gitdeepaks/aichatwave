@@ -3,6 +3,7 @@ import { Database, Sparkles } from "lucide-react";
 import Records from "./records";
 import { getSessionUserId } from "@/server/auth/session";
 import { listMemories } from "@/server/memory/memory-service";
+import { toMemoryDto } from "@/server/api/dto";
 import { redirect } from "next/navigation";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
@@ -11,10 +12,10 @@ export default async function UserMemoriesPanel() {
   const userId = await getSessionUserId();
 
   if (!userId) {
-    redirect("/auth/signin");
+    redirect("/sign-in");
   }
 
-  const memories = await listMemories(userId);
+  const memories = (await listMemories(userId)).map(toMemoryDto);
 
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden p-4">
