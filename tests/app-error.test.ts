@@ -10,14 +10,18 @@ import {
 
 test("maps every error code to its HTTP status", () => {
   assert.equal(new AppError("INVALID_JSON", "x").status, 400);
+  assert.equal(new AppError("INVALID_REQUEST", "x").status, 400);
   assert.equal(new AppError("INVALID_CHAT_REQUEST", "x").status, 400);
+  assert.equal(new AppError("INVALID_CURSOR", "x").status, 400);
   assert.equal(new AppError("UNAUTHORIZED", "x").status, 401);
   assert.equal(new AppError("FORBIDDEN", "x").status, 403);
   assert.equal(new AppError("MODEL_ACCESS_DENIED", "x").status, 403);
   assert.equal(new AppError("NOT_FOUND", "x").status, 404);
+  assert.equal(new AppError("CONFLICT", "x").status, 409);
   assert.equal(new AppError("RATE_LIMITED", "x").status, 429);
   assert.equal(new AppError("INTERNAL_ERROR", "x").status, 500);
   assert.equal(new AppError("UPSTREAM_ERROR", "x").status, 502);
+  assert.equal(new AppError("SERVICE_UNAVAILABLE", "x").status, 503);
 });
 
 test("toAppError passes AppError through and wraps unknown values", () => {
