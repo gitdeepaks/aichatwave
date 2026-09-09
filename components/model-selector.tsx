@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 import { useQuery } from "@tanstack/react-query";
 import { isCustomerHaveSubscription } from "@/lib/polar";
-import { authClient } from "@/lib/auth-client";
+import { useAuth } from "@clerk/nextjs";
 import type { ModelId } from "@/lib/ai/model-registry";
 
 const models = [
@@ -118,18 +118,12 @@ export const ModelSelectorComponent = () => {
 
   const { selectedModel, setSelectedModel } = useChatStore();
 
-  const { data: session, isPending } = authClient.useSession();
-  const userId = session?.user.id;
+  const { isLoaded, isSignedIn, userId } = useAuth();
 
   const { data: userHaveProPlan = false } = useQuery({
     queryKey: ["customer_subscription", userId],
-    enabled: typeof userId === "string" && userId.length > 0,
-    queryFn: async () => {
-      if (typeof userId !== "string" || userId.length === 0) {
-        return false;
-      }
-      return isCustomerHaveSubscription(userId);
-    },
+    enabled: isLoaded && isSignedIn,
+    queryFn: () => isCustomerHaveSubscription(),
   });
 
   // const userHaveProPlan = false;

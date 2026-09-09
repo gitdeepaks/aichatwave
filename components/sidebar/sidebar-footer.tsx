@@ -1,8 +1,10 @@
 "use client";
 
+import { useClerk, useUser } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
 import { BadgeCheck, Bell, ChevronsUpDown, CreditCard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -20,76 +22,61 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { authClient } from "@/lib/auth-client";
+import { billingApi } from "@/lib/api/client";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
 import { isCustomerHaveSubscription } from "@/lib/polar";
 import { Skeleton } from "../ui/skeleton";
-import { Spinner } from "../ui/spinner";
 import Link from "next/link";
 
 export function SidebarFooterComponent() {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const { data: session, isPending } = authClient.useSession();
-
-  // Avoid hydration mismatch: session is only available on client after fetch
-  useEffect(() => setMounted(true), []);
+  const { signOut } = useClerk();
+  // `isLoaded` already guards against rendering before the user is known, so the
+  // previous mounted-flag dance is no longer needed to avoid a hydration mismatch.
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
 
   const user =
-    mounted && session?.user
+    isLoaded && isSignedIn && clerkUser
       ? {
-          name: session.user.name ?? "User",
-          email: session.user.email ?? "",
-          image: session.user.image ?? BRAND_LOGO_SRC,
+          name: clerkUser.fullName ?? clerkUser.username ?? "User",
+          email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+          image: clerkUser.imageUrl.length > 0 ? clerkUser.imageUrl : BRAND_LOGO_SRC,
         }
       : null;
 
-  const [hasProSubscription, setHasProSubscription] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const userId = session?.user.id;
-    if (!mounted || !userId || isPending) {
-      setHasProSubscription(null);
-      return;
-    }
-
-    let cancelled = false;
-    setHasProSubscription(null);
-
-    void isCustomerHaveSubscription(userId).then((active) => {
-      if (!cancelled) setHasProSubscription(active);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mounted, session?.user.id, isPending]);
+  const { data: hasProSubscription } = useQuery({
+    queryKey: ["customer_subscription", clerkUser?.id],
+    enabled: isLoaded && isSignedIn,
+    queryFn: () => isCustomerHaveSubscription(),
+  });
 
   const showProMemberCta = hasProSubscription === false;
+
+  const openBillingPortal = async () => {
+    try {
+      window.location.href = await billingApi.openPortal();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open billing.");
+    }
+  };
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        {mounted && user && (
+        {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                {isPending ? (
-                  <div className="h-8! w-8! text-muted-foreground flex justify-center items-center">
-                    <Spinner />
-                  </div>
-                ) : (
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.image} alt={user.name} />
-                    <AvatarFallback>
-                      <Skeleton className="h-full w-full rounded-full" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={user.image} alt={user.name} />
+                  <AvatarFallback>
+                    <Skeleton className="h-full w-full rounded-full" />
+                  </AvatarFallback>
+                </Avatar>
 
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -137,11 +124,7 @@ export function SidebarFooterComponent() {
                     Account
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await authClient.customer.portal();
-                  }}
-                >
+                <DropdownMenuItem onClick={openBillingPortal}>
                   <CreditCard />
                   Billing
                 </DropdownMenuItem>
@@ -157,8 +140,7 @@ export function SidebarFooterComponent() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
-                  await authClient.signOut();
-                  router.push("/auth/signin");
+                  await signOut({ redirectUrl: "/sign-in" });
                 }}
               >
                 <LogOut />
