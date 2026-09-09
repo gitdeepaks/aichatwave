@@ -10,17 +10,17 @@ import { AppError } from "@/server/lib/app-error";
 
 /**
  * Server actions are the client-facing boundary; they resolve the session and
- * delegate to the billing service. The `_userId` parameters are kept for call
- * compatibility but never trusted — the session is the source of truth.
+ * delegate to the billing service. They take no user id: the Clerk session is
+ * the only source of truth for who is asking.
  */
 
-export async function isCustomerHaveSubscription(_userId: string): Promise<boolean> {
+export async function isCustomerHaveSubscription(): Promise<boolean> {
   const sessionUserId = await getSessionUserId();
   if (!sessionUserId) return false;
   return hasActiveSubscription(sessionUserId);
 }
 
-export async function getCustomerMeters(_userId: string): Promise<CustomerUsageMeter | null> {
+export async function getCustomerMeters(): Promise<CustomerUsageMeter | null> {
   const sessionUserId = await getSessionUserId();
   if (!sessionUserId) {
     throw new AppError("UNAUTHORIZED", "You must be signed in to view usage.");

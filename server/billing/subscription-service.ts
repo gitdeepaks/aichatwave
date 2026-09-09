@@ -4,7 +4,7 @@
  * the Polar client directly.
  */
 
-import { polarClient } from "@/lib/auth";
+import { polarClient } from "@/lib/polar-client";
 import { isModelAccessible, type ModelId } from "@/lib/ai/model-registry";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
