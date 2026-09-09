@@ -866,6 +866,43 @@ No email, no password, no verification codes.
   `@clerk/ui` v1** and does not typecheck. Available on request via CSS generated content, but that
   hardcodes provider names in a stylesheet and was not worth the trade.
 
+## Billing incident — 2026-09-09
+
+Production checkout returned `502 UPSTREAM_ERROR`. Reproduced against Polar directly, first
+through the SDK and then with raw HTTP to rule out the SDK's environment mapping.
+
+**Cause:** the `POLAR_ACCESS_TOKEN` was expired or revoked. `401 invalid_token` on _both_
+`sandbox-api.polar.sh` and `api.polar.sh`, and on a plain read-only product list — so not a
+checkout bug and not an environment mismatch. The credential itself was dead.
+
+**Configuration decision (owner):** this deployment runs `POLAR_SERVER=sandbox` even on the live
+site. Supported, and normal before launch — sandbox takes test cards only and moves no real money.
+Switching to `production` is a three-value change (server, token, product id), never one.
+
+### Fixed as a result
+
+| Problem                                                                                                                                            | Fix                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POLAR_SERVER` defaulted to `"sandbox"` when unset, so a production deploy missing the var silently sent production credentials to the sandbox API | Required explicitly when `NODE_ENV=production`; the error names the consequence                                                                                         |
+| A revoked token and a malformed request both surfaced as one opaque 502                                                                            | `upstreamStatus`, `upstreamCode`, `upstreamDetail`, `polarServer`, and `credentialFailure` are now structured log fields, so `invalid_token` is greppable and alertable |
+| Credential failure told users to "try again", which can never work                                                                                 | Credential failures return `SERVICE_UNAVAILABLE` with an honest message; request failures keep `UPSTREAM_ERROR`                                                         |
+| `customerEmail: ""` was sent when Clerk had no primary address — Polar rejects it as a validation error                                            | Field omitted when empty                                                                                                                                                |
+| A dead billing credential was invisible until a customer tried to pay                                                                              | `pnpm polar:doctor`, plus an opt-in `GET /api/health?deep=1` billing probe for a low-frequency monitor                                                                  |
+
+The env guard immediately proved itself by breaking the local build (`pnpm build` runs under
+`NODE_ENV=production` with no `POLAR_SERVER` declared). Resolved by declaring
+`POLAR_SERVER=sandbox` in `.env` rather than weakening the guard — development genuinely is
+sandbox, and now the file says so.
+
+### Status
+
+> **`COMPLETED` (code)** — diagnosis, guardrails, and tooling landed and verified.
+> **`BLOCKED` (operator)** — checkout stays broken until a fresh **sandbox** token from
+> `sandbox.polar.sh` is set in the production environment, along with a `POLAR_PRODUCT_ID` that
+> exists there. Verify with `pnpm polar:doctor` before deploying.
+
+---
+
 ## Progress log
 
 | Phase                 | Status     | Notes                                           |

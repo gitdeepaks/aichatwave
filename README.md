@@ -162,7 +162,16 @@ Notes:
 - `SERP_API_KEY` is required for product search.
 - `POLAR_ACCESS_TOKEN` / `POLAR_PRODUCT_ID` are required for checkout, portal, and usage tracking.
   `POLAR_PRODUCT_ID` no longer has a hardcoded fallback and must be set explicitly.
-- `POLAR_SERVER` can be `sandbox` or `production`; it defaults to `sandbox` if omitted.
+- `POLAR_SERVER` selects which Polar system to talk to and **must be set explicitly when
+  `NODE_ENV=production`**. Sandbox and production are separate systems — separate dashboards
+  (`sandbox.polar.sh` vs `polar.sh`), separate tokens, separate product ids. A token from one
+  returns `401 invalid_token` against the other, which reaches users as a failed checkout.
+  Running `POLAR_SERVER=sandbox` on a live deployment is supported and normal pre-launch, but
+  sandbox accepts test cards only and moves no real money.
+
+Run `pnpm polar:doctor` after any billing credential change. It is read-only, creates nothing, and
+reports whether the token is valid, whether it matches `POLAR_SERVER`, and whether
+`POLAR_PRODUCT_ID` exists and is unarchived in that environment.
 
 ## Getting Started
 
