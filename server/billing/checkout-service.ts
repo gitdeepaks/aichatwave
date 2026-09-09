@@ -10,7 +10,8 @@
  */
 
 import { polarClient } from "@/lib/polar-client";
-import { appUrl, env } from "@/lib/env";
+import { appUrl, env, polarServer } from "@/lib/env";
+import { isPolarAuthFailure, polarErrorFacts } from "@/server/billing/polar-error";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 
@@ -57,20 +58,27 @@ export async function createProCheckout(params: {
 }): Promise<CheckoutSession> {
   const log = params.log ?? rootLogger;
 
+  const email = params.email.trim();
+
   try {
     const checkout = await polarClient.checkouts.create({
       products: [env.POLAR_PRODUCT_ID],
       externalCustomerId: params.userId,
-      customerEmail: params.email,
+      // Omitted rather than sent empty: Polar rejects `customer_email: ""` as a
+      // validation error, which would turn "we could not read the address" into
+      // an unexplained failed checkout.
+      ...(email.length > 0 ? { customerEmail: email } : {}),
       successUrl: `${appUrl()}/success?checkout_id={CHECKOUT_ID}`,
     });
 
     log.info("billing.checkout_created", { userId: params.userId });
     return { url: checkout.url };
   } catch (error) {
-    log.error("billing.checkout_failed", { userId: params.userId }, error);
-    throw new AppError("UPSTREAM_ERROR", "Could not start checkout. Please try again.", {
-      cause: error,
+    throw toBillingError(error, {
+      event: "billing.checkout_failed",
+      userId: params.userId,
+      userMessage: "Could not start checkout. Please try again.",
+      log,
     });
   }
 }
@@ -88,9 +96,54 @@ export async function createCustomerPortal(params: {
 
     return { url: session.customerPortalUrl };
   } catch (error) {
-    log.error("billing.portal_failed", { userId: params.userId }, error);
-    throw new AppError("UPSTREAM_ERROR", "Could not open the billing portal. Please try again.", {
-      cause: error,
+    throw toBillingError(error, {
+      event: "billing.portal_failed",
+      userId: params.userId,
+      userMessage: "Could not open the billing portal. Please try again.",
+      log,
     });
   }
+}
+
+/**
+ * Logs a Polar failure with the upstream status and error code as structured
+ * fields, then converts it to a typed error.
+ *
+ * A revoked token and a malformed request both surfaced as an identical opaque
+ * 502 before this, so an outage that was really "the credential is dead" looked
+ * like an application bug. `SERVICE_UNAVAILABLE` is used for credential
+ * failures because they are an operator problem: no amount of user retrying
+ * fixes them.
+ */
+function toBillingError(
+  error: unknown,
+  params: { event: string; userId: string; userMessage: string; log: Logger },
+): AppError {
+  const facts = polarErrorFacts(error);
+  const authFailure = isPolarAuthFailure(error);
+
+  params.log.error(
+    params.event,
+    {
+      userId: params.userId,
+      polarServer,
+      upstreamStatus: facts.upstreamStatus,
+      upstreamCode: facts.upstreamCode,
+      upstreamDetail: facts.upstreamDetail,
+      // The most common root cause is a token from the other Polar environment,
+      // so record which one this process is talking to alongside the failure.
+      credentialFailure: authFailure,
+    },
+    error,
+  );
+
+  if (authFailure) {
+    return new AppError(
+      "SERVICE_UNAVAILABLE",
+      "Billing is temporarily unavailable. Our team has been notified.",
+      { cause: error },
+    );
+  }
+
+  return new AppError("UPSTREAM_ERROR", params.userMessage, { cause: error });
 }
