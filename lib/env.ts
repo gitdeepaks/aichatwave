@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requiresRuntimeConfig } from "@/lib/env-policy";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
@@ -47,7 +48,16 @@ const envSchema = z.object({
 });
 
 const envSchemaWithPolarGuard = envSchema.superRefine((value, context) => {
-  if (value.NODE_ENV === "production" && value.POLAR_SERVER === undefined) {
+  if (
+    !requiresRuntimeConfig({
+      nodeEnv: value.NODE_ENV,
+      nextPhase: process.env.NEXT_PHASE,
+    })
+  ) {
+    return;
+  }
+
+  if (value.POLAR_SERVER === undefined) {
     context.addIssue({
       code: "custom",
       path: ["POLAR_SERVER"],
