@@ -83,10 +83,19 @@ export const memoryListResponseSchema = z.object({
 });
 export type MemoryListResponse = z.infer<typeof memoryListResponseSchema>;
 
+export const healthCheckStateSchema = z.enum(["ok", "failing", "skipped"]);
+
 export const healthResponseSchema = z.object({
   status: z.enum(["ok", "degraded"]),
   checks: z.object({
-    database: z.enum(["ok", "failing"]),
+    database: healthCheckStateSchema,
+    /**
+     * Only run with `?deep=1`. A revoked Polar token is invisible until someone
+     * tries to pay, so it needs to be probeable — but not on every liveness
+     * probe, which would burn Polar rate limit on a request that runs
+     * constantly.
+     */
+    billing: healthCheckStateSchema,
   }),
   uptimeSeconds: z.number().nonnegative(),
 });
