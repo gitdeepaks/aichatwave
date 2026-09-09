@@ -7,25 +7,30 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, ShieldCheck, Sparkles, Zap } from "lucide-react";
-import { authClient } from "@/lib/auth-client";
+import { useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { billingApi } from "@/lib/api/client";
 import { getCustomerMeters, isCustomerHaveSubscription } from "@/lib/polar";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 
 const profileCardClass = cn("rounded-2xl", brandGlassCardClass);
 
+/** Guards the divide-by-zero that showed `NaN%` on a freshly created account. */
+function usagePercent(usage: { consumedUnits: number; creditedUnits: number }): number {
+  if (usage.creditedUnits <= 0) return 0;
+  return Math.min(100, (usage.consumedUnits / usage.creditedUnits) * 100);
+}
+
 export default function ChatbotUserProfile() {
-  const { data: session, isPending } = authClient.useSession();
-  const userId = session?.user.id;
+  const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+  const userId = clerkUser?.id;
 
   const { data: isProSubscription, isSuccess: isProSubscriptionSuccess } = useQuery({
-    queryKey: ["is_customer_have_subscription"],
-    queryFn: async () => {
-      if (!userId) return false;
-      return isCustomerHaveSubscription(userId);
-    },
-    enabled: Boolean(userId),
+    queryKey: ["is_customer_have_subscription", userId],
+    queryFn: () => isCustomerHaveSubscription(),
+    enabled: isLoaded && isSignedIn,
   });
   const {
     data: usageData,
@@ -33,16 +38,13 @@ export default function ChatbotUserProfile() {
     isError,
     error,
   } = useQuery({
-    queryKey: ["customer_meters"],
-    queryFn: async () => {
-      if (!userId) return null;
-      return getCustomerMeters(userId);
-    },
-    enabled: Boolean(userId),
+    queryKey: ["customer_meters", userId],
+    queryFn: () => getCustomerMeters(),
+    enabled: isLoaded && isSignedIn,
   });
 
-  if (!session) {
-    return <></>;
+  if (!isLoaded || !isSignedIn || !clerkUser) {
+    return null;
   }
 
   if (isError) {
@@ -53,7 +55,19 @@ export default function ChatbotUserProfile() {
     );
   }
 
-  const user = session.user;
+  const user = {
+    name: clerkUser.fullName ?? clerkUser.username ?? "User",
+    email: clerkUser.primaryEmailAddress?.emailAddress ?? "",
+    image: clerkUser.imageUrl,
+  };
+
+  const goToBilling = async (open: () => Promise<string>) => {
+    try {
+      window.location.href = await open();
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Billing is unavailable.");
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-4">
@@ -66,7 +80,7 @@ export default function ChatbotUserProfile() {
               <AvatarFallback className="rounded-2xl text-lg">
                 {user.name
                   .split(" ")
-                  .map((n) => n[0])
+                  .map((part: string) => part[0])
                   .join("")}
               </AvatarFallback>
             </Avatar>
@@ -92,13 +106,9 @@ export default function ChatbotUserProfile() {
           </div>
 
           <div className="flex gap-3">
-            {!isProSubscription && !isPending && isProSubscriptionSuccess ? (
+            {!isProSubscription && isProSubscriptionSuccess ? (
               <Button
-                onClick={async () => {
-                  await authClient.checkout({
-                    slug: "Pro",
-                  });
-                }}
+                onClick={() => goToBilling(billingApi.startProCheckout)}
                 className="rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-semibold text-white shadow-lg shadow-orange-950/40 hover:from-orange-400 hover:to-red-500"
               >
                 <Sparkles />
@@ -112,9 +122,7 @@ export default function ChatbotUserProfile() {
             )}
 
             <Button
-              onClick={async () => {
-                await authClient.customer.portal();
-              }}
+              onClick={() => goToBilling(billingApi.openPortal)}
               variant="outline"
               className="rounded-xl border-white/12 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
             >
@@ -194,14 +202,10 @@ export default function ChatbotUserProfile() {
                 </div>
 
                 <div className="space-y-3">
-                  <Progress
-                    value={(usageData.consumedUnits / usageData.creditedUnits) * 100}
-                    className="h-3 rounded-xl"
-                  />
+                  <Progress value={usagePercent(usageData)} className="h-3 rounded-xl" />
                   <div className="flex justify-between text-sm">
                     <span className="text-zinc-400">
-                      {((usageData.consumedUnits / usageData.creditedUnits) * 100).toFixed(1)}% of
-                      monthly quota used
+                      {usagePercent(usageData).toFixed(1)}% of monthly quota used
                     </span>
                     <span className="font-medium text-zinc-200">Resets on Month End</span>
                   </div>

@@ -4,10 +4,13 @@ import { Geist_Mono, Sora } from "next/font/google";
 import "streamdown/styles.css";
 import "./globals.css";
 
+import { ClerkProvider } from "@clerk/nextjs";
+import { shadcn } from "@clerk/ui/themes";
+
 import QueryProvider from "@/components/custom/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { env, publicEnv } from "@/lib/env";
+import { appUrl } from "@/lib/env";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -21,11 +24,7 @@ const geistMono = Geist_Mono({
 
 const TITLE = "AIChatWave";
 const DESCRIPTION = "AIChatWave — chat for coders who want to work with AI";
-const BASE_URL = (
-  publicEnv.NEXT_PUBLIC_APP_URL ??
-  env.BETTER_AUTH_URL ??
-  (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : "http://localhost:3000")
-).replace(/\/$/, "");
+const BASE_URL = appUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
@@ -71,6 +70,20 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
 };
 
+/**
+ * Font wiring, which was previously broken app-wide.
+ *
+ * Tailwind's preflight sets `font-family: var(--font-sans)` on <html>, and
+ * `--font-sans` maps to `--font-sora`. The Next font variables were declared on
+ * <body>, so at <html> level `--font-sora` was undefined and every element fell
+ * back to system-ui — Sora was loaded and never used.
+ *
+ * They cannot simply move to <html> either: `next-themes` runs with
+ * `attribute="class"` and rewrites the <html> className, which strips them.
+ *
+ * So the variables stay on <body> and <body> carries `font-sans`, which
+ * re-resolves `--font-sans` in a scope where `--font-sora` exists.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -79,13 +92,33 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${sora.variable} ${geistMono.variable} bg-zinc-950 text-zinc-100 antialiased`}
+        className={`${sora.variable} ${geistMono.variable} bg-zinc-950 font-sans text-zinc-100 antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <QueryProvider>{children}</QueryProvider>
-          <Toaster position="bottom-right" richColors closeButton duration={4000} />
-        </ThemeProvider>
+        <ClerkProvider
+          appearance={{
+            // Element-level styling lives in `app/globals.css` under
+            // `.auth-clerk`; @clerk/ui v1 does not apply `appearance.elements`.
+            theme: shadcn,
+            variables: {
+              colorPrimary: "#fb923c",
+              colorBackground: "transparent",
+              colorForeground: "#fafafa",
+              colorMutedForeground: "#a1a1aa",
+              borderRadius: "1rem",
+            },
+          }}
+        >
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>{children}</QueryProvider>
+            <Toaster position="bottom-right" richColors closeButton duration={4000} />
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
