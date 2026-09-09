@@ -18,7 +18,7 @@ export default async function Page({
 
   const userId = await getSessionUserId();
   if (!userId) {
-    redirect("/auth/signin");
+    redirect("/sign-in");
   }
 
   const conversationHistory = await getThreadHistory({ userId, threadId });

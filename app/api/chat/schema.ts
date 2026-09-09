@@ -1,39 +1,19 @@
 import { z } from "zod";
-import { DEFAULT_MODEL_ID, isModelId, type ModelId } from "@/lib/ai/model-registry";
-import { AppError, type AppErrorIssue } from "@/server/lib/app-error";
+import { DEFAULT_MODEL_ID, MODEL_IDS, type ModelId } from "@/lib/ai/model-registry";
 
-export const chatRequestSchema = z
-  .object({
-    threadId: z.string().trim().min(1),
-    messageContent: z.string().trim().min(1).max(20_000),
-    selectedModel: z.unknown().optional(),
-  })
-  .superRefine((value, context) => {
-    if (value.selectedModel !== undefined && !isModelId(value.selectedModel)) {
-      context.addIssue({
-        code: "custom",
-        path: ["selectedModel"],
-        message: "Selected model is not supported.",
-      });
-    }
-  })
-  .transform((value) => ({
-    threadId: value.threadId,
-    messageContent: value.messageContent,
-    selectedModel: isModelId(value.selectedModel) ? value.selectedModel : DEFAULT_MODEL_ID,
-  }));
+/**
+ * The chat request contract.
+ *
+ * `selectedModel` is a Zod enum built from the model registry, so an unknown id
+ * is a validation error naming the field rather than a silent fallback, and the
+ * parsed value is a `ModelId` with no narrowing left to do downstream.
+ */
+export const chatRequestSchema = z.object({
+  threadId: z.string().trim().min(1),
+  messageContent: z.string().trim().min(1).max(20_000),
+  selectedModel: z.enum(MODEL_IDS).default(DEFAULT_MODEL_ID),
+});
 
-export type ChatRequest = {
-  threadId: string;
-  messageContent: string;
-  selectedModel: ModelId;
-};
+export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
-export function chatValidationError(error: z.ZodError): AppError {
-  const issues: AppErrorIssue[] = error.issues.map((issue) => ({
-    path: issue.path.join("."),
-    message: issue.message,
-  }));
-
-  return new AppError("INVALID_CHAT_REQUEST", "Invalid chat request.", { issues });
-}
+export type { ModelId };

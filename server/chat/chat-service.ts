@@ -1,40 +1,28 @@
 /**
- * Chat service: thread creation, ownership checks, title generation, and
- * message orchestration. Route handlers and pages call this service instead
- * of touching the database or the agent graph directly.
+ * Chat service: thread creation, ownership checks, and message orchestration.
+ * Route handlers and pages call this service instead of touching the database
+ * or the agent graph directly.
  */
 
-import { db } from "@/db";
-import { thread } from "@/db/schema/chat-schema";
-import { desc, eq } from "drizzle-orm";
 import {
   HumanMessage,
   isBaseMessage,
   mapChatMessagesToStoredMessages,
+  type BaseMessage,
   type StoredMessage,
 } from "@langchain/core/messages";
 import { createUIMessageStreamResponse } from "ai";
 import { toUIMessageStream } from "@ai-sdk/langchain";
-import { agent, type ChatRuntimeContext } from "@/server/chat/agent";
+import { ensureUserProvisioned } from "@/server/auth/user-service";
+import { agent } from "@/server/chat/agent";
+import type { ChatRuntimeContext } from "@/server/chat/runtime-context";
 import { deriveThreadTitle } from "@/server/chat/thread-title";
+import { persistUserTurn } from "@/server/chat/turn-persistence";
 import { assertModelAccess } from "@/server/billing/subscription-service";
+import * as threadRepository from "@/server/db/thread-repository";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import type { ModelId } from "@/lib/ai/model-registry";
-
-export type ThreadSummary = {
-  id: string;
-  title: string;
-  createdAt: Date;
-};
-
-export async function getThreadsForUser(userId: string): Promise<ThreadSummary[]> {
-  return db
-    .select({ id: thread.id, title: thread.title, createdAt: thread.createdAt })
-    .from(thread)
-    .where(eq(thread.userId, userId))
-    .orderBy(desc(thread.createdAt));
-}
 
 /**
  * Creates the thread on first message, or verifies ownership of an existing
@@ -49,22 +37,24 @@ export async function ensureThreadAccess(params: {
   const { userId, threadId, messageContent } = params;
   const log = params.log ?? rootLogger;
 
-  const threadsFromDb = await db.select().from(thread).where(eq(thread.id, threadId)).limit(1);
-  const existingThread = threadsFromDb[0];
+  const owned = await threadRepository.findThreadForUser({ threadId, userId });
+  if (owned) return;
 
-  if (!existingThread) {
-    await db.insert(thread).values({
-      id: threadId,
-      title: deriveThreadTitle(messageContent),
-      userId,
-    });
-    log.info("chat.thread_created", { threadId, userId });
-    return;
-  }
-
-  if (existingThread.userId !== userId) {
+  if (await threadRepository.threadExists(threadId)) {
     throw new AppError("FORBIDDEN", "You don't have access to this thread.");
   }
+
+  // `thread.user_id` references `user.id`, and Clerk's `user.created` webhook is
+  // asynchronous — a user who signs up and immediately sends a message can beat
+  // it here. Provision on the write path so the foreign key always holds.
+  await ensureUserProvisioned(userId, log);
+
+  await threadRepository.createThread({
+    id: threadId,
+    title: deriveThreadTitle(messageContent),
+    userId,
+  });
+  log.info("chat.thread_created", { threadId, userId });
 }
 
 export type StreamChatParams = {
@@ -76,8 +66,9 @@ export type StreamChatParams = {
 };
 
 /**
- * Full chat message orchestration: thread access, model access, agent
- * streaming, and the UI message stream response.
+ * Full chat message orchestration: thread access, model access, durable
+ * persistence of the user's turn, agent streaming, and the UI message stream
+ * response.
  */
 export async function streamChat(params: StreamChatParams): Promise<Response> {
   const { userId, threadId, messageContent, selectedModel, requestId } = params;
@@ -86,14 +77,16 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   await ensureThreadAccess({ userId, threadId, messageContent, log });
   await assertModelAccess(userId, selectedModel, log);
 
-  const context: ChatRuntimeContext = { userId, selectedModel, requestId };
+  // Written before the model runs so the user's message survives a failed or
+  // abandoned generation.
+  await persistUserTurn({ threadId, content: messageContent, log });
+
+  const context: ChatRuntimeContext = { userId, threadId, selectedModel, requestId };
 
   const stream = await agent.streamEvents(
     { messages: [new HumanMessage(messageContent)] },
     {
-      configurable: {
-        thread_id: threadId,
-      },
+      configurable: { thread_id: threadId },
       version: "v2",
       context,
     },
@@ -115,29 +108,24 @@ export async function getThreadHistory(params: {
   userId: string;
   threadId: string;
 }): Promise<StoredMessage[]> {
-  const { userId, threadId } = params;
-
-  const ownedThreads = await db
-    .select({ id: thread.id, userId: thread.userId })
-    .from(thread)
-    .where(eq(thread.id, threadId))
-    .limit(1);
-
-  const ownedThread = ownedThreads[0];
-  if (!ownedThread || ownedThread.userId !== userId) return [];
+  const owned = await threadRepository.findThreadForUser(params);
+  if (!owned) return [];
 
   const state = await agent.getState({
-    configurable: {
-      thread_id: threadId,
-    },
+    configurable: { thread_id: params.threadId },
   });
 
-  const stateValues: unknown = state.values;
-  const rawMessages = isRecord(stateValues) ? stateValues["messages"] : undefined;
-  const messages = Array.isArray(rawMessages) ? rawMessages.filter(isBaseMessage) : [];
-  return mapChatMessagesToStoredMessages(messages);
+  return mapChatMessagesToStoredMessages(readStateMessages(state.values));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+/**
+ * The single place LangGraph state is narrowed. `getState` returns state whose
+ * shape the type system cannot know, so it is parsed here and nothing outward
+ * of this function ever sees `unknown`.
+ */
+function readStateMessages(values: unknown): BaseMessage[] {
+  if (typeof values !== "object" || values === null) return [];
+  if (!("messages" in values)) return [];
+  const messages = values.messages;
+  return Array.isArray(messages) ? messages.filter(isBaseMessage) : [];
 }

@@ -1,18 +1,17 @@
-import { getDynamicModel, getEffectiveModelId, type ModelId } from "@/server/ai/model-service";
+import { getDynamicModel, getEffectiveModelId } from "@/server/ai/model-service";
 import { MessagesState } from "@/server/chat/state";
+import { chatRuntimeContextSchema, type ChatRuntimeContext } from "@/server/chat/runtime-context";
 import { tools } from "@/server/chat/tools";
 import { BASE_SYSTEM_PROMPT_TEMPLATE } from "@/server/chat/prompts";
-import {
-  extractAndStoreMemories,
-  getMemoriesPromptContent,
-} from "@/server/memory/memory-service";
+import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
 import { ingestModelUsage } from "@/server/billing/subscription-service";
+import { persistAssistantTurn } from "@/server/chat/turn-persistence";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
 import { getStore } from "@/server/memory/store";
 import { logger } from "@/server/lib/logger";
 import { createLlmCallId } from "@/server/lib/request-id";
 import { env } from "@/lib/env";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, SystemMessage, type BaseMessage } from "@langchain/core/messages";
 import { END, START, StateGraph, type GraphNode } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -22,40 +21,47 @@ const checkpointer = PostgresSaver.fromConnString(
   pgConnectionStringWithExplicitVerifyFull(env.DATABASE_URL),
 );
 
-const store = await getStore();
+// Schema creation happens in `pnpm migration:migrate`, not on the request path.
+const store = getStore();
 
-export type ChatRuntimeContext = {
-  userId: string;
-  selectedModel: ModelId;
-  requestId: string;
-};
+export type { ChatRuntimeContext };
 
 type ChatRuntime = {
-  context?: Partial<ChatRuntimeContext>;
+  context?: unknown;
 };
 
-function getRuntimeString(value: string | undefined): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+/**
+ * Parses the runtime context once, at the edge of each node. Nodes then work
+ * with a fully-required `ChatRuntimeContext` instead of defending against
+ * missing fields — a turn without a user id is not representable past this line.
+ */
+function readContext(runtime: ChatRuntime): ChatRuntimeContext {
+  return chatRuntimeContextSchema.parse(runtime.context);
+}
+
+/** Text of the most recent human message, used as the memory retrieval query. */
+function latestUserText(messages: BaseMessage[]): string {
+  const last = messages.at(-1);
+  if (!last) return "";
+  return typeof last.content === "string" ? last.content : "";
 }
 
 const memoryRememberNode: GraphNode<typeof MessagesState> = async (
   state: typeof MessagesState.State,
   runtime: ChatRuntime,
 ) => {
-  const userId = getRuntimeString(runtime.context?.userId);
-  const requestId = getRuntimeString(runtime.context?.requestId);
-  if (!userId) return {};
-
-  const lastMessage = state.messages.at(-1);
-  if (!lastMessage) return {};
-
-  const content = typeof lastMessage.content === "string" ? lastMessage.content : "";
-  if (content.trim().length === 0) return {};
+  const context = readContext(runtime);
+  const content = latestUserText(state.messages).trim();
+  if (content.length === 0) return {};
 
   await extractAndStoreMemories({
-    userId,
+    userId: context.userId,
     messageContent: content,
-    log: logger.child({ requestId, userId, node: "memoryRememberNode" }),
+    log: logger.child({
+      requestId: context.requestId,
+      userId: context.userId,
+      node: "memoryRememberNode",
+    }),
   });
 
   return {};
@@ -65,21 +71,24 @@ const llmCall: GraphNode<typeof MessagesState> = async (
   state: typeof MessagesState.State,
   runtime: ChatRuntime,
 ) => {
-  const selectedModel = runtime.context?.selectedModel;
-  const userId = getRuntimeString(runtime.context?.userId);
-  const requestId = getRuntimeString(runtime.context?.requestId) ?? "unknown";
+  const context = readContext(runtime);
   const llmCallId = createLlmCallId();
+  const modelId = getEffectiveModelId(context.selectedModel);
+  const log = logger.child({
+    requestId: context.requestId,
+    llmCallId,
+    userId: context.userId,
+    threadId: context.threadId,
+    modelId,
+    node: "llmCall",
+  });
 
-  const modelId = getEffectiveModelId(selectedModel);
-  const log = logger.child({ requestId, llmCallId, userId, modelId, node: "llmCall" });
+  const modelWithTools = getDynamicModel(modelId).bindTools(tools);
 
-  const model = getDynamicModel(modelId);
-  const modelWithTools = model.bindTools(tools);
-
-  let memoriesContent = "(empty)";
-  if (userId) {
-    memoriesContent = await getMemoriesPromptContent(userId, log);
-  }
+  const memoriesContent = await getMemoriesPromptContent(
+    { userId: context.userId, query: latestUserText(state.messages) },
+    log,
+  );
 
   const formattedSystemPrompt = await BASE_SYSTEM_PROMPT_TEMPLATE.format({
     user_details_content: memoriesContent,
@@ -95,23 +104,37 @@ const llmCall: GraphNode<typeof MessagesState> = async (
     });
 
   const usage = response.usage_metadata;
+  const inputTokens = usage?.input_tokens ?? 0;
+  const outputTokens = usage?.output_tokens ?? 0;
+
   log.info("llm.call_completed", {
     latencyMs: Date.now() - startedAt,
-    inputTokens: usage?.input_tokens ?? 0,
-    outputTokens: usage?.output_tokens ?? 0,
+    inputTokens,
+    outputTokens,
     totalTokens: usage?.total_tokens ?? 0,
     toolCalls: response.tool_calls?.length ?? 0,
   });
 
   waitUntil(
+    persistAssistantTurn({
+      threadId: context.threadId,
+      message: response,
+      modelId,
+      inputTokens,
+      outputTokens,
+      log,
+    }),
+  );
+
+  waitUntil(
     ingestModelUsage(
       {
-        userId,
+        userId: context.userId,
         model: modelId,
-        requestId,
+        requestId: context.requestId,
         llmCallId,
-        inputTokens: usage?.input_tokens ?? 0,
-        outputTokens: usage?.output_tokens ?? 0,
+        inputTokens,
+        outputTokens,
         totalTokens: usage?.total_tokens ?? 0,
       },
       log,
@@ -127,6 +150,7 @@ function shouldContinue(state: typeof MessagesState.State) {
   if (lastMessage.tool_calls?.length) return "tools";
   return "__end__";
 }
+
 const toolNode = new ToolNode(tools);
 
 export const agent = new StateGraph(MessagesState)

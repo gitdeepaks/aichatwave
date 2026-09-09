@@ -13,6 +13,7 @@ import {
   getModelConfig,
   isModelAccessible,
   isModelId,
+  MODEL_IDS,
   MODEL_REGISTRY,
   type ModelConfig,
   type ModelId,
@@ -26,29 +27,38 @@ export {
   getModelConfig,
   isModelAccessible,
   isModelId,
+  MODEL_IDS,
   MODEL_REGISTRY,
 };
 export type { ModelConfig, ModelId };
 
+/**
+ * The switch is exhaustive over `ModelConfig`'s discriminant, so adding a
+ * provider to the registry is a compile error here until it is handled.
+ * Options are provider-specific types, so they are checked against the client
+ * they are spread into rather than being an untyped bag.
+ */
 function createModel(modelId: ModelId, config: ModelConfig): DynamicChatModel {
-  const base = { model: modelId, ...config.options };
-
   switch (config.provider) {
     case "openai":
       return new ChatOpenAI({
-        ...base,
+        model: modelId,
+        ...config.options,
         apiKey: env.OPENAI_API_KEY,
       });
     case "google":
       return new ChatGoogleGenerativeAI({
-        ...base,
+        model: modelId,
+        ...config.options,
         apiKey: env.GOOGLE_API_KEY,
       });
     case "anthropic":
-      return new ChatAnthropic({ ...base, apiKey: env.ANTHROPIC_API_KEY });
+      return new ChatAnthropic({
+        model: modelId,
+        ...config.options,
+        apiKey: env.ANTHROPIC_API_KEY,
+      });
   }
-
-  config.provider satisfies never;
 }
 
 export const getDynamicModel = (modelId: ModelId): DynamicChatModel => {
