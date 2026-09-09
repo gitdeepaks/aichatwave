@@ -1,6 +1,6 @@
 # AIChatWave — Production Hardening Plan
 
-> Status: **Phases A, A2, A3 `COMPLETED`** · next up: Phase B (CI, error pages)
+> Status: **Phases A, A2, A3 and the billing incident `COMPLETED`** · next up: Phase B (CI, error pages)
 > Owner: @gitdeepaks · Created 2026-09-09 · Baseline commit `9f3e93d`
 >
 > Execution model: **one phase at a time**. Each phase ends with an explicit exit-criteria
@@ -24,9 +24,9 @@ Measured on the current `main` (all commands run, results recorded):
 
 | Signal                                            | Result                                                                             |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `pnpm typecheck`                                  | ✅ clean                                                                           |
-| `pnpm lint`                                       | ✅ 0 errors, 5 warnings (2 a11y `treeitem`, 3 stale disable directives)            |
-| `pnpm test`                                       | ✅ 29 tests, all pure unit tests                                                   |
+| `pnpm typecheck`                                  | ✅ clean                                                                            |
+| `pnpm lint`                                       | ✅ 0 errors, 5 warnings (2 a11y `treeitem`, 3 stale disable directives)             |
+| `pnpm test`                                       | ✅ 29 tests, all pure unit tests                                                    |
 | Source LOC (excl. `node_modules`, lockfile)       | ~22,800                                                                            |
 | **Unreachable LOC in `components/ai-elements`**   | **9,609 (44 of 48 files) — 42% of the codebase**                                   |
 | Route handlers                                    | 2 (`/api/chat`, `/api/auth/[...all]`)                                              |
@@ -557,7 +557,7 @@ Phase F  = Phase 4 → 5 → 6 → 8
 
 ---
 
-## Phase A — DB foundation and API surface (executing)
+## Phase A — DB foundation and API surface
 
 The API/DB slice, pulled forward. Scope is "the app owns its data and exposes it through one
 consistent, typed HTTP surface." Everything here obeys C1 (bulletproof types) from day one — new
@@ -671,8 +671,8 @@ archived listing, which the partial one excludes.
 
 ### Carried forward from Phase A
 
-1. Authenticated route tests (403/404 ownership paths) — needs a Better Auth session fixture;
-   folded into phase 6.
+1. Authenticated route tests (403/404 ownership paths) — needs a Clerk session fixture (the
+   `clerk-testing` skill covers this); folded into phase 6.
 2. One-transaction turn persistence — needs the stream lifecycle work; folded into phase 4.
 3. The `subscription` table ships as schema only. Its repository and the webhook that fills it
    are phase 2/D work; until then `hasActiveSubscription` still calls Polar per request.
@@ -866,6 +866,8 @@ No email, no password, no verification codes.
   `@clerk/ui` v1** and does not typecheck. Available on request via CSS generated content, but that
   hardcodes provider names in a stylesheet and was not worth the trade.
 
+---
+
 ## Billing incident — 2026-09-09
 
 Production checkout returned `502 UPSTREAM_ERROR`. Reproduced against Polar directly, first
@@ -894,29 +896,122 @@ The env guard immediately proved itself by breaking the local build (`pnpm build
 `POLAR_SERVER=sandbox` in `.env` rather than weakening the guard — development genuinely is
 sandbox, and now the file says so.
 
+### Follow-up: the guard blocked deploys
+
+The `POLAR_SERVER` guard was enforced at **module load**, and Next evaluates modules during
+`next build` page-data collection — so it failed the Vercel build, not just the runtime. That was
+an overreach: a build talks to nothing and needs only `NEXT_PUBLIC_*` values, which are inlined
+into the client bundle.
+
+Enforcement now skips when `NEXT_PHASE === "phase-production-build"` and applies everywhere else,
+so a bad config fails the deployment's **first request** instead of never shipping. Verified
+across all three cases: runtime+production+missing throws, build+missing passes,
+runtime+production+set passes.
+
+The policy moved to `lib/env-policy.ts` as a pure function. Writing the test surfaced why:
+`lib/env.ts` validates as an import side effect and throws on an incomplete environment, so
+anything importing it — including its own test — inherits that crash.
+
+**Trade-off, stated plainly:** a misconfigured deploy now goes live and fails its first request
+rather than failing the build. Build-time enforcement catches it earlier, but only when the build
+environment carries every runtime secret, which is not a property worth requiring of a build.
+`pnpm polar:doctor` and `GET /api/health?deep=1` are the intended pre-deploy checks. Say so if you
+would rather have the build blocked instead.
+
+### Resolution — 2026-09-09
+
+Three things had to land together, which is why it took several passes:
+
+1. **A new sandbox token** issued at `sandbox.polar.sh` (`polar_oat_fiSM…`, replacing the revoked
+   `polar_oat_4WpU…`). This was the actual defect.
+2. **`POLAR_SERVER=sandbox` set in the Vercel environment.** Required by the new guard, and
+   genuinely needed at runtime regardless.
+3. **The build/runtime split** described above, because the guard as first written failed the
+   Vercel build rather than the runtime.
+
+**Confirmed working in production by the owner.** `pnpm polar:doctor` passes all three checks
+against the sandbox organization: token valid, product `Pro` present, product active.
+
 ### Status
 
-> **`COMPLETED` (code)** — diagnosis, guardrails, and tooling landed and verified.
-> **`BLOCKED` (operator)** — checkout stays broken until a fresh **sandbox** token from
-> `sandbox.polar.sh` is set in the production environment, along with a `POLAR_PRODUCT_ID` that
-> exists there. Verify with `pnpm polar:doctor` before deploying.
+> **`COMPLETED`** — root cause found (revoked token), guardrails and tooling landed, and live
+> checkout confirmed working by the owner. Sandbox billing accepts test cards only; going live is
+> a three-value change (server, token, product id) — see "Deployment state" below.
+
+---
+
+## Deployment state
+
+What is actually configured in production, as distinct from what the code supports. Kept here
+because none of it is visible from the repository.
+
+### Live
+
+| Concern        | State                                                           |
+| -------------- | --------------------------------------------------------------- |
+| Host           | Vercel · `www.aichatwave.in`                                    |
+| Auth           | Clerk, social-only (Google, GitHub, LinkedIn)                   |
+| Database       | Neon (development branch — see caveat below)                    |
+| Billing        | Polar **sandbox** — checkout confirmed working; test cards only |
+| `POLAR_SERVER` | `sandbox`, set explicitly in Vercel                             |
+
+### Outstanding
+
+1. **`NEXT_PUBLIC_APP_URL` is not set.** The build passes without it, so this is silent:
+   `appUrl()` falls back to `https://$VERCEL_URL`, the deployment-specific hostname. That value is
+   used for the Polar `successUrl`, so a customer who completes checkout is redirected to
+   `aichatwave-git-*.vercel.app` rather than the real domain — and for OG metadata, so social
+   cards point at deployment URLs. Set it to `https://www.aichatwave.in`.
+2. **`CLERK_WEBHOOK_SIGNING_SECRET` is unset**, so `/api/webhooks/clerk` returns 503. User rows
+   still appear via just-in-time provisioning, but **Polar customer creation rides on
+   `user.created`** and therefore never runs. Subscriptions are being keyed to Polar customers
+   that may not exist yet.
+3. **Clerk is on `pk_test_` / `sk_test_` keys.** Development instances have relaxed session
+   behaviour and are not intended for a production domain.
+4. **The database is a Neon development branch** that has been dropped and recreated three times
+   during this work. It is not a production database, and C4's destructive-migration exemption is
+   still in force. Both need to change before real users depend on their data.
+5. **Uncommitted:** `lib/env.ts`, `lib/env-policy.ts`, `tests/env-policy.test.ts`. `lib/env.ts`
+   imports `lib/env-policy.ts`, so committing one without the other breaks the build with
+   module-not-found. Commit all three or none.
 
 ---
 
 ## Progress log
 
-| Phase                 | Status     | Notes                                           |
-| --------------------- | ---------- | ----------------------------------------------- |
-| **A — DB + API**      | **`WIP`**  | A1 driver + A2 schema landed; A3–A8 outstanding |
-| 0 — Guardrails        | `NOT DONE` | —                                               |
-| 1 — Bulletproof types | `NOT DONE` | —                                               |
-| 2 — Security & cost   | `NOT DONE` | —                                               |
-| 3 — Own the data      | `NOT DONE` | superseded in part by Phase A                   |
-| 4 — Chat completeness | `NOT DONE` | —                                               |
-| 5 — Observability     | `NOT DONE` | —                                               |
-| 6 — Test depth        | `NOT DONE` | —                                               |
-| 7 — Bundle & perf     | `NOT DONE` | —                                               |
-| 8 — Product surface   | `NOT DONE` | —                                               |
+| Phase                         | Status          | Notes                                                        |
+| ----------------------------- | --------------- | ------------------------------------------------------------ |
+| **A — DB + API**              | **`COMPLETED`** | A1–A8 verified; 4 items carried forward                      |
+| **A2 — Clerk migration**      | **`COMPLETED`** | Better Auth removed; 4 items carried forward                 |
+| **A3 — Auth screen redesign** | **`COMPLETED`** | Split layout; Clerk centred; app-wide Sora regression fixed  |
+| **Billing — Polar checkout**  | **`COMPLETED`** | Revoked token replaced; live checkout confirmed by owner     |
+| 0 / B — Guardrails            | `NOT DONE`      | **next up** — CI, error pages, secret scan                   |
+| 1 / C — Bulletproof types     | `NOT DONE`      | tool contracts, converters, tsconfig/eslint tightening       |
+| 2 / D — Security & cost       | `NOT DONE`      | rate limiting, quota, Clerk/Polar webhooks, security headers |
+| 3 — Own the data              | `NOT DONE`      | largely superseded by Phase A; remainder is search + export  |
+| 4 — Chat completeness         | `NOT DONE`      | stop button, resumable streams, dead controls                |
+| 5 — Observability             | `NOT DONE`      | partial: `/api/health?deep=1` billing probe landed early     |
+| 6 — Test depth                | `NOT DONE`      | needs a Clerk session fixture for authenticated route tests  |
+| 7 / E — Bundle & perf         | `NOT DONE`      | 9,609 unreachable LOC still present                          |
+| 8 — Product surface           | `NOT DONE`      | no public landing or pricing page yet                        |
 
 Update a phase's marker in **two places** whenever it changes: the `### Phase N status` block at
 the end of that phase's section, and this table. They must never disagree.
+
+### Verification at last update (2026-09-09)
+
+`pnpm typecheck` clean · `pnpm lint` 0 errors, 5 warnings · **45 tests passing** ·
+`pnpm build` exit 0 · `pnpm polar:doctor` 3/3 pass.
+
+### Unplanned work log
+
+Phases A2, A3, and the billing incident were not in the original nine-phase plan. They are
+recorded here rather than folded into the numbered phases so the plan stays an honest account of
+what was actually done, in the order it happened.
+
+| Item             | Origin                                   |
+| ---------------- | ---------------------------------------- |
+| A2 — Clerk       | owner request mid-Phase A                |
+| A3 — Auth design | owner request after A2 shipped           |
+| Social-only auth | owner decision, recorded as a constraint |
+| Billing incident | production outage, diagnosed and fixed   |
