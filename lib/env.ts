@@ -29,6 +29,14 @@ const envSchema = z.object({
 
   POLAR_ACCESS_TOKEN: z.string().min(1),
   POLAR_PRODUCT_ID: z.string().min(1),
+  /**
+   * Sandbox and production are entirely separate Polar systems with separate
+   * tokens and product ids; a token from one returns 401 `invalid_token`
+   * against the other. Leaving this unset in production used to silently mean
+   * "sandbox", so production credentials were sent to the sandbox API and every
+   * checkout failed with a 502 that said nothing useful. It is now required in
+   * production and only defaults in development.
+   */
   POLAR_SERVER: z.enum(["sandbox", "production"]).optional(),
 
   SERP_API_KEY: z.string().min(1),
@@ -38,15 +46,32 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-const result = envSchema.safeParse(process.env);
+const envSchemaWithPolarGuard = envSchema.superRefine((value, context) => {
+  if (value.NODE_ENV === "production" && value.POLAR_SERVER === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["POLAR_SERVER"],
+      message:
+        'POLAR_SERVER must be set explicitly in production ("production" or "sandbox"). ' +
+        "Defaulting to sandbox would send production credentials to the sandbox API.",
+    });
+  }
+});
+
+const result = envSchemaWithPolarGuard.safeParse(process.env);
 
 if (!result.success) {
-  const invalidKeys = result.error.issues.map((issue) => issue.path.join(".")).join(", ");
-  throw new Error(`Invalid environment variables: ${invalidKeys}`);
+  // Include each issue's message, not just the key: "POLAR_SERVER" alone does
+  // not tell an operator what is wrong with it.
+  const problems = result.error.issues
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ");
+  throw new Error(`Invalid environment variables — ${problems}`);
 }
 
 export const env = result.data;
 
+/** Guaranteed explicit in production by the schema guard above. */
 export const polarServer = env.POLAR_SERVER ?? "sandbox";
 
 /**
