@@ -1,24 +1,13 @@
 import { Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { DisplayProductsResult } from "@/lib/ai/tool-contracts";
 
-export interface Product {
-  id: string | number;
-  title: string;
-  description: string;
-  price: number;
-  rating: number;
-  thumbnail: string;
-  product_link?: string;
-}
-
-export interface ProductCarouselProps {
-  query: string;
-  products: Product[];
-  error?: string;
-}
-
-export function ProductCarousel({ query, products, error }: ProductCarouselProps) {
+/**
+ * Props are the parsed `display_products` result itself, so the card and the
+ * tool share one definition — see `lib/ai/tool-contracts.ts`.
+ */
+export function ProductCarousel({ query, products, error }: DisplayProductsResult) {
   if (error) {
     return (
       <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">
@@ -60,14 +49,14 @@ export function ProductCarousel({ query, products, error }: ProductCarouselProps
       {/* Scrollable container setup for the carousel */}
       <div className="flex  overflow-x-auto snap-x snap-mandatory hide-scrollbar -mx-1 px-1 gap-x-4">
         {products.map((product) => {
-          const imageUrl = product.thumbnail?.trim() || null;
+          const imageUrl = product.thumbnail.trim() || null;
           return (
             <Card
               key={product.id}
               className="shrink-0 w-55 sm:w-60 snap-start flex flex-col overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 group cursor-pointer bg-card p-0"
             >
               {/* Image Container - White background to act like a lightbox for product images */}
-              <a href={product.product_link} target="_blank" rel="noreferrer">
+              <a href={product.productLink} target="_blank" rel="noreferrer">
                 <div className="relative h-45 w-full bg-white flex items-center justify-center p-6 border-b border-border/50 overflow-hidden">
                   {imageUrl ? (
                     <img

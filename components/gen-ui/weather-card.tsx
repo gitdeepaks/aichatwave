@@ -1,35 +1,6 @@
 import { CloudMoon, CloudSun, Droplets, Thermometer, Wind } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-type HourlyPoint = {
-  time: string;
-  temperature: number;
-  weatherCode: number;
-};
-
-type DailyPoint = {
-  day: string;
-  min: number;
-  max: number;
-  weatherCode: number;
-};
-
-export interface WeatherCardProps {
-  location: string;
-  temperature: number;
-  feelsLike: number;
-  humidity: number;
-  windSpeed: number;
-  isDay: boolean;
-  weatherCode: number;
-  todayHigh?: number;
-  todayLow?: number;
-  sunrise?: string;
-  sunset?: string;
-  hourly?: HourlyPoint[];
-  daily?: DailyPoint[];
-  error?: string;
-}
+import type { DisplayWeatherResult } from "@/lib/ai/tool-contracts";
 
 const weatherCodeToLabel = (code: number): string => {
   if (code === 0) return "Clear sky";
@@ -52,6 +23,10 @@ const humidityLabel = (value: number): string => {
   return "high";
 };
 
+/**
+ * Props are the parsed `display_weather` result itself, so the card and the
+ * tool share one definition — see `lib/ai/tool-contracts.ts`.
+ */
 export function WeatherCard({
   location,
   temperature,
@@ -67,7 +42,7 @@ export function WeatherCard({
   hourly,
   daily,
   error,
-}: WeatherCardProps) {
+}: DisplayWeatherResult) {
   if (error) {
     return (
       <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">

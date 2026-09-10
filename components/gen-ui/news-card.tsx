@@ -1,21 +1,6 @@
 import { ExternalLink, Newspaper } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-export interface NewsItem {
-  uuid: string;
-  title: string;
-  publisher: string;
-  link: string;
-  publishTime: string;
-  thumbnail: string | null;
-}
-
-export interface NewsCardProps {
-  query: string;
-  news: NewsItem[];
-  summary?: string;
-  error?: string;
-}
+import type { DisplayNewsResult, NewsItem } from "@/lib/ai/tool-contracts";
 
 const buildSummaryLead = (query: string, total: number): string => {
   const now = new Date().toLocaleDateString(undefined, {
@@ -46,7 +31,11 @@ const buildKeyTakeaway = (item: NewsItem): string => {
   return "This is one of the main drivers in today's coverage.";
 };
 
-export function NewsCard({ query, news, summary, error }: NewsCardProps) {
+/**
+ * Props are the parsed `display_news` result itself, so the card and the tool
+ * share one definition — see `lib/ai/tool-contracts.ts`.
+ */
+export function NewsCard({ query, news, summary, error }: DisplayNewsResult) {
   if (error) {
     return (
       <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm border border-destructive/20">

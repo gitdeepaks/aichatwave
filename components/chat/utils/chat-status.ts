@@ -1,20 +1,17 @@
 import type { ChatStatus, UIMessage } from "ai";
 import type { ChatVisibleStatus } from "@/components/chat/types";
+import { parseToolName, type ToolName } from "@/lib/ai/tool-contracts";
+
+/** Keyed on `ToolName`, so a new tool needs a label before it compiles. */
+const TOOL_STATUS_LABELS: Record<ToolName, string> = {
+  display_products: "Searching products...",
+  display_weather: "Fetching weather...",
+  display_news: "Reading market news...",
+};
 
 export function getToolStatusLabel(toolName: string): string {
-  switch (toolName) {
-    case "display_products":
-    case "display-products":
-      return "Searching products...";
-    case "display_weather":
-    case "display-weather":
-      return "Fetching weather...";
-    case "display_news":
-    case "display-news":
-      return "Reading market news...";
-    default:
-      return "Using tools...";
-  }
+  const name = parseToolName(toolName);
+  return name === null ? "Using tools..." : TOOL_STATUS_LABELS[name];
 }
 
 export function getChatVisibleStatus({
