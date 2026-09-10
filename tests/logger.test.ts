@@ -44,7 +44,7 @@ test("per-call context overrides inherited keys", () => {
 
   const entry = entries[0];
   assert.ok(entry);
-  assert.equal(entry.context.modelId, "gpt-5-mini");
+  assert.equal(entry.context["modelId"], "gpt-5-mini");
 });
 
 test("serializes Error causes and stringifies unknown causes", () => {

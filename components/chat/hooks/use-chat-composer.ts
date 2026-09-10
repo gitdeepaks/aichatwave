@@ -22,7 +22,7 @@ export function useChatComposer({
   const { selectedModel } = useChatStore();
   const router = useRouter();
   const params = useParams();
-  const threadIdParam = params.thread_id;
+  const threadIdParam = params["thread_id"];
   const threadIdFromUrl = typeof threadIdParam === "string" ? threadIdParam : threadIdParam?.[0];
   const [generatedThreadId] = useState(() => uuidv4());
   const [input, setInput] = useState(initialInput);

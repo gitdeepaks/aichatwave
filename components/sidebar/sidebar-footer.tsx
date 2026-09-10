@@ -124,25 +124,17 @@ export function SidebarFooterComponent() {
                     Account
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={openBillingPortal}>
+                <DropdownMenuItem onClick={() => void openBillingPortal()}>
                   <CreditCard />
                   Billing
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await router.push("/profile");
-                  }}
-                >
+                <DropdownMenuItem onClick={() => void router.push("/profile")}>
                   <Bell />
                   Notifications
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={async () => {
-                  await signOut({ redirectUrl: "/sign-in" });
-                }}
-              >
+              <DropdownMenuItem onClick={() => void signOut({ redirectUrl: "/sign-in" })}>
                 <LogOut />
                 Log out
               </DropdownMenuItem>

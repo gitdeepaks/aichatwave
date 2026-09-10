@@ -88,7 +88,7 @@ const envSchemaWithGuards = envSchema.superRefine((value, context) => {
   if (
     !requiresRuntimeConfig({
       nodeEnv: value.NODE_ENV,
-      nextPhase: process.env.NEXT_PHASE,
+      nextPhase: process.env["NEXT_PHASE"],
     })
   ) {
     return;

@@ -108,7 +108,7 @@ export default function ChatbotUserProfile() {
           <div className="flex gap-3">
             {!isProSubscription && isProSubscriptionSuccess ? (
               <Button
-                onClick={() => goToBilling(billingApi.startProCheckout)}
+                onClick={() => void goToBilling(billingApi.startProCheckout)}
                 className="rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-semibold text-white shadow-lg shadow-orange-950/40 hover:from-orange-400 hover:to-red-500"
               >
                 <Sparkles />
@@ -122,7 +122,7 @@ export default function ChatbotUserProfile() {
             )}
 
             <Button
-              onClick={() => goToBilling(billingApi.openPortal)}
+              onClick={() => void goToBilling(billingApi.openPortal)}
               variant="outline"
               className="rounded-xl border-white/12 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
             >

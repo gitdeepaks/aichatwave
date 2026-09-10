@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -11,9 +11,13 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "jsx": "react-jsx",
     "incremental": true,
     "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
     "plugins": [
       {
         "name": "next"
@@ -31,5 +35,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // `components/ai-elements` is AI Elements CLI output. Only four of its files
+  // are imported by this app, and TypeScript checks those anyway because our
+  // code imports them; the rest are orphans that fail `exactOptionalPropertyTypes`
+  // on generated third-party interop, and Phase E deletes 44 of them. Excluding
+  // the directory stops checking the orphans without weakening the reachable
+  // ones, and matches how `.prettierignore` and `eslint.config.mjs` treat it.
+  "exclude": ["node_modules", "components/ai-elements"]
 }

@@ -22,6 +22,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * Clerk's prebuilt theme, minus `cssLayerName`.
+ *
+ * `@clerk/ui` declares that field as `string | undefined` while
+ * `@clerk/nextjs` expects it as exact-optional, so passing the theme through
+ * unchanged does not typecheck under `exactOptionalPropertyTypes`. Dropping a
+ * field the app never sets keeps the theme intact and the types honest.
+ */
+const { cssLayerName: _cssLayerName, ...clerkTheme } = shadcn;
+
 const TITLE = "AIChatWave";
 const DESCRIPTION = "AIChatWave — chat for coders who want to work with AI";
 const BASE_URL = appUrl();
@@ -99,7 +109,7 @@ export default function RootLayout({
           appearance={{
             // Element-level styling lives in `app/globals.css` under
             // `.auth-clerk`; @clerk/ui v1 does not apply `appearance.elements`.
-            theme: shadcn,
+            theme: clerkTheme,
             variables: {
               colorPrimary: "#fb923c",
               colorBackground: "transparent",
@@ -109,12 +119,10 @@ export default function RootLayout({
             },
           }}
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
+          {/* `ThemeProvider` is a pass-through (see the note in that file);
+              the next-themes props it used to be handed were silently ignored
+              and are gone with the `Record<string, unknown>` props type. */}
+          <ThemeProvider>
             <QueryProvider>{children}</QueryProvider>
             <Toaster position="bottom-right" richColors closeButton duration={4000} />
           </ThemeProvider>

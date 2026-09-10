@@ -30,6 +30,9 @@ export function ChatComposer({
   containerRef?: RefObject<HTMLDivElement | null>;
   onRetry?: () => void;
 }) {
+  // Optional props are forwarded only when present: under
+  // `exactOptionalPropertyTypes`, passing `undefined` explicitly is not the
+  // same as omitting the field.
   const {
     input,
     setInput,
@@ -39,14 +42,19 @@ export function ChatComposer({
     handleKeyDown,
     handleTranscriptionChange,
     textareaRef,
-  } = useChatComposer({ sendMessage, status, initialInput, initialInputVersion });
+  } = useChatComposer({
+    status,
+    ...(sendMessage === undefined ? {} : { sendMessage }),
+    ...(initialInput === undefined ? {} : { initialInput }),
+    ...(initialInputVersion === undefined ? {} : { initialInputVersion }),
+  });
 
   return (
     <div
       ref={containerRef}
       className="shrink-0 border-t border-white/10 bg-zinc-950/45 px-3 pt-3 pb-[calc(var(--chat-safe-bottom,env(safe-area-inset-bottom))+0.75rem)] shadow-[0_-24px_70px_-58px_rgba(251,146,60,0.8)] backdrop-blur-2xl sm:px-5"
     >
-      <ChatStatusBar status={visibleStatus} onRetry={onRetry} />
+      <ChatStatusBar status={visibleStatus} {...(onRetry === undefined ? {} : { onRetry })} />
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
         <PromptInput
           className="w-full rounded-[30px] border border-white/10 bg-zinc-900/90 shadow-[0_22px_70px_-34px_rgba(0,0,0,1),0_0_0_1px_rgba(255,255,255,0.025),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-[border-color,box-shadow,background-color,transform] focus-within:-translate-y-0.5 focus-within:border-orange-200/45 focus-within:bg-zinc-900/95 focus-within:ring-2 focus-within:ring-orange-500/15 motion-reduce:transition-none motion-reduce:focus-within:translate-y-0"
