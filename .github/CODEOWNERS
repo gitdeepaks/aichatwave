@@ -1,0 +1,15 @@
+# Every change needs the owner's review by default.
+* @gitdeepaks
+
+# Areas where a mistake is expensive and silent, listed explicitly so they
+# cannot be inherited away by a future narrower rule above.
+/.github/                @gitdeepaks
+/db/                     @gitdeepaks
+/drizzle/                @gitdeepaks
+/lib/env.ts              @gitdeepaks
+/lib/env-policy.ts       @gitdeepaks
+/server/billing/         @gitdeepaks
+/server/lib/             @gitdeepaks
+/proxy.ts                @gitdeepaks
+/instrumentation.ts      @gitdeepaks
+/.env.example            @gitdeepaks

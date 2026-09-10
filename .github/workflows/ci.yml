@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch cancels the older run: the old result is
+# about to be irrelevant and the queue is shared.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Placeholder values only. `next build` talks to nothing — it needs these
+    # solely because `lib/env.ts` validates the environment as an import side
+    # effect, and Next evaluates server modules during page-data collection.
+    #
+    # POLAR_SERVER is deliberately NOT set. It is required at runtime under
+    # NODE_ENV=production but exempt during `next build`, and that exemption is
+    # what unblocked deploys after the billing incident. Leaving it unset here
+    # means CI fails the moment someone regresses the guard back to build time.
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXItMDAwLmNsZXJrLmFjY291bnRzLmRldiQ
+      CLERK_SECRET_KEY: sk_test_ci_placeholder
+      OPENAI_API_KEY: sk-ci-placeholder
+      POLAR_ACCESS_TOKEN: polar_oat_ci_placeholder
+      POLAR_PRODUCT_ID: 00000000-0000-0000-0000-000000000000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Ordered cheapest-first so an obvious failure reports in seconds rather
+      # than after a full build. Each step runs even if an earlier one failed,
+      # so one push surfaces every problem instead of one per re-run.
+      - name: Format
+        if: ${{ !cancelled() }}
+        run: pnpm format:check
+
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: pnpm lint
+
+      - name: Typecheck
+        if: ${{ !cancelled() }}
+        run: pnpm typecheck
+
+      - name: Test
+        if: ${{ !cancelled() }}
+        run: pnpm test
+
+      - name: Build
+        if: ${{ !cancelled() }}
+        run: pnpm build
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: a secret committed and later deleted is still in the
+          # repository, and a shallow clone would not see it.
+          fetch-depth: 0
+
+      # Run the binary via its own image rather than the marketplace action,
+      # which asks organisation accounts for a licence key. Config and
+      # allowlisting live in .gitleaks.toml.
+      #
+      # `git` scans every commit reachable from the checkout, which is the
+      # actual requirement: a secret added and later deleted still sits in
+      # history and a working-tree scan would miss it. `--redact` keeps any
+      # finding out of the public log; the file and commit are enough to act on.
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:latest \
+            git --config .gitleaks.toml --redact --verbose --exit-code 1 .
