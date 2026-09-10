@@ -158,6 +158,13 @@ export const productTool = tool(
   async ({ query, location = "India" }: { query: string; location?: string }) => {
     try {
       const resolved = serpShoppingLocation(location);
+      if (env.SERP_API_KEY === undefined) {
+        // Not reachable through `tools` below, which omits this tool entirely
+        // when the key is absent. Kept so a direct caller degrades to an empty
+        // result rather than sending SerpAPI an undefined key.
+        logger.warn("tool.products_unconfigured", { tool: "display_products", query });
+        return { query, products: [] };
+      }
       const result = await getJson({
         engine: "google_shopping",
         q: query,

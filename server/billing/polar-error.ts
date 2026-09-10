@@ -21,7 +21,9 @@ const oauthErrorSchema = z.object({
 const detailErrorSchema = z.object({
   detail: z.union([
     z.string(),
-    z.array(z.object({ loc: z.array(z.union([z.string(), z.number()])).optional(), msg: z.string() })),
+    z.array(
+      z.object({ loc: z.array(z.union([z.string(), z.number()])).optional(), msg: z.string() }),
+    ),
   ]),
 });
 

@@ -19,6 +19,7 @@ import type { ChatRuntimeContext } from "@/server/chat/runtime-context";
 import { deriveThreadTitle } from "@/server/chat/thread-title";
 import { persistUserTurn } from "@/server/chat/turn-persistence";
 import { assertModelAccess } from "@/server/billing/subscription-service";
+import { assertModelAvailable } from "@/server/ai/model-service";
 import * as threadRepository from "@/server/db/thread-repository";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
@@ -75,6 +76,11 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   const log = rootLogger.child({ requestId, userId, threadId, modelId: selectedModel });
 
   await ensureThreadAccess({ userId, threadId, messageContent, log });
+  // Availability (is this deployment configured for the model?) before access
+  // (does the user's plan include it?): the first is a 503 an operator owns,
+  // the second a 403 the user can resolve by upgrading. Checking availability
+  // first keeps an unconfigured provider from reading as a billing problem.
+  assertModelAvailable(selectedModel);
   await assertModelAccess(userId, selectedModel, log);
 
   // Written before the model runs so the user's message survives a failed or

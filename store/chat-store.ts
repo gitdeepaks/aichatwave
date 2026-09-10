@@ -37,7 +37,8 @@ function createChat() {
       const messageContent = lastUserMessage?.parts.find((p) => p.type === "text")?.text ?? "";
       const requestBody = isChatRequestBody(body) ? body : undefined;
       const requestThreadId = requestBody?.threadId;
-      const threadId = requestThreadId && requestThreadId.length > 0 ? requestThreadId : fallbackThreadId;
+      const threadId =
+        requestThreadId && requestThreadId.length > 0 ? requestThreadId : fallbackThreadId;
 
       return {
         body: {
