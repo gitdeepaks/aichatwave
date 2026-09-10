@@ -66,29 +66,26 @@ export function useChatScrollController({
     wasNearBottomRef.current = true;
   }, []);
 
-  const onScroll: UIEventHandler<HTMLDivElement> = useCallback(
-    (event) => {
-      const element = event.currentTarget;
-      const now = performance.now();
-      const nextIsNearBottom = isWithinBottomThreshold(element, CHAT_SCROLL_THRESHOLDS.nearBottomPx);
-      const distance = getDistanceFromBottom(element);
+  const onScroll: UIEventHandler<HTMLDivElement> = useCallback((event) => {
+    const element = event.currentTarget;
+    const now = performance.now();
+    const nextIsNearBottom = isWithinBottomThreshold(element, CHAT_SCROLL_THRESHOLDS.nearBottomPx);
+    const distance = getDistanceFromBottom(element);
 
-      setIsNearBottom(nextIsNearBottom);
-      setShowScrollButton(!nextIsNearBottom);
-      wasNearBottomRef.current = nextIsNearBottom;
+    setIsNearBottom(nextIsNearBottom);
+    setShowScrollButton(!nextIsNearBottom);
+    wasNearBottomRef.current = nextIsNearBottom;
 
-      if (now < programmaticScrollUntilRef.current) {
-        return;
-      }
+    if (now < programmaticScrollUntilRef.current) {
+      return;
+    }
 
-      if (distance > CHAT_SCROLL_THRESHOLDS.leaveBottomPx) {
-        userHasLeftBottomRef.current = true;
-      } else if (nextIsNearBottom) {
-        userHasLeftBottomRef.current = false;
-      }
-    },
-    [],
-  );
+    if (distance > CHAT_SCROLL_THRESHOLDS.leaveBottomPx) {
+      userHasLeftBottomRef.current = true;
+    } else if (nextIsNearBottom) {
+      userHasLeftBottomRef.current = false;
+    }
+  }, []);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -103,14 +100,21 @@ export function useChatScrollController({
     const previousAnchor = previousAnchorRef.current;
     const isInitialHistoryMount = previousMessageCount === 0 && messages.length > 0;
     const isHistoryInsertedAbove =
-      messageCountChanged && !isNewUserMessage && Boolean(previousAnchor) && !wasNearBottomRef.current;
+      messageCountChanged &&
+      !isNewUserMessage &&
+      Boolean(previousAnchor) &&
+      !wasNearBottomRef.current;
 
     if (isNewUserMessage || isInitialHistoryMount) {
       scrollToBottom("auto");
     } else if (isHistoryInsertedAbove && previousAnchor) {
       restoreScrollAnchor(element, previousAnchor);
       updateBottomState(element);
-    } else if (status === "streaming" && wasNearBottomRef.current && !userHasLeftBottomRef.current) {
+    } else if (
+      status === "streaming" &&
+      wasNearBottomRef.current &&
+      !userHasLeftBottomRef.current
+    ) {
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
       }

@@ -53,11 +53,11 @@ export function ChatComposer({
           onSubmit={handleSubmit}
         >
           <PromptInputBody className="flex w-full items-end gap-1 p-2">
-              <button
-                type="button"
-                aria-label="Add attachment"
-                className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-zinc-400 transition-colors hover:border-white/10 hover:bg-white/8 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50 motion-reduce:transition-none"
-              >
+            <button
+              type="button"
+              aria-label="Add attachment"
+              className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-zinc-400 transition-colors hover:border-white/10 hover:bg-white/8 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50 motion-reduce:transition-none"
+            >
               <Plus size={24} strokeWidth={1.5} />
             </button>
 

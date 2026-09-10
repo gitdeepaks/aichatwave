@@ -5,7 +5,10 @@ import { PromptStarterCard } from "@/components/chat/prompt-starter-card";
 
 const PROMPT_STARTERS = [
   { category: "Code", prompt: "Review this component for bugs, edge cases, and UX friction." },
-  { category: "Research", prompt: "Compare the best privacy-first analytics stacks for a SaaS app." },
+  {
+    category: "Research",
+    prompt: "Compare the best privacy-first analytics stacks for a SaaS app.",
+  },
   { category: "Products", prompt: "Find and compare compact creator desk upgrades under $300." },
   { category: "Market", prompt: "Give me a concise market update on AI infrastructure companies." },
   { category: "Planning", prompt: "Turn this product idea into a 7-day execution plan." },
@@ -31,15 +34,20 @@ export function ChatEmptyState({ onPromptSelect }: { onPromptSelect: (prompt: st
       </h1>
       <p className="mt-4 max-w-2xl text-pretty text-[15px] leading-7 text-zinc-400 sm:text-base">
         A faster, calmer AI workspace for code review, product decisions, research, and execution.
-        Ask naturally, keep context visible, and move from thought to output with less interface drag.
+        Ask naturally, keep context visible, and move from thought to output with less interface
+        drag.
       </p>
       <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
           <Blocks className="size-3 text-orange-200/80" aria-hidden />
           code aware
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">research ready</span>
-        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">voice input</span>
+        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
+          research ready
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
+          voice input
+        </span>
       </div>
       <div className="mt-8 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {PROMPT_STARTERS.map((starter) => (

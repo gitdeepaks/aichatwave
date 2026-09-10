@@ -6,7 +6,13 @@ import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
 import { useChatScrollController } from "@/components/chat/hooks/use-chat-scroll-controller";
 import { usePrefersReducedMotion } from "@/components/chat/hooks/use-prefers-reduced-motion";
 
-export function ChatMessageList({ messages, status }: { messages: UIMessage[]; status: ChatStatus }) {
+export function ChatMessageList({
+  messages,
+  status,
+}: {
+  messages: UIMessage[];
+  status: ChatStatus;
+}) {
   const { scrollRef, onScroll, showScrollButton, scrollToBottom } = useChatScrollController({
     messages,
     status,
@@ -28,7 +34,10 @@ export function ChatMessageList({ messages, status }: { messages: UIMessage[]; s
           <MessageRenderer messages={messages} status={status} />
         </div>
       </div>
-      <ChatScrollButton show={showScrollButton} onClick={() => scrollToBottom(buttonScrollBehavior)} />
+      <ChatScrollButton
+        show={showScrollButton}
+        onClick={() => scrollToBottom(buttonScrollBehavior)}
+      />
     </div>
   );
 }

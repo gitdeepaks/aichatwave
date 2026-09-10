@@ -103,14 +103,17 @@ export function NewsCard({ query, news, summary, error }: NewsCardProps) {
                   <span className="truncate">{item.publisher}</span>
                   <ExternalLink className="size-3.5 shrink-0" />
                 </div>
-                <p className="text-xs text-muted-foreground">{item.publishTime || "Latest update"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.publishTime || "Latest update"}
+                </p>
               </div>
             </a>
           ))}
         </div>
 
         <p className="border-t pt-4 text-sm text-foreground/90">
-          Here&apos;s the latest, real situation right now (as of today) - no fluff, just what matters:
+          Here&apos;s the latest, real situation right now (as of today) - no fluff, just what
+          matters:
         </p>
 
         <div className="rounded-lg border bg-background/60 p-3.5 text-sm text-foreground">
@@ -118,9 +121,13 @@ export function NewsCard({ query, news, summary, error }: NewsCardProps) {
         </div>
 
         <div className="rounded-xl border bg-muted/20 p-4">
-          <h4 className="text-2xl font-bold tracking-tight text-foreground">🔥 What&apos;s happening RIGHT NOW</h4>
+          <h4 className="text-2xl font-bold tracking-tight text-foreground">
+            🔥 What&apos;s happening RIGHT NOW
+          </h4>
           <p className="mt-2 text-sm text-muted-foreground">
-            {summary?.trim() ? "Detailed breakdown from the latest headlines:" : buildSummaryLead(query, news.length)}
+            {summary?.trim()
+              ? "Detailed breakdown from the latest headlines:"
+              : buildSummaryLead(query, news.length)}
           </p>
 
           <ol className="mt-4 space-y-4">

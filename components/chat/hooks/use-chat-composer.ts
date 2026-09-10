@@ -70,7 +70,9 @@ export function useChatComposer({
   const handleTranscriptionChange = useCallback((text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    setInput((current) => (current.trim().length === 0 ? trimmed : `${current.trimEnd()} ${trimmed}`));
+    setInput((current) =>
+      current.trim().length === 0 ? trimmed : `${current.trimEnd()} ${trimmed}`,
+    );
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
     });
