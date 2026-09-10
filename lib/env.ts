@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { requiresRuntimeConfig } from "@/lib/env-policy";
+import {
+  defaultModelProvider,
+  getProviderEnvKey,
+  registryProviders,
+  type ModelProvider,
+} from "@/lib/ai/model-registry";
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
@@ -24,9 +30,18 @@ const envSchema = z.object({
   NEXT_PUBLIC_CLERK_SIGN_IN_URL: z.string().min(1).default("/sign-in"),
   NEXT_PUBLIC_CLERK_SIGN_UP_URL: z.string().min(1).default("/sign-up"),
 
+  /**
+   * Required unconditionally: memory extraction and the pgvector embeddings
+   * both call OpenAI regardless of which chat model a user selects.
+   */
   OPENAI_API_KEY: z.string().min(1),
-  GOOGLE_API_KEY: z.string().min(1),
-  ANTHROPIC_API_KEY: z.string().min(1),
+  /**
+   * Optional. A deployment without these keys still boots and serves every
+   * model whose provider *is* configured; selecting one of the others returns
+   * a typed 503 instead of the app refusing to start. See `configuredProviders`.
+   */
+  GOOGLE_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
   POLAR_ACCESS_TOKEN: z.string().min(1),
   POLAR_PRODUCT_ID: z.string().min(1),
@@ -40,14 +55,36 @@ const envSchema = z.object({
    */
   POLAR_SERVER: z.enum(["sandbox", "production"]).optional(),
 
-  SERP_API_KEY: z.string().min(1),
+  /**
+   * Optional. Absent, the `display_products` tool is not offered to the model
+   * at all, rather than being offered and failing on every call.
+   */
+  SERP_API_KEY: z.string().min(1).optional(),
 
   NEXT_PUBLIC_APP_URL: z.url().optional(),
   VERCEL_URL: z.string().min(1).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-const envSchemaWithPolarGuard = envSchema.superRefine((value, context) => {
+const envSchemaWithGuards = envSchema.superRefine((value, context) => {
+  // Derived from the registry, not restated here: whichever provider the
+  // default model uses must be configured, or every chat fails on a deployment
+  // that booted cleanly. Other providers may be absent — their models simply
+  // become unavailable.
+  //
+  // Today this resolves to OPENAI_API_KEY, which the base schema already
+  // requires, so the check is redundant. It stops being redundant the moment
+  // DEFAULT_MODEL_ID moves to another provider — which is exactly when a
+  // hand-written check would have been forgotten.
+  const defaultProviderKey = getProviderEnvKey(defaultModelProvider());
+  if (!value[defaultProviderKey]) {
+    context.addIssue({
+      code: "custom",
+      path: [defaultProviderKey],
+      message: `${defaultProviderKey} is required: it is the provider for the default model.`,
+    });
+  }
+
   if (
     !requiresRuntimeConfig({
       nodeEnv: value.NODE_ENV,
@@ -68,7 +105,7 @@ const envSchemaWithPolarGuard = envSchema.superRefine((value, context) => {
   }
 });
 
-const result = envSchemaWithPolarGuard.safeParse(process.env);
+const result = envSchemaWithGuards.safeParse(process.env);
 
 if (!result.success) {
   // Include each issue's message, not just the key: "POLAR_SERVER" alone does
@@ -83,6 +120,18 @@ export const env = result.data;
 
 /** Guaranteed explicit in production by the schema guard above. */
 export const polarServer = env.POLAR_SERVER ?? "sandbox";
+
+/**
+ * Providers this deployment holds a key for, derived by walking the registry
+ * rather than by listing keys — so a new provider cannot be added to
+ * `ModelProvider` and silently forgotten here.
+ */
+export const configuredProviders: ReadonlySet<ModelProvider> = new Set(
+  registryProviders().filter((provider) => Boolean(env[getProviderEnvKey(provider)])),
+);
+
+/** Whether the SerpAPI-backed `display_products` tool can run at all. */
+export const hasSerpApiKey = Boolean(env.SERP_API_KEY);
 
 /**
  * Absolute origin of this deployment. Polar checkout and portal redirects need
