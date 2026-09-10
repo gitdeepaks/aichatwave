@@ -1,0 +1,37 @@
+title = "AIChatWave secret scan"
+
+# Start from gitleaks' full built-in ruleset and only subtract from it, so new
+# upstream rules are picked up automatically.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Files that contain placeholders by design"
+
+paths = [
+  # Placeholder values, documented as such, and the file a fresh clone copies.
+  '''\.env\.example$''',
+  # Fake credentials so `next build` can run; see the comment in that file.
+  '''\.github/workflows/ci\.yml$''',
+  # Lockfile integrity hashes trip entropy rules and are not secrets.
+  '''pnpm-lock\.yaml$''',
+
+  # Not source, and never committed — these matter only for a local
+  # `gitleaks dir` run, which walks the filesystem rather than the index.
+  # CI runs `gitleaks git`, where none of them exist.
+  #
+  # `.env` is excluded because it is *supposed* to hold live credentials and
+  # is gitignored. That exclusion is safe only as long as the negation in
+  # .gitignore stays limited to `.env.example`; the history scan is what
+  # actually guarantees no .env ever landed in a commit.
+  '''(^|/)\.env$''',
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+]
+
+regexes = [
+  # The all-zero UUID used as a placeholder product id.
+  '''00000000-0000-0000-0000-000000000000''',
+  # Every placeholder in this repo is spelled with one of these markers.
+  '''(?i)(placeholder|example\.com|localhost|xxx|not-a-real)''',
+]

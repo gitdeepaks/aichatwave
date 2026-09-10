@@ -1,17 +1,20 @@
 onlyBuiltDependencies:
   - esbuild
-  - msw
 overrides:
-  '@types/react': 19.2.14
-  '@types/react-dom': 19.2.3
+  "@types/react": 19.2.14
+  "@types/react-dom": 19.2.3
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+# Postinstall scripts are opt-in. Every entry is an explicit boolean: pnpm
+# writes "set this to true or false" as a placeholder, and leaving those in
+# means the decision was never actually made.
 allowBuilds:
-  bufferutil: set this to true or false
-  core-js: set this to true or false
+  # Optional native speedups for `ws`; the JS fallbacks are fine here.
+  bufferutil: false
+  utf-8-validate: false
+  # Its postinstall only prints a funding notice.
+  core-js: false
   esbuild: true
-  msw: true
   sharp: false
   unrs-resolver: false
-  utf-8-validate: set this to true or false
