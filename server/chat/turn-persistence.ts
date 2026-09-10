@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import type { AIMessage, BaseMessage } from "@langchain/core/messages";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { hasRenderableContent, type MessageParts, type ToolPart } from "@/lib/ai/message-parts";
-import { jsonValueSchema } from "@/lib/ai/message-parts";
+import { jsonValueSchema } from "@/lib/json";
 import { appendMessages } from "@/server/db/message-repository";
 import { touchThread } from "@/server/db/thread-repository";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { getDynamicModel, getEffectiveModelId } from "@/server/ai/model-service";
 import { MessagesState } from "@/server/chat/state";
 import { chatRuntimeContextSchema, type ChatRuntimeContext } from "@/server/chat/runtime-context";
@@ -11,8 +12,19 @@ import { getStore } from "@/server/memory/store";
 import { logger } from "@/server/lib/logger";
 import { createLlmCallId } from "@/server/lib/request-id";
 import { env } from "@/lib/env";
-import { AIMessage, SystemMessage, type BaseMessage } from "@langchain/core/messages";
-import { END, START, StateGraph, type GraphNode } from "@langchain/langgraph";
+import {
+  AIMessage,
+  SystemMessage,
+  type AIMessageChunk,
+  type BaseMessage,
+} from "@langchain/core/messages";
+import {
+  END,
+  START,
+  StateGraph,
+  type GraphNode,
+  type LangGraphRunnableConfig,
+} from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { waitUntil } from "@vercel/functions";
@@ -26,18 +38,30 @@ const store = getStore();
 
 export type { ChatRuntimeContext };
 
-type ChatRuntime = {
-  context?: unknown;
-};
-
 /**
- * Parses the runtime context once, at the edge of each node. Nodes then work
- * with a fully-required `ChatRuntimeContext` instead of defending against
- * missing fields — a turn without a user id is not representable past this line.
+ * Parses the runtime context once, on entry to each node. LangGraph types the
+ * context loosely — it is delivered through the run config — so this is the
+ * line that turns it into a fully-required `ChatRuntimeContext`: a turn
+ * without a user id is not representable past here.
  */
-function readContext(runtime: ChatRuntime): ChatRuntimeContext {
+function readContext(runtime: LangGraphRunnableConfig): ChatRuntimeContext {
   return chatRuntimeContextSchema.parse(runtime.context);
 }
+
+/**
+ * Token counts as the provider reported them.
+ *
+ * LangChain's own type for `usage_metadata` resolves to `never` under
+ * `exactOptionalPropertyTypes`, and the value is a provider payload either
+ * way, so it is parsed here like any other external input rather than trusted.
+ */
+const usageMetadataSchema = z
+  .object({
+    input_tokens: z.number().nonnegative().optional(),
+    output_tokens: z.number().nonnegative().optional(),
+    total_tokens: z.number().nonnegative().optional(),
+  })
+  .catch({});
 
 /** Text of the most recent human message, used as the memory retrieval query. */
 function latestUserText(messages: BaseMessage[]): string {
@@ -46,10 +70,7 @@ function latestUserText(messages: BaseMessage[]): string {
   return typeof last.content === "string" ? last.content : "";
 }
 
-const memoryRememberNode: GraphNode<typeof MessagesState> = async (
-  state: typeof MessagesState.State,
-  runtime: ChatRuntime,
-) => {
+const memoryRememberNode: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const context = readContext(runtime);
   const content = latestUserText(state.messages).trim();
   if (content.length === 0) return {};
@@ -67,10 +88,7 @@ const memoryRememberNode: GraphNode<typeof MessagesState> = async (
   return {};
 };
 
-const llmCall: GraphNode<typeof MessagesState> = async (
-  state: typeof MessagesState.State,
-  runtime: ChatRuntime,
-) => {
+const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const context = readContext(runtime);
   const llmCallId = createLlmCallId();
   const modelId = getEffectiveModelId(context.selectedModel);
@@ -96,22 +114,27 @@ const llmCall: GraphNode<typeof MessagesState> = async (
 
   const startedAt = Date.now();
 
-  const response = await modelWithTools
+  // Annotated because `getDynamicModel` returns a union of three provider
+  // clients, and the union of their `invoke` results intersects to `never` —
+  // every provider resolves to an `AIMessageChunk`, so that is the true type
+  // of the value here and the one the rest of the node reads.
+  const response: AIMessageChunk = await modelWithTools
     .invoke([new SystemMessage(formattedSystemPrompt), ...state.messages])
     .catch((error: unknown) => {
       log.error("llm.call_failed", { latencyMs: Date.now() - startedAt }, error);
       throw error;
     });
 
-  const usage = response.usage_metadata;
-  const inputTokens = usage?.input_tokens ?? 0;
-  const outputTokens = usage?.output_tokens ?? 0;
+  const usage = usageMetadataSchema.parse(response.usage_metadata);
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  const totalTokens = usage.total_tokens ?? 0;
 
   log.info("llm.call_completed", {
     latencyMs: Date.now() - startedAt,
     inputTokens,
     outputTokens,
-    totalTokens: usage?.total_tokens ?? 0,
+    totalTokens,
     toolCalls: response.tool_calls?.length ?? 0,
   });
 
@@ -135,7 +158,7 @@ const llmCall: GraphNode<typeof MessagesState> = async (
         llmCallId,
         inputTokens,
         outputTokens,
-        totalTokens: usage?.total_tokens ?? 0,
+        totalTokens,
       },
       log,
     ),

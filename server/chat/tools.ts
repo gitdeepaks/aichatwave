@@ -2,28 +2,52 @@ import { tool } from "@langchain/core/tools";
 import * as z from "zod";
 import { getJson } from "serpapi";
 import { env } from "@/lib/env";
+import {
+  displayNewsResultSchema,
+  displayProductsResultSchema,
+  displayWeatherResultSchema,
+  type DisplayNewsResult,
+  type DisplayProductsResult,
+  type DisplayWeatherResult,
+  type NewsItem,
+  type Product,
+} from "@/lib/ai/tool-contracts";
 import { logger } from "@/server/lib/logger";
 
-type ProductFromAPI = {
-  product_id: string;
-  title: string;
-  extracted_price: string;
-  description: string;
-  rating: number;
-  thumbnail?: string;
-  thumnail?: string;
-  product_link: string;
-};
+/**
+ * Every tool here returns a value parsed through its contract in
+ * `lib/ai/tool-contracts.ts`, so the renderer and the tool cannot disagree
+ * about a field. Provider responses are parsed on arrival too: SerpAPI types
+ * its payload as `Record<string, any>` and the weather and news endpoints are
+ * untyped JSON, so each is narrowed at the edge rather than trusted.
+ */
 
-type Product = {
-  id: string;
-  title: string;
-  description: string;
-  price: string;
-  rating: number;
-  thumbnail: string;
-  product_link: string;
-};
+const serpShoppingResponseSchema = z.object({
+  shopping_results: z
+    .array(
+      z.object({
+        product_id: z.union([z.string(), z.number()]).optional(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        extracted_price: z.union([z.string(), z.number()]).optional(),
+        price: z.union([z.string(), z.number()]).optional(),
+        rating: z.union([z.string(), z.number()]).optional(),
+        thumbnail: z.string().optional(),
+        /** SerpAPI's own misspelling, still present in some responses. */
+        thumnail: z.string().optional(),
+        product_link: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/** Prices and ratings arrive as numbers, as `"$1,299.00"`, or not at all. */
+function toNumber(value: string | number | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value !== "string") return 0;
+  const parsed = Number(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 const geocodingResultSchema = z.object({
   results: z
@@ -100,7 +124,7 @@ function scoreNewsItem(params: {
   title: string;
   publisher: string;
   relatedTickers: string[];
-  providerPublishTime?: number;
+  providerPublishTime: number | undefined;
 }): number {
   const { query, title, publisher, relatedTickers, providerPublishTime } = params;
   const q = query.toLowerCase();
@@ -155,7 +179,13 @@ function serpShoppingLocation(raw: string | undefined): string | undefined {
 }
 
 export const productTool = tool(
-  async ({ query, location = "India" }: { query: string; location?: string }) => {
+  async ({
+    query,
+    location = "India",
+  }: {
+    query: string;
+    location?: string;
+  }): Promise<DisplayProductsResult> => {
     try {
       const resolved = serpShoppingLocation(location);
       if (env.SERP_API_KEY === undefined) {
@@ -163,46 +193,39 @@ export const productTool = tool(
         // when the key is absent. Kept so a direct caller degrades to an empty
         // result rather than sending SerpAPI an undefined key.
         logger.warn("tool.products_unconfigured", { tool: "display_products", query });
-        return { query, products: [] };
+        return displayProductsResultSchema.parse({ query, products: [] });
       }
-      const result = await getJson({
+      const response = await getJson({
         engine: "google_shopping",
         q: query,
         api_key: env.SERP_API_KEY,
         ...(resolved ? { location: resolved } : {}),
       });
 
-      if (!result.shopping_results?.length) {
-        return {
-          query,
-          products: [],
-        };
-      }
+      const shoppingResults = serpShoppingResponseSchema.parse(response).shopping_results ?? [];
 
-      const products = result.shopping_results
-        .slice(0, 6)
-        .map((product: ProductFromAPI, index: number): Product => {
-          return {
-            id: product.product_id || String(index),
-            title: product.title,
-            description: product.description,
-            price: product.extracted_price,
-            rating: product.rating,
-            thumbnail: product.thumbnail || product.thumnail || "",
-            product_link: product.product_link + "&utm_source=aichatwave.in ",
-          };
-        });
+      // `id` and `title` fall back on any empty value, not just a missing one:
+      // the contract requires both to be non-empty, and one blank field from
+      // SerpAPI would otherwise cost the whole carousel.
+      const products: Product[] = shoppingResults.slice(0, 6).map((product, index) => ({
+        id: String(product.product_id ?? "").trim() || String(index),
+        title: product.title?.trim() || `Product ${index + 1}`,
+        description: product.description ?? "",
+        price: toNumber(product.extracted_price ?? product.price),
+        rating: toNumber(product.rating),
+        thumbnail: product.thumbnail ?? product.thumnail ?? "",
+        ...(product.product_link === undefined
+          ? {}
+          : { productLink: `${product.product_link}&utm_source=aichatwave.in` }),
+      }));
 
-      return {
-        query,
-        products,
-      };
+      const result: DisplayProductsResult = { query, products };
+      return displayProductsResultSchema.parse(result);
     } catch (error) {
       logger.error("tool.products_fetch_failed", { tool: "display_products", query }, error);
-      return {
-        query,
-        products: [],
-      };
+      // Deliberately no `error`: an empty carousel reads as "nothing found",
+      // which is what a user can act on, and the failure is in the log.
+      return displayProductsResultSchema.parse({ query, products: [] });
     }
   },
   {
@@ -221,21 +244,26 @@ export const productTool = tool(
   },
 );
 
+/** The zeroed card the weather tool shows when it has nothing to report. */
+function weatherError(location: string, error: string): DisplayWeatherResult {
+  return displayWeatherResultSchema.parse({
+    location,
+    temperature: 0,
+    feelsLike: 0,
+    humidity: 0,
+    windSpeed: 0,
+    isDay: true,
+    weatherCode: 0,
+    error,
+  });
+}
+
 export const weatherTool = tool(
-  async ({ location }: { location: string }) => {
+  async ({ location }: { location: string }): Promise<DisplayWeatherResult> => {
     try {
       const queryLocation = location?.trim();
       if (!queryLocation) {
-        return {
-          location: "",
-          temperature: 0,
-          feelsLike: 0,
-          humidity: 0,
-          windSpeed: 0,
-          isDay: true,
-          weatherCode: 0,
-          error: "Please provide a valid city or location.",
-        };
+        return weatherError("", "Please provide a valid city or location.");
       }
 
       const geocodeUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
@@ -257,17 +285,12 @@ export const weatherTool = tool(
         typeof resolvedLocation.latitude !== "number" ||
         typeof resolvedLocation.longitude !== "number"
       ) {
-        return {
-          location: queryLocation,
-          temperature: 0,
-          feelsLike: 0,
-          humidity: 0,
-          windSpeed: 0,
-          isDay: true,
-          weatherCode: 0,
-          error: `Could not find weather data for "${queryLocation}".`,
-        };
+        return weatherError(queryLocation, `Could not find weather data for "${queryLocation}".`);
       }
+
+      const resolvedLocationLabel = `${resolvedLocation.name ?? queryLocation}, ${
+        resolvedLocation.country ?? ""
+      }`.replace(/,\s*$/, "");
 
       const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
       weatherUrl.searchParams.set("latitude", String(resolvedLocation.latitude));
@@ -293,20 +316,10 @@ export const weatherTool = tool(
       const current = weatherData.current;
 
       if (!current) {
-        return {
-          location:
-            `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
-              /,\s*$/,
-              "",
-            ),
-          temperature: 0,
-          feelsLike: 0,
-          humidity: 0,
-          windSpeed: 0,
-          isDay: true,
-          weatherCode: 0,
-          error: "Current weather is unavailable for this location.",
-        };
+        return weatherError(
+          resolvedLocationLabel,
+          "Current weather is unavailable for this location.",
+        );
       }
 
       const hourly = (() => {
@@ -385,12 +398,8 @@ export const weatherTool = tool(
           ? Number(weatherData.daily?.temperature_2m_min?.[0])
           : null;
 
-      return {
-        location:
-          `${resolvedLocation.name ?? queryLocation}, ${resolvedLocation.country ?? ""}`.replace(
-            /,\s*$/,
-            "",
-          ),
+      const result: DisplayWeatherResult = {
+        location: resolvedLocationLabel,
         temperature: Number(current.temperature_2m ?? 0),
         feelsLike: Number(current.apparent_temperature ?? 0),
         humidity: Number(current.relative_humidity_2m ?? 0),
@@ -404,18 +413,10 @@ export const weatherTool = tool(
         ...(hourly.length ? { hourly } : {}),
         ...(daily.length ? { daily } : {}),
       };
+      return displayWeatherResultSchema.parse(result);
     } catch (error) {
       logger.error("tool.weather_fetch_failed", { tool: "display_weather", location }, error);
-      return {
-        location,
-        temperature: 0,
-        feelsLike: 0,
-        humidity: 0,
-        windSpeed: 0,
-        isDay: true,
-        weatherCode: 0,
-        error: "Unable to fetch weather right now. Please try again.",
-      };
+      return weatherError(location, "Unable to fetch weather right now. Please try again.");
     }
   },
   {
@@ -429,15 +430,15 @@ export const weatherTool = tool(
 );
 
 export const newsTool = tool(
-  async ({ query }: { query: string }) => {
+  async ({ query }: { query: string }): Promise<DisplayNewsResult> => {
     try {
       const trimmedQuery = query?.trim();
       if (!trimmedQuery) {
-        return {
+        return displayNewsResultSchema.parse({
           query: "",
           news: [],
           error: "Please provide a stock, crypto, or company name.",
-        };
+        });
       }
 
       const endpoint = new URL("https://query2.finance.yahoo.com/v1/finance/search");
@@ -502,7 +503,7 @@ export const newsTool = tool(
       });
 
       const picked = (deduped.length > 0 ? deduped : scoredNews).slice(0, 5);
-      const news = picked.map(({ providerPublishTime, score, ...item }) => item);
+      const news: NewsItem[] = picked.map(({ providerPublishTime, score, ...item }) => item);
 
       const summary =
         news.length > 0
@@ -514,19 +515,16 @@ export const newsTool = tool(
               .join(" | ")}.`
           : `No recent headlines were found for "${trimmedQuery}".`;
 
-      return {
-        query: trimmedQuery,
-        news,
-        summary,
-      };
+      const result: DisplayNewsResult = { query: trimmedQuery, news, summary };
+      return displayNewsResultSchema.parse(result);
     } catch (error) {
       logger.error("tool.news_fetch_failed", { tool: "display_news", query }, error);
-      return {
+      return displayNewsResultSchema.parse({
         query,
         news: [],
         summary: "",
         error: "Unable to fetch news right now. Please try again.",
-      };
+      });
     }
   },
   {

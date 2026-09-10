@@ -36,10 +36,16 @@ export type CreateThreadInput = {
   title: string;
 };
 
+/**
+ * A patch: an absent field means "leave it alone". Written with explicit
+ * `| undefined` because the request schemas that produce these carry it, and
+ * under `exactOptionalPropertyTypes` "absent" and "present and undefined" are
+ * different types.
+ */
 export type UpdateThreadInput = {
-  title?: string;
-  archived?: boolean;
-  pinned?: boolean;
+  title?: string | undefined;
+  archived?: boolean | undefined;
+  pinned?: boolean | undefined;
 };
 
 /** Runs inside a transaction when one is supplied, otherwise on the pool. */

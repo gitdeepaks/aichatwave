@@ -17,6 +17,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { randomUUID } from "node:crypto";
 import { env } from "@/lib/env";
+import type { JsonValue } from "@/lib/json";
 import { MEMORY_PROMPT_LIMIT } from "@/lib/ai/memory-config";
 import { getStore } from "@/server/memory/store";
 import { REMEMBER_MEMORY_PROMPT } from "@/server/chat/prompts";
@@ -57,9 +58,10 @@ function memoryNamespace(userId: string): string[] {
   return [userId, "memories"];
 }
 
+/** What the LangGraph store hands back for a memory: a key and a JSON value. */
 type StoredMemoryItem = {
   key: string;
-  value: unknown;
+  value: JsonValue;
   createdAt: Date;
 };
 

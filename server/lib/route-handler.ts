@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { parseJsonText, type JsonValue } from "@/lib/json";
 import { requireSessionUserId } from "@/server/auth/session";
 import {
   AppError,
@@ -127,7 +128,7 @@ function build<TParams, TQuery, TBody>(
 }
 
 /** Returns `undefined` for verbs without a body, so `noBody` validates cleanly. */
-async function readJsonBody(request: Request): Promise<unknown> {
+async function readJsonBody(request: Request): Promise<JsonValue | undefined> {
   if (request.method === "GET" || request.method === "HEAD" || request.method === "DELETE") {
     return undefined;
   }
@@ -135,11 +136,11 @@ async function readJsonBody(request: Request): Promise<unknown> {
   const raw = await request.text();
   if (raw.trim().length === 0) return undefined;
 
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    throw new AppError("INVALID_JSON", "Request body must be valid JSON.", { cause: error });
+  const parsed = parseJsonText(raw);
+  if (parsed === null) {
+    throw new AppError("INVALID_JSON", "Request body must be valid JSON.");
   }
+  return parsed;
 }
 
 function parseOrThrow<TValue>(

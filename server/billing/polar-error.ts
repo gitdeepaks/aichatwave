@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { parseJsonText } from "@/lib/json";
 
 /** Polar returns OAuth-style errors for auth failures. */
 const oauthErrorSchema = z.object({
@@ -56,10 +57,8 @@ export function polarErrorFacts(error: unknown): PolarErrorFacts {
     return { upstreamStatus, upstreamCode: null, upstreamDetail: null };
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
+  const parsed = parseJsonText(raw);
+  if (parsed === null) {
     return { upstreamStatus, upstreamCode: null, upstreamDetail: raw.slice(0, 200) };
   }
 

@@ -13,9 +13,10 @@ import {
 } from "@langchain/core/messages";
 import { createUIMessageStreamResponse } from "ai";
 import { toUIMessageStream } from "@ai-sdk/langchain";
+import { z } from "zod";
 import { ensureUserProvisioned } from "@/server/auth/user-service";
 import { agent } from "@/server/chat/agent";
-import type { ChatRuntimeContext } from "@/server/chat/runtime-context";
+import { toChatRuntimeContext } from "@/server/chat/runtime-context";
 import { deriveThreadTitle } from "@/server/chat/thread-title";
 import { persistUserTurn } from "@/server/chat/turn-persistence";
 import { assertModelAccess } from "@/server/billing/subscription-service";
@@ -72,7 +73,12 @@ export type StreamChatParams = {
  * response.
  */
 export async function streamChat(params: StreamChatParams): Promise<Response> {
-  const { userId, threadId, messageContent, selectedModel, requestId } = params;
+  const { messageContent } = params;
+  // Parsed once, here: past this line `userId`, `threadId` and `requestId` are
+  // branded and non-optional, so no node downstream has to defend against a
+  // turn that is missing one.
+  const context = toChatRuntimeContext(params);
+  const { userId, threadId, selectedModel, requestId } = context;
   const log = rootLogger.child({ requestId, userId, threadId, modelId: selectedModel });
 
   await ensureThreadAccess({ userId, threadId, messageContent, log });
@@ -86,8 +92,6 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   // Written before the model runs so the user's message survives a failed or
   // abandoned generation.
   await persistUserTurn({ threadId, content: messageContent, log });
-
-  const context: ChatRuntimeContext = { userId, threadId, selectedModel, requestId };
 
   const stream = await agent.streamEvents(
     { messages: [new HumanMessage(messageContent)] },
@@ -117,21 +121,33 @@ export async function getThreadHistory(params: {
   const owned = await threadRepository.findThreadForUser(params);
   if (!owned) return [];
 
-  const state = await agent.getState({
-    configurable: { thread_id: params.threadId },
-  });
-
-  return mapChatMessagesToStoredMessages(readStateMessages(state.values));
+  return mapChatMessagesToStoredMessages(await readThreadState(params.threadId));
 }
 
+/** A checkpoint value that is a LangChain message, and nothing else. */
+const baseMessageSchema = z.custom<BaseMessage>(isBaseMessage);
+
 /**
- * The single place LangGraph state is narrowed. `getState` returns state whose
- * shape the type system cannot know, so it is parsed here and nothing outward
- * of this function ever sees `unknown`.
+ * The graph state as this app reads it. `getState` resolves to
+ * `Record<string, any>`, so the shape is checked by this schema instead of
+ * being trusted: an entry that is not a message is dropped, and a state
+ * without a message list reads as an empty conversation.
  */
-function readStateMessages(values: unknown): BaseMessage[] {
-  if (typeof values !== "object" || values === null) return [];
-  if (!("messages" in values)) return [];
-  const messages = values.messages;
-  return Array.isArray(messages) ? messages.filter(isBaseMessage) : [];
+const threadStateSchema = z
+  .object({
+    messages: z
+      .array(baseMessageSchema.nullable().catch(null))
+      .transform((messages) => messages.filter((message) => message !== null))
+      .catch([]),
+  })
+  .catch({ messages: [] });
+
+/**
+ * The single place LangGraph state is narrowed: `getState` and its parse live
+ * together, so no caller can read the checkpoint without going through the
+ * schema, and nothing outward of this function sees an untyped value.
+ */
+async function readThreadState(threadId: string): Promise<BaseMessage[]> {
+  const snapshot = await agent.getState({ configurable: { thread_id: threadId } });
+  return threadStateSchema.parse(snapshot.values).messages;
 }
