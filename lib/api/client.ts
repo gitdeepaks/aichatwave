@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import type { JsonValue } from "@/lib/ai/message-parts";
+import type { JsonValue } from "@/lib/json";
 import {
   memoryListResponseSchema,
   messageListResponseSchema,
@@ -46,11 +46,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * A request body: an object of JSON values.
+ *
+ * Typed as JSON rather than `unknown` — a body is serialized, so a value that
+ * cannot survive `JSON.stringify` is a mistake, not a maybe. Fields are
+ * `| undefined` because the request contracts are Zod-derived and an optional
+ * field there is "present and undefined"; `JSON.stringify` drops those.
+ */
+type RequestBody = { [field: string]: JsonValue | undefined };
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
-  /** Typed as JSON rather than `unknown`: a request body is serialized, so a
-   *  value that cannot survive `JSON.stringify` is a mistake, not a maybe. */
-  body?: JsonValue;
+  body?: RequestBody;
   signal?: AbortSignal;
 };
 

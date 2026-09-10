@@ -11,10 +11,7 @@
  */
 
 import { z } from "zod";
-
-/** Any value that survives a JSON round-trip. Used for tool input/output payloads. */
-export const jsonValueSchema = z.json();
-export type JsonValue = z.infer<typeof jsonValueSchema>;
+import { jsonValueSchema } from "@/lib/json";
 
 export const MESSAGE_ROLES = ["user", "assistant", "system"] as const;
 export const messageRoleSchema = z.enum(MESSAGE_ROLES);
