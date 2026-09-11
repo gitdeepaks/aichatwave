@@ -16,6 +16,7 @@ export const APP_ERROR_STATUS = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   RATE_LIMITED: 429,
+  QUOTA_EXCEEDED: 429,
   INTERNAL_ERROR: 500,
   UPSTREAM_ERROR: 502,
   SERVICE_UNAVAILABLE: 503,
@@ -32,17 +33,32 @@ export class AppError extends Error {
   readonly code: AppErrorCode;
   readonly status: (typeof APP_ERROR_STATUS)[AppErrorCode];
   readonly issues: AppErrorIssue[];
+  /**
+   * Seconds the caller should wait before retrying, when that is knowable.
+   *
+   * Carried on the error rather than bolted onto the response at each throw
+   * site: the limiter is the only thing that knows the number, and the
+   * response builder is the only thing that knows the header. Keeping them
+   * connected through the error is what stops a 429 shipping without a
+   * `Retry-After`, which is the difference between a client that backs off and
+   * one that hammers.
+   */
+  readonly retryAfterSeconds: number | null;
 
   constructor(
     code: AppErrorCode,
     message: string,
-    options?: { issues?: AppErrorIssue[]; cause?: unknown },
+    options?: { issues?: AppErrorIssue[]; cause?: unknown; retryAfterSeconds?: number },
   ) {
     super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = "AppError";
     this.code = code;
     this.status = APP_ERROR_STATUS[code];
     this.issues = options?.issues ?? [];
+    this.retryAfterSeconds =
+      options?.retryAfterSeconds === undefined
+        ? null
+        : Math.max(1, Math.ceil(options.retryAfterSeconds));
   }
 }
 
@@ -64,6 +80,7 @@ export type AppErrorBody = {
     message: string;
     requestId: string;
     issues?: AppErrorIssue[];
+    retryAfterSeconds?: number;
   };
 };
 
@@ -74,6 +91,10 @@ export function appErrorBody(error: AppError, requestId: string): AppErrorBody {
       message: error.message,
       requestId,
       ...(error.issues.length > 0 ? { issues: error.issues } : {}),
+      // Mirrored into the body as well as the header so the composer can say
+      // "try again in 12s" without reading response headers it does not have
+      // access to through the AI SDK transport.
+      ...(error.retryAfterSeconds === null ? {} : { retryAfterSeconds: error.retryAfterSeconds }),
     },
   };
 }
@@ -81,6 +102,11 @@ export function appErrorBody(error: AppError, requestId: string): AppErrorBody {
 export function appErrorResponse(error: AppError, requestId: string): Response {
   return Response.json(appErrorBody(error, requestId), {
     status: error.status,
-    headers: { "x-request-id": requestId },
+    headers: {
+      "x-request-id": requestId,
+      ...(error.retryAfterSeconds === null
+        ? {}
+        : { "retry-after": String(error.retryAfterSeconds) }),
+    },
   });
 }

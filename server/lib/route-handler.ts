@@ -12,8 +12,10 @@
  */
 
 import { z } from "zod";
+import { appUrl } from "@/lib/env";
 import { parseJsonText, type JsonValue } from "@/lib/json";
 import { requireSessionUserId } from "@/server/auth/session";
+import { assertSameOrigin } from "@/server/security/origin";
 import {
   AppError,
   appErrorResponse,
@@ -103,6 +105,16 @@ function build<TParams, TQuery, TBody>(
     const log = logger.child({ requestId, route: config.name });
 
     try {
+      // Before anything is parsed, and for every route built from this factory:
+      // a write that names a foreign origin is refused. Webhook routes do not
+      // go through this factory — they are verified by signature and are
+      // legitimately called cross-origin — so they are unaffected.
+      assertSameOrigin({
+        method: request.method,
+        headers: request.headers,
+        appOrigin: appUrl(),
+      });
+
       const rawParams = rawContext?.params === undefined ? {} : await rawContext.params;
       const params = parseOrThrow(config.params, rawParams, "params");
       const query = parseOrThrow(
