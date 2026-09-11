@@ -4,8 +4,11 @@ import { MessagesState } from "@/server/chat/state";
 import { chatRuntimeContextSchema, type ChatRuntimeContext } from "@/server/chat/runtime-context";
 import { tools } from "@/server/chat/tools";
 import { BASE_SYSTEM_PROMPT_TEMPLATE } from "@/server/chat/prompts";
+import { fenceUntrustedMessages, fenceUserMemories } from "@/server/chat/untrusted-content";
 import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
 import { ingestModelUsage } from "@/server/billing/subscription-service";
+import { recordQuotaTokens } from "@/server/billing/quota-service";
+import { usagePeriodFor } from "@/lib/billing/plan-policy";
 import { persistAssistantTurn } from "@/server/chat/turn-persistence";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
 import { getStore } from "@/server/memory/store";
@@ -109,7 +112,9 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   );
 
   const formattedSystemPrompt = await BASE_SYSTEM_PROMPT_TEMPLATE.format({
-    user_details_content: memoriesContent,
+    // Memories are derived from user messages, so they are untrusted for the
+    // same reason tool output is, and carry the same fence.
+    user_details_content: fenceUserMemories(memoriesContent),
   });
 
   const startedAt = Date.now();
@@ -119,7 +124,10 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   // every provider resolves to an `AIMessageChunk`, so that is the true type
   // of the value here and the one the rest of the node reads.
   const response: AIMessageChunk = await modelWithTools
-    .invoke([new SystemMessage(formattedSystemPrompt), ...state.messages])
+    // Fenced on the way to the model only. `state.messages` keeps the exact
+    // tool JSON, which is what the gen-UI cards parse and what the checkpoint
+    // stores; only the model's view is delimited.
+    .invoke([new SystemMessage(formattedSystemPrompt), ...fenceUntrustedMessages(state.messages)])
     .catch((error: unknown) => {
       log.error("llm.call_failed", { latencyMs: Date.now() - startedAt }, error);
       throw error;
@@ -159,6 +167,23 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
         inputTokens,
         outputTokens,
         totalTokens,
+      },
+      log,
+    ),
+  );
+
+  // The local counterpart of the Polar ingest above. Polar stays the billing
+  // record; this is what `assertWithinQuota` reads, so enforcement no longer
+  // depends on a vendor round trip. Tokens are recorded, never enforced — the
+  // quota gate counts messages — so attributing a turn that straddles midnight
+  // on the first to the period it finished in is accurate enough.
+  waitUntil(
+    recordQuotaTokens(
+      {
+        userId: context.userId,
+        periodStart: usagePeriodFor(new Date()).start,
+        inputTokens,
+        outputTokens,
       },
       log,
     ),

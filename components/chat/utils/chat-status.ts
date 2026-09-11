@@ -1,5 +1,6 @@
 import type { ChatStatus, UIMessage } from "ai";
 import type { ChatVisibleStatus } from "@/components/chat/types";
+import { formatRetryDelay, parseChatError } from "@/lib/api/chat-error";
 import { parseToolName, type ToolName } from "@/lib/ai/tool-contracts";
 
 /** Keyed on `ToolName`, so a new tool needs a label before it compiles. */
@@ -23,12 +24,46 @@ export function getChatVisibleStatus({
   error: Error | null | undefined;
   messages: UIMessage[];
 }): ChatVisibleStatus {
-  if (error) {
-    return {
-      kind: "error",
-      label: "Message failed. Retry available.",
-      retryLabel: "Retry",
-    };
+  const chatError = parseChatError(error);
+  if (chatError !== null) {
+    switch (chatError.kind) {
+      case "rate-limited":
+        return {
+          kind: "rate-limited",
+          label:
+            chatError.retryAfterSeconds === null
+              ? chatError.message
+              : `${chatError.message} (${formatRetryDelay(chatError.retryAfterSeconds)})`,
+          retryLabel: "Try again",
+          retryAfterSeconds: chatError.retryAfterSeconds,
+        };
+
+      case "quota-exceeded":
+        return {
+          kind: "quota-exceeded",
+          label: chatError.message,
+          upgradeLabel: "Upgrade to Pro",
+        };
+
+      case "model-access-denied":
+        return {
+          kind: "quota-exceeded",
+          label: chatError.message,
+          upgradeLabel: "Upgrade to Pro",
+        };
+
+      case "unauthorized":
+      case "unavailable":
+      case "unknown":
+        // Everything else keeps the original generic treatment: a retry is the
+        // only useful control, and the server's message is already written for
+        // the user.
+        return {
+          kind: "error",
+          label: "Message failed. Retry available.",
+          retryLabel: "Retry",
+        };
+    }
   }
 
   for (const message of messages.toReversed()) {
