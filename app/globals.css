@@ -157,9 +157,14 @@
 
    These rules exist as CSS rather than as `appearance.elements` on
    <ClerkProvider> because @clerk/ui v1 does not apply that prop's class names.
-   Without them the widget renders at its intrinsic ~329px and sits left of
-   centre inside the 460px panel, which is what made the page look off-centre.
-   The `cl-*` class names are Clerk's documented, stable hooks.
+   The `cl-*` class names are Clerk's documented, stable hooks; the hashed
+   `cl-internal-*` ones are not, so nothing below targets them.
+
+   The governing rule: every horizontal edge inside the panel lands on
+   `--auth-gutter`, which the shell owns. Clerk ships its own insets (a 329px
+   intrinsic card width, `padding: 16px 32px` on each footer row) and those are
+   what made the panel read as three stacks that never lined up. They are all
+   zeroed here so the shell's rail is the only one.
    ─────────────────────────────────────────────────────────────────────────── */
 
 .auth-clerk .cl-rootBox,
@@ -169,13 +174,25 @@
   max-width: none;
 }
 
-/* The panel is the card. Strip Clerk's so there is no card inside a card. */
+/* The panel is the card. Strip Clerk's so there is no card inside a card —
+   including `cl-cardBox`, which carries the border and 32px radius that drew a
+   second rounded box inside the panel. */
+.auth-clerk .cl-cardBox,
 .auth-clerk .cl-card {
   background: transparent;
   border: none;
+  border-radius: 0;
   box-shadow: none;
   padding: 0;
   gap: 0;
+}
+
+/* `cl-cardBox` clips to `overflow: hidden` for its own 32px radius. With that
+   radius and background gone the clip has nothing left to do except cut the
+   top half off the "last used" badge, which straddles the first button's top
+   border — above the box's own edge. */
+.auth-clerk .cl-cardBox {
+  overflow: visible;
 }
 
 /* The shell supplies the heading, so Clerk's would be a duplicate. */
@@ -200,12 +217,14 @@
 
 .auth-clerk .cl-socialButtonsBlockButton,
 .auth-clerk .cl-socialButtonsIconButton {
-  height: 3rem;
+  height: 3.25rem;
   border-radius: 1rem;
   border: 1px solid rgb(255 255 255 / 0.1);
   background: rgb(255 255 255 / 0.045);
   color: rgb(244 244 245);
-  box-shadow: 0 14px 34px -26px rgb(0 0 0 / 0.9);
+  box-shadow:
+    0 14px 34px -26px rgb(0 0 0 / 0.9),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
   transition:
     transform 200ms ease,
     background-color 200ms ease,
@@ -219,6 +238,19 @@
   background: rgb(255 255 255 / 0.085);
 }
 
+.auth-clerk .cl-socialButtonsBlockButton:active,
+.auth-clerk .cl-socialButtonsIconButton:active {
+  transform: translateY(0);
+}
+
+/* Clerk's default ring is a light-theme blue that vanishes on this panel. */
+.auth-clerk .cl-socialButtonsBlockButton:focus-visible,
+.auth-clerk .cl-socialButtonsIconButton:focus-visible,
+.auth-clerk .cl-footerActionLink:focus-visible {
+  outline: 2px solid rgb(251 146 60 / 0.75);
+  outline-offset: 2px;
+}
+
 .auth-clerk .cl-socialButtonsBlockButtonText {
   font-size: 0.9375rem;
   font-weight: 500;
@@ -226,42 +258,79 @@
 
 /* Clerk offsets this corner tag with a translate that pushed it outside the
    panel's clip bounds, so it rendered half-cut. Sit it on the button's top
-   border instead, inset from the right edge. */
+   border instead, inset from the right edge, filled with the panel's own value
+   so the border appears to pass behind it. */
 .auth-clerk .cl-lastAuthenticationStrategyBadge {
   top: 0;
   right: 0.875rem;
   transform: translateY(-50%);
-  border: 1px solid rgb(253 186 116 / 0.3);
+  border: 1px solid rgb(253 186 116 / 0.28);
   border-radius: 999px;
-  padding: 0.125rem 0.5rem;
-  background: rgb(28 20 14);
+  padding: 0.1875rem 0.5rem;
+  background: rgb(23 20 19);
+  box-shadow: 0 0 0 4px rgb(8 8 10 / 0.55);
   font-size: 0.625rem;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgb(254 215 170 / 0.95);
 }
 
-/* Footer: "Don't have an account? Sign up" plus Clerk's badge. */
+/* Footer: "Don't have an account? Sign up" plus Clerk's badge.
+
+   Clerk pads each row `16px 32px`. That 32px is a second gutter inside the
+   shell's, and it is what pushed the footer text off the rail the buttons sit
+   on — zeroed so both rows inherit `--auth-gutter` from the shell. */
 .auth-clerk .cl-footer {
   background: transparent;
   border-top: 1px solid rgb(255 255 255 / 0.06);
   margin-top: 1.5rem;
+  padding: 0;
+  gap: 0;
 }
 
 .auth-clerk .cl-footerAction,
-.auth-clerk .cl-footerActionText {
+.auth-clerk .cl-footerItem {
+  padding-inline: 0;
   background: transparent;
+}
+
+.auth-clerk .cl-footerAction {
+  padding-block: 1.125rem;
+}
+
+/* The second rule inside a 140px footer read as clutter; the row above it is
+   already separated. */
+.auth-clerk .cl-footerItem {
+  border-top: none;
+  padding-block: 0 0.25rem;
+}
+
+.auth-clerk .cl-footerActionText {
   font-size: 0.875rem;
   color: rgb(113 113 122);
 }
 
 .auth-clerk .cl-footerActionLink {
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: rgb(253 186 116);
 }
 
 .auth-clerk .cl-footerActionLink:hover {
   color: rgb(254 215 170);
+}
+
+/* Development-only: Clerk paints a full-bleed orange hazard wash and a 1px
+   rule behind the badge row, both absolutely positioned, which bled to the
+   panel's edges while everything else was inset. Dimmed rather than removed —
+   it is a signal worth keeping — and matched only in dev, where the wash is an
+   extra child; in production the row has a single child and this selects
+   nothing. */
+.auth-clerk .cl-footerItem > :not(:last-child) {
+  opacity: 0.18;
 }
 
 /* ── Auth screen entrance ─────────────────────────────────────────────────── */

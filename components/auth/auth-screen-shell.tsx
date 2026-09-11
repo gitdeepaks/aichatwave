@@ -7,14 +7,25 @@ import { BRAND_LOGO_SRC } from "@/lib/brand";
  *
  * Layout is a two-column split from `lg` up: the product argument on the left,
  * the auth panel on the right. Below `lg` it collapses to the panel alone,
- * centred. The earlier version put a single narrow card in the middle of a very
- * wide dark field, which read as off-centre and empty; giving the page a second
- * column turns that empty space into structure.
+ * centred.
  *
- * Clerk's own card chrome is stripped in `app/globals.css` under `.auth-clerk`,
+ * ## One gutter, one rail
+ *
+ * Everything inside the panel — heading block, Clerk's buttons, Clerk's footer,
+ * every divider — is inset by the single `--auth-gutter` value declared on the
+ * panel. Before this the three stacks used 36px / 28px / 32px respectively and
+ * nothing lined up vertically; Clerk's own `padding: 16px 32px` on the footer
+ * rows is zeroed in `app/globals.css` so they inherit this rail too.
+ *
+ * Clerk's card chrome is stripped in `app/globals.css` under `.auth-clerk`,
  * because the `appearance.elements` prop is not honoured by `@clerk/ui` v1 —
  * its widget was rendering at its intrinsic 329px and sitting left of centre
  * inside this panel instead of filling it.
+ *
+ * The "encrypted session handoff" caption sits *below* the card rather than in
+ * it: Clerk's footer already draws a rule above "Don't have an account", and a
+ * rule above the Clerk badge, so a third one inside the card stacked three
+ * hairlines within 140px.
  */
 
 type Highlight = { label: string; title: string; body: string };
@@ -75,9 +86,9 @@ export function AuthScreenShell({
       />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-5 py-12 sm:px-8">
-        <div className="grid w-full items-center gap-14 lg:grid-cols-[minmax(0,1fr)_460px] lg:gap-20">
+        <div className="grid w-full items-center gap-14 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-20">
           {/* Left: the product argument. Hidden below lg so the panel stays centred. */}
-          <section className="hidden lg:flex lg:flex-col lg:gap-10 auth-reveal">
+          <section className="auth-reveal hidden lg:flex lg:flex-col lg:gap-10">
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-orange-300/20 via-white/[0.06] to-red-500/10">
                 <Image
@@ -102,18 +113,21 @@ export function AuthScreenShell({
               <p className="max-w-[38ch] text-[17px] leading-8 text-zinc-400">{tagline}</p>
             </div>
 
+            {/* The rule is the list's spine; each marker is centred on it. */}
             <ul className="space-y-6 border-l border-white/[0.07] pl-6">
               {HIGHLIGHTS.map((item) => (
                 <li key={item.label} className="relative">
                   <span
-                    className="absolute -left-[25px] top-2 size-1.5 rounded-full bg-orange-400/70 shadow-[0_0_14px_rgba(251,146,60,0.9)]"
+                    className="absolute -left-[26px] top-1 size-1.5 rounded-full bg-orange-400/70 shadow-[0_0_14px_rgba(251,146,60,0.9)]"
                     aria-hidden
                   />
-                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-orange-200/55">
+                  <p className="font-mono text-[10px] uppercase leading-4 tracking-[0.28em] text-orange-200/55">
                     {item.label}
                   </p>
-                  <p className="mt-1.5 text-[15px] font-medium text-zinc-100">{item.title}</p>
-                  <p className="mt-1 max-w-[42ch] text-[14px] leading-6 text-zinc-500">
+                  <p className="mt-2 text-[15px] font-medium leading-5 text-zinc-100">
+                    {item.title}
+                  </p>
+                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-zinc-500">
                     {item.body}
                   </p>
                 </li>
@@ -121,15 +135,16 @@ export function AuthScreenShell({
             </ul>
           </section>
 
-          {/* Right: the auth panel. */}
-          <section className="mx-auto w-full max-w-[460px] auth-reveal auth-reveal-delayed">
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950/55 shadow-[0_40px_120px_-48px_rgba(0,0,0,1),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl supports-[backdrop-filter]:bg-zinc-950/40">
+          {/* Right: the auth panel. `--auth-gutter` is the single horizontal
+              rail every child of the card lines up on, Clerk's included. */}
+          <section className="auth-reveal auth-reveal-delayed mx-auto w-full max-w-[440px]">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950/55 shadow-[0_40px_120px_-48px_rgba(0,0,0,1),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-zinc-950/40 sm:[--auth-gutter:2rem]">
               <div
                 className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/50 to-transparent"
                 aria-hidden
               />
 
-              <div className="flex flex-col items-center gap-4 px-7 pt-9 text-center sm:px-9">
+              <div className="flex flex-col items-center gap-4 px-[var(--auth-gutter)] pt-9 text-center">
                 <div className="flex size-14 items-center justify-center rounded-[1.2rem] border border-white/10 bg-gradient-to-br from-orange-300/20 via-white/[0.06] to-red-500/10 shadow-[0_18px_44px_-26px_rgba(251,146,60,0.85)] lg:hidden">
                   <Image
                     src={BRAND_LOGO_SRC}
@@ -142,7 +157,11 @@ export function AuthScreenShell({
                   />
                 </div>
 
-                <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-orange-200/65">
+                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-orange-200/65">
+                  <span
+                    className="size-1 rounded-full bg-orange-400/80 shadow-[0_0_10px_rgba(251,146,60,0.9)]"
+                    aria-hidden
+                  />
                   {eyebrow}
                 </span>
 
@@ -152,20 +171,25 @@ export function AuthScreenShell({
                   {headline}
                 </h2>
 
-                <p className="max-w-[30ch] text-[14px] leading-6 text-zinc-500">{panelHint}</p>
+                <p className="text-balance text-[14px] leading-6 text-zinc-500">{panelHint}</p>
               </div>
 
-              {/* Clerk's widget. De-chromed and stretched by `.auth-clerk` rules. */}
-              <div className="auth-clerk px-5 pb-2 pt-7 sm:px-7">{children}</div>
-
-              <div className="px-7 pb-8 sm:px-9">
-                <p className="border-t border-white/[0.06] pt-5 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-600">
-                  Encrypted session handoff
-                </p>
-              </div>
+              {/* Clerk's widget. De-chromed and stretched by `.auth-clerk` rules;
+                  it supplies its own footer, which is why the card ends here. */}
+              <div className="auth-clerk px-[var(--auth-gutter)] pb-7 pt-7">{children}</div>
             </div>
 
-            <p className="mt-6 text-center text-[13px] leading-6 text-zinc-600 lg:hidden">
+            {/* Caption below the card, so the card itself ends on Clerk's rule
+                rather than a third stacked hairline. */}
+            <div className="mt-6 flex items-center gap-4" aria-hidden>
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-600">
+                Encrypted session handoff
+              </p>
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.08]" />
+            </div>
+
+            <p className="mt-5 text-center text-[13px] leading-6 text-zinc-600 lg:hidden">
               Threads, long-term memory, and tool-powered answers.
             </p>
           </section>
