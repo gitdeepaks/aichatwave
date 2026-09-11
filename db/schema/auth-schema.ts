@@ -22,6 +22,18 @@ export const user = pgTable(
     email: text("email").notNull(),
     emailVerified: boolean("email_verified").default(false).notNull(),
     image: text("image"),
+    /**
+     * When this user's Polar subscription state was last pulled from Polar
+     * itself, as opposed to received on a webhook.
+     *
+     * Null means the local `subscription` mirror has never been proven correct
+     * for this user, and "no active subscription row" cannot yet be read as
+     * "no subscription" — it may simply be a webhook that has not arrived. The
+     * plan resolver treats null as a cold cache and consults Polar once; every
+     * request after that is served locally. See
+     * `server/billing/subscription-service.ts`.
+     */
+    billingSyncedAt: timestamp("billing_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()

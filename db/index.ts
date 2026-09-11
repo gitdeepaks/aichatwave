@@ -13,8 +13,9 @@ import { env } from "@/lib/env";
 import * as authSchema from "@/db/schema/auth-schema";
 import * as chatSchema from "@/db/schema/chat-schema";
 import * as billingSchema from "@/db/schema/billing-schema";
+import * as limitsSchema from "@/db/schema/limits-schema";
 
-export const schema = { ...authSchema, ...chatSchema, ...billingSchema };
+export const schema = { ...authSchema, ...chatSchema, ...billingSchema, ...limitsSchema };
 
 const pool = new Pool({ connectionString: env.DATABASE_URL });
 
