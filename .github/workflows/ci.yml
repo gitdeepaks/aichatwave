@@ -14,6 +14,13 @@ concurrency:
 permissions:
   contents: read
 
+# Third-party actions are pinned to a commit SHA rather than a tag. A tag is a
+# movable pointer the action's owner can repoint at any time, including at
+# code that reads this repository's secrets — the supply-chain attack that has
+# actually happened to GitHub Actions users, more than once. The trailing
+# comment records the human-readable version so Dependabot can bump both
+# together; it is documentation, not the thing being resolved.
+
 jobs:
   verify:
     name: Verify
@@ -38,11 +45,11 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -73,12 +80,35 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm build
 
+      # Blocking, at high and critical, over production dependencies only.
+      #
+      # The advisories that have already been reviewed and accepted are listed
+      # by GHSA id in `pnpm.auditConfig.ignoreGhsas` in package.json, with the
+      # reasoning recorded in docs/pro_plan.md under Phase D. That is what makes
+      # this gate usable: an accepted advisory is named and argued for once,
+      # and anything *new* fails the build. A severity threshold alone would
+      # either block on advisories nobody can fix from this repo, or wave
+      # through the next one that lands.
+      #
+      # `--prod` because a dev-only advisory cannot be reached by a user; those
+      # show up in the advisory run below and in Dependabot's PRs.
+      - name: Audit dependencies
+        if: ${{ !cancelled() }}
+        run: pnpm audit --audit-level high --prod
+
+      # Everything, including dev dependencies and the accepted list, for
+      # triage. Never blocks.
+      - name: Audit dependencies (advisory, non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: pnpm audit --audit-level low
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Full history: a secret committed and later deleted is still in the
           # repository, and a shallow clone would not see it.
@@ -88,11 +118,15 @@ jobs:
       # which asks organisation accounts for a licence key. Config and
       # allowlisting live in .gitleaks.toml.
       #
+      # Pinned to a release tag rather than `:latest`, for the same reason the
+      # actions above are pinned to SHAs: `:latest` is whatever was pushed most
+      # recently, and this step runs with the repository checked out.
+      #
       # `git` scans every commit reachable from the checkout, which is the
       # actual requirement: a secret added and later deleted still sits in
       # history and a working-tree scan would miss it. `--redact` keeps any
       # finding out of the public log; the file and commit are enough to act on.
       - name: gitleaks
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:latest \
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 \
             git --config .gitleaks.toml --redact --verbose --exit-code 1 .

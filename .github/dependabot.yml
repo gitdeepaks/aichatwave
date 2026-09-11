@@ -1,0 +1,73 @@
+# Dependency updates.
+#
+# Paired with the blocking `pnpm audit` step in ci.yml: the audit says a
+# vulnerable version is present, Dependabot is what actually raises the PR that
+# removes it. Either alone is half a supply-chain story — an alert nobody can
+# action, or updates nobody is required to take.
+version: 2
+
+updates:
+  # GitHub Actions are pinned to commit SHAs in the workflows. Dependabot
+  # understands that pinning and rewrites both the SHA and the trailing version
+  # comment, which is the only reason SHA pinning is maintainable by hand.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies
+      - github-actions
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    # Enough to keep up, few enough to review. Security updates are exempt from
+    # this cap and are always opened.
+    open-pull-requests-limit: 8
+    versioning-strategy: increase
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels:
+      - dependencies
+    groups:
+      # Grouped because these ship in lockstep and a partial bump is the one
+      # that breaks: taking them one at a time produces PRs that cannot pass CI
+      # on their own.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      next:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+          - "@next/*"
+      langchain:
+        patterns:
+          - "langchain"
+          - "@langchain/*"
+          - "@ai-sdk/*"
+          - "ai"
+      clerk:
+        patterns:
+          - "@clerk/*"
+      drizzle:
+        patterns:
+          - "drizzle-orm"
+          - "drizzle-kit"
+      types-and-lint:
+        dependency-type: development
+        patterns:
+          - "@typescript-eslint/*"
+          - "typescript-eslint"
+          - "eslint"
+          - "prettier"
+          - "typescript"
