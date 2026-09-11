@@ -54,6 +54,18 @@ const envSchema = z.object({
    * production and only defaults in development.
    */
   POLAR_SERVER: z.enum(["sandbox", "production"]).optional(),
+  /**
+   * Required only once a Polar webhook endpoint exists, mirroring how
+   * `CLERK_WEBHOOK_SIGNING_SECRET` is treated: until then
+   * `/api/webhooks/polar` reports 503 rather than the app refusing to boot.
+   *
+   * Without it the local subscription mirror is filled only by the one-time
+   * cold read, so a plan change takes up to `BILLING_CACHE_TTL_MS` to be seen.
+   * That degrades gracefully, which is why it is not required at boot — but a
+   * production deployment that wants plan changes to take effect promptly
+   * needs it set.
+   */
+  POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
 
   /**
    * Optional. Absent, the `display_products` tool is not offered to the model
