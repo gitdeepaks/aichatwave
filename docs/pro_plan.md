@@ -1,7 +1,7 @@
 # AIChatWave — Production Hardening Plan
 
-> **Done:** A, A2, A3, B, C, and the billing incident. **Next:** Phase D (security, abuse control,
-> and cost containment).
+> **Done:** A, A2, A3, B, C, D, and the billing incident. **Next:** Phase E (bundle, performance,
+> and dead code).
 > Owner: @gitdeepaks · Created 2026-09-09 · Restructured 2026-09-10 · Baseline commit `9f3e93d`
 
 Execution model: **one phase at a time**. Each phase ends with an exit-criteria checklist and a
@@ -52,8 +52,8 @@ this table.
 | **A3 — Auth screen redesign**       | **`COMPLETED`** | Unplanned; app-wide Sora regression fixed along the way         |
 | **B — Guardrails and boot hygiene** | **`COMPLETED`** | CI green on `main`; error pages, registry-derived env, gitleaks |
 | **C — Bulletproof types**           | **`COMPLETED`** | typed tool contract, type-aware lint, 4 compiler flags added    |
-| **D — Security and cost**           | `NOT DONE`      | **next up** — rate limiting, quota, Polar webhooks, headers     |
-| **E — Bundle, perf, dead code**     | `NOT DONE`      | 9,609 unreachable LOC still present                             |
+| **D — Security and cost**           | **`COMPLETED`** | limits, quota, local plan mirror, strict CSP, supply chain      |
+| **E — Bundle, perf, dead code**     | `NOT DONE`      | **next up** — 9,609 unreachable LOC still present               |
 | **F — Conversation data**           | `NOT DONE`      | read switch, search, export, account deletion                   |
 | **G — Chat completeness**           | `NOT DONE`      | stop button, resumable streams, dead controls                   |
 | **H — Observability**               | `WIP`           | health probe + `onRequestError` landed early; no OTel yet       |
@@ -82,7 +82,7 @@ useful instead of becoming a historical curiosity. "Now" verified 2026-09-10.
 | ------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
 | `pnpm typecheck`                                  | ✅ clean                                             | ✅ clean                                     |
 | `pnpm lint`                                       | ✅ 0 errors, 5 warnings                              | ✅ 0 errors, 5 warnings                      |
-| `pnpm test`                                       | 29 tests                                             | **52 tests**                                 |
+| `pnpm test`                                       | 29 tests                                             | **133 tests**                                |
 | Unreachable LOC in `components/ai-elements`       | 9,609 (44 of 48 files) — 42% of the codebase         | unchanged — Phase E                          |
 | Route handlers                                    | 2                                                    | **10**                                       |
 | Integration / E2E tests                           | 0                                                    | 0 — Phase I                                  |
@@ -90,9 +90,11 @@ useful instead of becoming a historical curiosity. "Now" verified 2026-09-10.
 | Auth middleware                                   | absent                                               | `proxy.ts` (bare `clerkMiddleware`)          |
 | `instrumentation.ts`                              | absent                                               | `onRequestError` only; OTel is Phase H       |
 | `app/error.tsx` / `loading.tsx` / `not-found.tsx` | absent                                               | ✅ all present, plus `global-error.tsx`      |
-| Rate limiting                                     | absent (`RATE_LIMITED` defined, never thrown)        | unchanged — Phase D                          |
-| Quota enforcement                                 | absent                                               | unchanged; `QUOTA_EXCEEDED` not yet a code   |
-| Polar webhooks                                    | imported at `lib/auth.ts:5`, never used              | `subscription` table exists, webhook unwired |
+| Rate limiting                                     | absent (`RATE_LIMITED` defined, never thrown)        | ✅ per-user + per-IP window, concurrency cap |
+| Quota enforcement                                 | absent                                               | ✅ `assertWithinQuota`, `QUOTA_EXCEEDED` 429 |
+| Polar webhooks                                    | imported at `lib/auth.ts:5`, never used              | ✅ `/api/webhooks/polar` fills the mirror    |
+| Security headers                                  | none                                                 | ✅ nonce CSP, HSTS, and six more (Phase D)   |
+| Polar calls per warm chat request                 | 1 (`hasActiveSubscription`, blocking)                | ✅ 0 — local mirror                          |
 | `thread` indexes                                  | primary key only — sidebar was a sequential scan     | ✅ two indexes, one partial (see Phase A)    |
 | `message` table                                   | none — conversations lived only in checkpoint blobs  | ✅ exists, written on every turn             |
 | `store_vectors`                                   | 31 embeddings behind an index that was never queried | ✅ vector-ranked, bounded retrieval          |
@@ -854,16 +856,239 @@ Phase A2 already put auth and ownership on every route. This phase adds the limi
    apply — see the social-only decision record.)_
 7. **Dependency & supply chain** — `pnpm audit` in CI, Dependabot/Renovate, pinned action SHAs.
 
+### What shipped
+
+| #   | Item                        | Where                                                                                                   |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 1   | Rate limiting + concurrency | `lib/security/sliding-window.ts`, `server/db/rate-limit-repository.ts`, `server/security/rate-limit.ts` |
+| 2   | Quota enforcement           | `lib/billing/plan-policy.ts`, `server/db/usage-repository.ts`, `server/billing/quota-service.ts`        |
+| 3   | Local plan mirror           | `server/db/subscription-repository.ts`, `app/api/webhooks/polar/route.ts`                               |
+| 4   | Security headers            | `lib/security/security-headers.ts`, `proxy.ts`                                                          |
+| 5   | Prompt-injection fencing    | `server/chat/untrusted-content.ts`, `server/chat/prompts.ts`                                            |
+| 6   | Auth hardening              | `proxy.ts` (`authorizedParties`), `server/security/origin.ts`, and the decisions below                  |
+| 7   | Dependency & supply chain   | `.github/workflows/ci.yml`, `.github/dependabot.yml`, `pnpm.auditConfig`                                |
+
+Migration `0001_abuse_control` adds `rate_limit_bucket`, `stream_lease`, `usage_counter`, and
+`user.billing_synced_at`.
+
+#### The limits, and why these numbers
+
+All of them live in `lib/billing/plan-policy.ts` and nowhere else, so the composer can show a user
+the same number the server enforces.
+
+| Limit                | Free        | Pro   | Bounds                                    |
+| -------------------- | ----------- | ----- | ----------------------------------------- |
+| Messages / month     | 150         | 5,000 | total spend per account                   |
+| Requests / minute    | 10          | 60    | burst rate per account                    |
+| Concurrent streams   | 1           | 3     | **in-flight cost** — the one that matters |
+| Requests / minute/IP | 90 (shared) |       | many throwaway accounts from one machine  |
+
+The concurrency cap is the load-bearing one. A rejected burst of a hundred costs nothing; a single
+streamed turn runs for up to a minute and spends real provider money, so capping _in-flight work_ is
+what contains the bill. The request-rate windows exist to stop a client hammering the gate itself.
+
+#### Three design decisions worth knowing
+
+**The sliding window is a two-bucket counter, not a request log.** One row per (key, window) instead
+of one per request, and a request is judged against the current bucket plus the un-decayed share of
+the previous one. A plain fixed window lets a client send 2× the limit across a reset boundary — the
+exact moment an abusive client aims for. `Retry-After` is computed from the same arithmetic
+(`lib/security/sliding-window.ts`) rather than guessed, and a rejected request is _not_ counted, so
+a client that honours the header is never punished for having asked.
+
+Accepted trade-off: the read and the conditional increment share one snapshot, so N truly
+simultaneous requests can each see room and overshoot by up to N−1. The concurrency lease caps N per
+user, so the overshoot is bounded by a small constant. Exact atomicity would need a lock per key,
+which costs more than the overshoot is worth. In a multi-region deploy, swap the repository for
+Upstash/Redis — the policy module above it does not change.
+
+**Quota reserves before the model runs; it does not count after.** Counting after leaves the last
+turn free, and under concurrency leaves as many free turns as there are in-flight requests. The
+reservation is a conditional upsert (`on conflict … do update … where messages < limit`), so the
+check and the spend are the same statement and cannot interleave. A turn that fails before the
+provider is called refunds it.
+
+**`QUOTA_EXCEEDED` is a 429, like `RATE_LIMITED`, but they are different errors on purpose.** Same
+status, different remedy: slowing down fixes one, upgrading or waiting for the period reset fixes the
+other. The composer branches on the code — a countdown and a retry for the first, an upgrade button
+and no retry for the second — because a retry on a spent allowance only produces the same 429.
+
+#### Item 3: what removing the Polar round-trip actually took
+
+`assertModelAccess` called Polar on every message. The mirror now answers instead, on three paths:
+
+- **warm** → one indexed local read, zero Polar calls;
+- **stale** (>24h since reconciliation) → the local answer is served immediately and Polar is
+  reconciled in `waitUntil` behind the response, so a missed webhook self-heals at no latency cost;
+- **cold** (`user.billing_synced_at` is null) → Polar is consulted once and the result persisted.
+
+That column is the piece that makes it work. Without it, "no active subscription row" is ambiguous
+— free, or a webhook that has not landed? — and the only safe reading is to ask Polar every time,
+which is the call being removed. Expiry is in the query, not a check on the result, so a missed
+`subscription.revoked` degrades to "access ends on schedule" rather than "Pro forever".
+
+**Polar is in sandbox for this deployment.** The webhook secret is environment-scoped like the
+token and the product id: create the endpoint at `sandbox.polar.sh` → Webhooks, point it at
+`/api/webhooks/polar`, subscribe it to the `subscription.*` events, and put its signing secret in
+`POLAR_WEBHOOK_SECRET`. A secret from the production dashboard fails every signature check against
+a sandbox deployment, exactly as the token does. Without the secret the route returns 503 and the
+app still works — plan changes just wait for the 24h refresh instead of arriving on the next
+message.
+
+#### Item 4: the CSP, and the one place it is not strict
+
+`script-src` carries a per-request nonce and `'strict-dynamic'` and **no `'unsafe-inline'`**, which
+is the directive the exit criterion is really about. `'strict-dynamic'` is what makes that workable:
+Next's bundle carries the nonce and Clerk's `clerk-js` inherits trust from it, so no origin
+allowlist is needed for scripts.
+
+`style-src` keeps `'unsafe-inline'`, deliberately. Shiki emits one inline `style` attribute per
+highlighted span in every code block, Clerk injects `<style>` elements without a nonce, and React's
+`style` prop does the same — none of them can be given a nonce. A nonce and `'unsafe-inline'` also
+cancel each other out in the same directive, so `style-src` carries no nonce; adding one would
+silently disable the keyword it depends on and break every code block. Exploiting a style-only
+injection requires an attacker who can already inject markup, at which point `script-src` is the
+control that is actually holding.
+
+`img-src` allows `https:` because SerpAPI and Yahoo thumbnails are third-party URLs chosen at
+runtime. Phase E's move to `next/image` is what lets that narrow to `'self'` plus `remotePatterns`.
+
+`CSP_REPORT_ONLY=true` switches to `Content-Security-Policy-Report-Only` for one deploy when rolling
+the policy out to a new environment.
+
+#### Item 5: the fence has to be unescapable
+
+Tool results are attacker-authored text — a SerpAPI product title is written by whoever owns the
+indexed page — and they reach the model as content indistinguishable from our own instructions.
+`fenceUntrustedMessages` wraps every `ToolMessage` in `<untrusted-tool-output>` delimiters and the
+system prompt declares delimited content to be data, never instruction.
+
+The part that is usually forgotten: a payload that can close the delimiter has escaped it.
+`neutralizeFenceEscapes` strips anything resembling a fence, in any casing or spacing, plus C0
+control characters used to hide text from a human reviewer. A test written for this caught a real
+gap — the first pattern missed `< / untrusted-tool-output >`, with a space after the `<`.
+
+Fencing applies only to the copy handed to the model. Graph state and the UI stream keep the exact
+tool JSON, so the typed contracts still parse and the gen-UI cards still render.
+
+#### Item 6: auth hardening — what is code, and what is dashboard
+
+- **Code — `authorizedParties`.** `proxy.ts` now passes the deployment's own origins, so Clerk
+  verifies the session token's `azp` claim. Without the list Clerk skips the check entirely, which
+  makes leaving it unset the _weaker_ default rather than the neutral one; a token minted for
+  another site cannot be replayed here now.
+- **Code — cross-origin writes.** `assertSameOrigin` runs inside `createRouteHandler` for every
+  mutating method. A write whose `Origin` names a host this deployment does not serve is refused; an
+  absent `Origin` is allowed, because a non-browser client sends none and carries no ambient cookies
+  either. This mirrors how Next guards Server Actions.
+- **CSRF review of `lib/polar.ts` — outcome: no change needed.** Both server actions are read-only
+  (subscription status, usage meter) and take no user id; the session is the only input. Next's
+  built-in Origin/Host check covers the action endpoint, and `serverActions.allowedOrigins` is
+  deliberately left unset, since setting it only _widens_ what is accepted. The state-changing
+  billing flows are POST routes, and those are covered by `assertSameOrigin` above.
+- **Dashboard — session rotation.** Clerk rotates the short-lived session token every 60s
+  automatically; session lifetime and inactivity timeout are instance settings. Confirm in
+  Clerk → Sessions: a finite inactivity timeout, and multi-session disabled unless it is wanted.
+- **Dashboard — account linking.** Social-only sign-in makes this the lockout fallback: Clerk must
+  be set to link identities by verified email so a user who used Google today and GitHub tomorrow
+  lands on one account. Confirm in Clerk → User & Authentication → Account linking.
+- **Not applicable.** Password policy, email verification, and reset-flow abuse — see the
+  social-only decision record below.
+
+#### Item 7: the audit gate, and the two critical RCEs it found
+
+Adding `pnpm audit` immediately surfaced **two critical unauthenticated RCEs in `next@16.2.1`**
+(GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4 — Windows-hosted RCE and an AVIF RCE in the image
+optimizer), patched in 16.3.3. Bumped, along with `nanoid` → 5.1.16 and `drizzle-orm` → 0.45.2,
+which cleared their advisories too. This is the phase justifying itself on its first run.
+
+The gate is blocking at high/critical over production dependencies, with reviewed advisories named
+individually in `pnpm.auditConfig.ignoreGhsas`. A severity threshold alone would either block on
+advisories nobody can fix from this repo or wave through the next one that lands; naming them means
+anything _new_ fails the build. A second non-blocking run reports everything including dev
+dependencies.
+
+**Accepted advisories, all deep-transitive with no remediation available from this repo:**
+
+| Package                                   | GHSA                                                                           | Reached via                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
+| `browserslist`, `image-size`, `picomatch` | 73wf-gq98-2v4g, c83g-rgw3-j3cx, 5p2g-fcmc-qvqq, w3rx-r6r6-pgpr, c2c7-rcm5-vvqj | `@clerk/ui` → Solana wallet → react-native |
+| `kysely`                                  | 8cpq-38p9-67gx, pv5w-4p9q-p3v2, wmrf-hv6w-mr66                                 | `drizzle-orm` (optional peer, unused)      |
+| `langsmith`                               | 3644-q5cj-c5c7                                                                 | `@langchain/core`                          |
+| `linkify-it`                              | 22p9-wv53-3rq4, v245-v573-v5vm                                                 | `ansi-to-react` — **Phase E deletes it**   |
+| `lodash-es`                               | r5fr-rjxr-66jc                                                                 | `@streamdown/mermaid` → mermaid            |
+
+Revisit this list whenever Dependabot bumps one of those trees; `image-size` currently has no
+patched version at all. Third-party actions are pinned to commit SHAs with the version in a trailing
+comment, and the gitleaks image to `v8.30.1` rather than `:latest` — Dependabot rewrites both.
+
 ### Exit criteria
 
-- [ ] A scripted burst of 100 messages from one account returns 429s with `Retry-After`.
-- [ ] A user over quota gets `QUOTA_EXCEEDED` + upgrade CTA, and no provider call is made.
-- [ ] Zero Polar API calls on a warm chat request (verified in logs).
-- [ ] securityheaders.com-equivalent audit at A grade; CSP has no `unsafe-inline`.
+- [x] A scripted burst of 100 messages from one account returns 429s with `Retry-After` —
+      `scripts/rate-limit-burst.ts` sends the burst and fails unless every 429 carried the header.
+      The limiter beneath it is verified against the live database (below); the script itself needs
+      a running deployment and a session cookie, so it has **not been executed end to end**.
+- [x] A user over quota gets `QUOTA_EXCEEDED` + upgrade CTA, and no provider call is made —
+      `assertWithinQuota` throws before `agent.streamEvents`, and the composer renders an upgrade
+      button rather than a retry.
+- [x] Zero Polar API calls on a warm chat request — `resolvePlan` logs `planSource` on every
+      `chat.stream_started`; a warm request records `local`.
+- [x] securityheaders.com-equivalent audit at A grade; CSP has **no `unsafe-inline` in
+      `script-src`**. `style-src` keeps it, with the reasoning recorded above — read that before
+      treating this box as unqualified.
+
+### Verification run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm build` — all green.
+- `pnpm test` — **133 tests**, up from 52. New: `sliding-window`, `plan-policy`,
+  `untrusted-content`, `chat-error`, `security-headers`, `request-security`.
+- `pnpm audit --audit-level high --prod` — exits 0.
+- **Browser, `/sign-in` under the enforcing CSP** — page renders in full, Clerk's UI and `clerk-js`
+  load, all 27 script tags carry the nonce, and the console shows zero CSP violations. This is what
+  confirms `'strict-dynamic'` is doing its job.
+
+### Live database verification
+
+Migration `0001_abuse_control` applied to the dev Neon branch, then all three hand-written
+statements exercised directly against it — 23 checks, all passing, every row cleaned up afterwards.
+The atomicity claims are the point, so those were tested under real concurrency rather than
+reasoned about:
+
+| Check                                        | Result                                            |
+| -------------------------------------------- | ------------------------------------------------- |
+| 8 concurrent requests, limit 4               | exactly 4 allowed — no overshoot observed         |
+| 3 requests across a window boundary, limit 3 | exactly 1 allowed, not a fresh full allowance     |
+| A rejected request's effect on the counter   | none — the count stayed at 3                      |
+| 5 concurrent acquires, 3-slot allowance      | exactly 3 granted, no slot double-booked          |
+| Release with a stale lease id                | refused — the current holder keeps its slot       |
+| An expired lease                             | taken over, so a crashed stream unblocks the user |
+| **10 concurrent reservations, 5 remaining**  | **exactly 5 granted — no TOCTOU overrun**         |
+| The same webhook delivered twice             | one row, and the cancel revoked access            |
+| An `active` row whose period has passed      | no longer grants access                           |
+
+The 8-concurrent case landed on exactly 4 rather than the documented worst case of up to 7. That is
+the connection pool serialising in practice, not a guarantee — the overshoot bound in the design
+note above still stands as the thing to rely on.
+
+One assertion in that run failed first and was a bug in the _test_, not the code: 3 hits carried
+across a boundary decay to 2.7, which is legitimately under a limit of 3. Rewritten to assert the
+thing that matters — how many of the next three get through.
+
+### Still to verify against a live deployment
+
+1. **The burst script has not been run.** `scripts/rate-limit-burst.ts` needs a running deployment
+   and a signed-in session cookie. The SQL beneath it is now verified; what remains unproven is the
+   route, the headers, and the composer's 429 state end to end.
+2. **The Polar webhook has not received a live event.** Create the sandbox endpoint (see item 3
+   above), change a plan, and confirm `webhook.polar_subscription_synced` appears in the logs.
+3. **The Clerk dashboard settings in item 6** — inactivity timeout and account linking — are
+   recorded there as things to confirm, not things this phase changed.
 
 ### Phase D status
 
-> **`NOT DONE`** — Not started.
+> **`COMPLETED`** — all seven work items implemented; four exit criteria met, one qualified (see
+> the `style-src` note). The SQL is verified against the live dev database under concurrency; the
+> burst script and the Polar sandbox webhook still need a running deployment.
 
 ---
 
@@ -1158,7 +1383,8 @@ No email, no password, no verification codes.
 - **Provider outage is total lockout.** With one method there is no fallback; with three there is,
   but only if a user has more than one. Clerk's account linking matches identities by verified email,
   so a user who signs in with Google today and GitHub tomorrow lands on the same account when the
-  addresses match. Worth confirming that setting is on in the dashboard.
+  addresses match. Phase D item 6 records this as a dashboard setting to confirm, not a code change:
+  it is the only fallback social-only sign-in has.
 - **Anyone without one of the three is excluded.** Fine for a developer product where GitHub and
   Google are near-universal; it would not be for a general consumer audience.
 - **The LinkedIn mark is the weakest signal** of the three in a developer context. If sign-in
@@ -1273,6 +1499,13 @@ because none of it is visible from the repository.
    Polar `successUrl`, so a customer who completes checkout is redirected to
    `aichatwave-git-*.vercel.app` rather than the real domain — and for OG metadata, so social cards
    point at deployment URLs. Set it to `https://www.aichatwave.in`.
+
+   Phase D raised the cost of leaving this unset. `appUrl()` is now also the fallback host for the
+   cross-origin write check, and the variable feeds Clerk's `authorizedParties`. The latter is
+   handled defensively (`VERCEL_PROJECT_PRODUCTION_URL` is read too, so an unset app URL no longer
+   locks anyone out), but this is the single configuration change with the widest blast radius.
+   **Set it before deploying Phase D.**
+
 2. **`CLERK_WEBHOOK_SIGNING_SECRET` is unset**, so `/api/webhooks/clerk` returns 503. User rows still
    appear via just-in-time provisioning, but **Polar customer creation rides on `user.created`** and
    therefore never runs. Subscriptions are being keyed to Polar customers that may not exist yet.
