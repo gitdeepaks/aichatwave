@@ -32,8 +32,6 @@ import {
 import { SUBSCRIPTION_STATUSES } from "@/db/schema/billing-schema";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
-import { unstable_cache } from "next/cache";
-import { invalidateSubscription, subscriptionCacheTags } from "@/server/cache/cache-tags";
 
 /**
  * How long a reconciliation is trusted before a background refresh is started.
@@ -64,29 +62,23 @@ export type PlanResolution = {
  * Resolves the user's plan, preferring the local mirror.
  *
  * `refresh` is handed back rather than awaited so the caller decides how to run
- * it — the chat path passes it to `waitUntil`, which is what keeps a stale
- * cache off the turn's critical path.
+ * it — the chat path passes it to `waitUntil`, which is what keeps reconciling
+ * a stale mirror off the turn's critical path.
  */
 export async function resolvePlan(
   userId: string,
   log: Logger = rootLogger,
 ): Promise<{ resolution: PlanResolution; refresh: (() => Promise<void>) | null }> {
   const now = new Date();
-  const snapshot = await unstable_cache(
-    async () => {
-      const value = await readBillingSnapshot(userId);
-      return {
-        syncedAt: value.syncedAt?.toISOString() ?? null,
-        subscriptions: value.subscriptions.map((item) => ({
-          status: item.status,
-          currentPeriodEnd: item.currentPeriodEnd?.toISOString() ?? null,
-        })),
-      };
-    },
-    ["billing", userId],
-    { revalidate: 300, tags: subscriptionCacheTags(userId) },
-  )();
-  const syncedAt = snapshot.syncedAt === null ? null : new Date(snapshot.syncedAt);
+  // Read straight from the mirror, with no `unstable_cache` in front of it.
+  // A cache here is actively harmful rather than merely useless: the stale-path
+  // reconcile below runs in `waitUntil`, so it cannot invalidate a tag — Next
+  // flushes a request's pending revalidations when the handler returns. The
+  // cached `syncedAt` would therefore stay old, `isStale` would stay true, and
+  // every request for the next five minutes would fire another Polar reconcile.
+  // This is one indexed join on the local mirror; it is already the fast path.
+  const snapshot = await readBillingSnapshot(userId);
+  const syncedAt = snapshot.syncedAt;
 
   if (syncedAt === null) {
     // Cold: "no local row" cannot be distinguished from "webhook not yet
@@ -98,7 +90,7 @@ export async function resolvePlan(
   const active = snapshot.subscriptions.some(
     (item) =>
       ACTIVE_SUBSCRIPTION_STATUSES.some((status) => status === item.status) &&
-      (item.currentPeriodEnd === null || new Date(item.currentPeriodEnd) > now),
+      (item.currentPeriodEnd === null || item.currentPeriodEnd > now),
   );
   const planId = planFromSubscription(active);
   const isStale = now.getTime() - syncedAt.getTime() > BILLING_CACHE_TTL_MS;
@@ -150,7 +142,6 @@ async function reconcileFromPolar(userId: string, log: Logger): Promise<PlanId> 
     }
 
     await markBillingSynced({ userId, at: now });
-    invalidateSubscription(userId);
     active = (await findActiveSubscription({ userId, now })) !== null;
 
     log.info("billing.subscription_reconciled", {

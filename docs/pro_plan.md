@@ -950,8 +950,8 @@ silently disable the keyword it depends on and break every code block. Exploitin
 injection requires an attacker who can already inject markup, at which point `script-src` is the
 control that is actually holding.
 
-`img-src` allows `https:` because SerpAPI and Yahoo thumbnails are third-party URLs chosen at
-runtime. Phase E's move to `next/image` is what lets that narrow to `'self'` plus `remotePatterns`.
+`img-src` allowed `https:` at the time of writing, because SerpAPI and Yahoo thumbnails are
+third-party URLs chosen at runtime. **This was narrowed after Phase E** — see the follow-up below.
 
 `CSP_REPORT_ONLY=true` switches to `Content-Security-Policy-Report-Only` for one deploy when rolling
 the policy out to a new environment.
@@ -1126,13 +1126,10 @@ it can land whenever there is appetite for it.
    `maximumRedirects: 0`. Tool payloads are checked against the same HTTPS host allowlist before
    render, preventing the optimizer from becoming an open proxy. Invalid/legacy URLs degrade to the
    existing image-unavailable state.
-5. **User-scoped caching with invalidation.** Thread lists, the Memory Center list, and local
-   subscription snapshots use `unstable_cache` for five minutes and carry per-user tags. Next 16
-   recommends `use cache`, but enabling Cache Components would conflict with the request nonce CSP;
-   the supported existing cache API preserves that security posture. Mutations and the Polar
-   webhook expire tags immediately. Cached timestamps are serialized to ISO and rehydrated, rather
-   than relying on cache storage to preserve `Date` prototypes. Subscription snapshots also carry a
-   global transfer-invalidation tag so a previous owner cannot retain a cached Pro grant.
+5. ~~**User-scoped caching with invalidation.**~~ **Reverted — see "The two follow-ups" below.**
+   Thread lists, the Memory Center list, and local subscription snapshots were wrapped in
+   `unstable_cache` for five minutes with per-user tags, expired by mutations and the Polar
+   webhook. The tag invalidation did not work, and the caches have been removed.
 6. **First paint no longer waits on history/list data.** Thread history has an explicit Suspense
    fallback; Memory Center renders its real header immediately and suspends only records. The
    sidebar list already fetches client-side behind row skeletons. Authentication and route
@@ -1146,6 +1143,79 @@ it can land whenever there is appetite for it.
    extraction, removing duplicate OpenAI embeddings and vector searches. Structured logs record
    `preStreamMs`, `memoryLookupMs`, and the first non-empty `text-delta` as
    `chat.first_token.timeToFirstTokenMs`; protocol start frames are deliberately not counted.
+   Warm plan resolution is now one _uncached_ joined read — see the first follow-up below.
+
+### The two follow-ups
+
+A review of this phase found one bug and one piece of unfinished business. Both are fixed.
+
+#### `revalidateTag` from `waitUntil` is a silent no-op, so item 5 is reverted
+
+`revalidateTag` does not invalidate anything by itself. It appends to
+`workStore.pendingRevalidatedTags`, and Next flushes that list in `resolvePendingRevalidations()`
+the moment the route handler returns its `Response`
+(`next/dist/server/route-modules/app-route/module.js:512`). For a streaming chat response that is
+_before the first token_. Three of the six invalidation sites ran later than that, from `waitUntil`:
+
+| Site                                                         | What it invalidated | Consequence                                                                        |
+| ------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------- |
+| `agent.ts` → `persistAssistantTurn`                          | thread list         | sidebar order stale up to 5 min after every reply                                  |
+| `chat-service.ts` → `extractAndStoreMemories` → `saveMemory` | memory list         | a memory the assistant just learned missing from Memory Center for up to 5 min     |
+| `chat-service.ts` → `refresh()` → `reconcileFromPolar`       | billing snapshot    | **the worst one** — a Polar reconcile on _every_ request for the next five minutes |
+
+The third is worse than staleness. The cached `syncedAt` kept its old value, so `isStale` stayed
+true, so every following request fired another background reconcile — the opposite of the "one
+Polar call per user per day" this phase claimed. All three failed silently rather than throwing:
+the promise is constructed inside the request's `AsyncLocalStorage` scope, so the store still
+resolves and the tag simply lands in an array nobody reads again.
+
+There is no Next API that invalidates a tag from work running after the response, so the fix is to
+remove the three caches rather than to patch the call sites. All three were a single indexed read
+on an owned index; the shipped JS is unchanged (below), and the measured wins in this phase came
+from deleted source and dependencies, not from these caches. `server/cache/cache-tags.ts` is gone
+with them.
+
+The three in-request sites were correct and are not affected: thread creation, the memory route
+handlers, and the Polar webhook.
+
+**Coverage gap that let this through:** `cache-tags.ts` was the one new module with no test, which
+is why 149 green tests said nothing about it.
+
+#### `img-src` is narrowed, and `.svg` turns out not to go through the optimizer
+
+Phase D deferred narrowing `img-src` to this phase; the phase landed `next/image` without closing
+it, leaving the blanket `https:` and a stale code comment pointing at Phase E. `img-src` is now:
+
+```
+img-src 'self' blob: data: https://*.clerk.accounts.dev https://*.clerk.com
+        https://clerk.io https://*.clerk.io https://models.dev
+```
+
+Narrowing it surfaced something the blanket `https:` had been hiding. `next/image` **applies
+`unoptimized` automatically to any `src` ending in `.svg`** (documented at
+`next/dist/docs/01-app/03-api-reference/02-components/image.md:939`), because Next declines to run
+SVG through the optimizer unless `dangerouslyAllowSVG` is set. The model-provider logos are
+`.svg`, so they never reach `/_next/image` — they are fetched from `models.dev` cross-origin, and
+the `remotePatterns` entry for that host is never consulted. Item 4's claim that model-provider
+images go through `next/image` is true of the component and false of the bytes. Dropping `https:`
+without listing the host blanks every logo in the model selector.
+
+Clerk is the other cross-origin case: user avatars and OAuth provider logos are plain `<img>`
+elements pointed at `img.clerk.com`, rendered by Clerk's own components and by Radix `Avatar`.
+
+Verified in a browser against the enforcing policy, signed in, rather than reasoned about:
+
+| Image                             | Result                                           |
+| --------------------------------- | ------------------------------------------------ |
+| Local brand logo (`'self'`)       | loads                                            |
+| Clerk avatar (`img.clerk.com`)    | loads                                            |
+| Model logo (`models.dev`, `.svg`) | loads                                            |
+| `https://evil.example.com/x.png`  | **blocked, `img-src`** — the directive has teeth |
+
+The three thumbnail hosts were confirmed to reach the optimizer separately: a `/_next/image`
+request for each logs `upstream image response failed` (the host was fetched, the fabricated path
+404'd), while a non-allowlisted host logs nothing at all because `remotePatterns` rejects it before
+any fetch.
 
 ### Measurements
 
@@ -1176,7 +1246,7 @@ before/after p95.
 ### Exit criteria
 
 - [x] Codebase about 13k LOC with identical functionality. _(13,278 owned physical LOC under the
-      baseline counting method; 10,518 unreachable UI lines deleted; typecheck, lint, 149 tests, and build
+      baseline counting method; 10,518 unreachable UI lines deleted; typecheck, lint, 150 tests, and build
       pass.)_
 - [x] Bundle budget enforced in CI; measured reduction recorded here. _(Dead source was already
       tree-shaken, so shipped JS is flat within 684 bytes; source/dependency reductions are above.)_
@@ -1185,7 +1255,9 @@ before/after p95.
 
 ### Phase E status
 
-> **`WIP`** — implementation is complete and every local gate passes. Do not mark `COMPLETED` until
+> **`WIP`** — implementation is complete, the two follow-ups above are fixed, and every local gate
+> passes (`format:check`, `lint`, `typecheck`, 150 tests, `build`, `bundle:check`, `audit --prod`;
+> bundle unchanged at 2,993,754 bytes). Do not mark `COMPLETED` until
 > an authenticated production Lighthouse run reaches 95/95 and enough `chat.first_token` samples
 > exist to record a real p95. The pre-change p95 is unavailable because this metric did not exist;
 > use the first production window after deployment as the explicit baseline rather than fabricating

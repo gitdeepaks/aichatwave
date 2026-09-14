@@ -15,72 +15,34 @@ import * as threadRepository from "@/server/db/thread-repository";
 import type { Page } from "@/server/db/pagination";
 import { AppError } from "@/server/lib/app-error";
 import type { Logger } from "@/server/lib/logger";
-import { unstable_cache } from "next/cache";
-import { invalidateThreadList, threadListCacheTag } from "@/server/cache/cache-tags";
 
 export type ThreadRecord = threadRepository.ThreadRecord;
 export type MessageRecord = messageRepository.MessageRecord;
 
-type CachedThreadRecord = {
-  id: string;
-  title: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-  lastMessageAt: string | null;
-  archivedAt: string | null;
-  pinnedAt: string | null;
-};
-
+/**
+ * A page of the user's threads, newest activity first.
+ *
+ * Deliberately uncached. The obvious cache here is a tagged `unstable_cache`,
+ * but the event that invalidates it most often — an assistant reply changing
+ * `lastMessageAt`, and so the sidebar's order — is persisted from `waitUntil`,
+ * after the route handler has returned its streaming Response. Next flushes a
+ * request's pending tag revalidations at that moment, so a `revalidateTag`
+ * issued later lands in an array nobody reads again: no error, no invalidation,
+ * just a list that is silently up to five minutes stale after every turn. This
+ * is one indexed read on an owned index, so the cache was never buying much.
+ */
 export async function listThreads(params: {
   userId: string;
   cursor?: string | undefined;
   limit?: number | undefined;
   includeArchived?: boolean;
 }): Promise<Page<ThreadRecord>> {
-  const readCachedThreads = unstable_cache(
-    async (): Promise<Page<CachedThreadRecord>> => {
-      const page = await threadRepository.listThreads({
-        userId: params.userId,
-        cursor: params.cursor,
-        ...(params.limit === undefined ? {} : { limit: params.limit }),
-        ...(params.includeArchived === undefined
-          ? {}
-          : { includeArchived: params.includeArchived }),
-      });
-      return {
-        ...page,
-        items: page.items.map((item) => ({
-          ...item,
-          createdAt: item.createdAt.toISOString(),
-          updatedAt: item.updatedAt.toISOString(),
-          lastMessageAt: item.lastMessageAt?.toISOString() ?? null,
-          archivedAt: item.archivedAt?.toISOString() ?? null,
-          pinnedAt: item.pinnedAt?.toISOString() ?? null,
-        })),
-      };
-    },
-    [
-      "thread-list",
-      params.userId,
-      params.cursor ?? "",
-      String(params.limit ?? ""),
-      String(params.includeArchived ?? false),
-    ],
-    { revalidate: 300, tags: [threadListCacheTag(params.userId)] },
-  );
-  const page = await readCachedThreads();
-  return {
-    ...page,
-    items: page.items.map((item) => ({
-      ...item,
-      createdAt: new Date(item.createdAt),
-      updatedAt: new Date(item.updatedAt),
-      lastMessageAt: item.lastMessageAt === null ? null : new Date(item.lastMessageAt),
-      archivedAt: item.archivedAt === null ? null : new Date(item.archivedAt),
-      pinnedAt: item.pinnedAt === null ? null : new Date(item.pinnedAt),
-    })),
-  };
+  return threadRepository.listThreads({
+    userId: params.userId,
+    cursor: params.cursor,
+    ...(params.limit === undefined ? {} : { limit: params.limit }),
+    ...(params.includeArchived === undefined ? {} : { includeArchived: params.includeArchived }),
+  });
 }
 
 /**
@@ -122,7 +84,6 @@ export async function createThread(params: {
     userId: params.userId,
     title: params.title?.trim() || FALLBACK_THREAD_TITLE,
   });
-  invalidateThreadList(params.userId);
 
   params.log?.info("thread.created", { threadId: created.id });
   return created;
@@ -146,8 +107,6 @@ export async function renameThread(params: {
     throw new AppError("NOT_FOUND", "That conversation no longer exists.");
   }
 
-  invalidateThreadList(params.userId);
-
   params.log?.info("thread.updated", { threadId: updated.id });
   return updated;
 }
@@ -167,8 +126,6 @@ export async function deleteThread(params: {
   if (!deleted) {
     throw new AppError("NOT_FOUND", "That conversation no longer exists.");
   }
-
-  invalidateThreadList(params.userId);
 
   params.log?.info("thread.deleted", { threadId: params.threadId });
 }

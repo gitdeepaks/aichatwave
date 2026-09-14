@@ -37,6 +37,19 @@ test("script-src carries the nonce and strict-dynamic, and never unsafe-inline",
   assert.ok(!scriptSrc.includes("'unsafe-eval'"));
 });
 
+test("img-src names its hosts instead of allowing all of https:", () => {
+  const imgSrc = directive(buildContentSecurityPolicy(PRODUCTION), "img-src");
+
+  assert.ok(!imgSrc.split(/\s+/u).includes("https:"));
+  // Optimized thumbnails arrive via /_next/image on this origin.
+  assert.ok(imgSrc.includes("'self'"));
+  // Clerk avatars and OAuth provider logos are plain cross-origin <img>.
+  assert.ok(imgSrc.includes("https://*.clerk.com"));
+  // Model logos are .svg, which next/image serves unoptimized and therefore
+  // cross-origin. Dropping this host blanks every logo in the model selector.
+  assert.ok(imgSrc.includes("https://models.dev"));
+});
+
 test("unsafe-eval is a development-only concession", () => {
   const development = buildContentSecurityPolicy({ ...PRODUCTION, isDevelopment: true });
 

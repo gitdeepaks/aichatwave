@@ -17,7 +17,6 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import { SUBSCRIPTION_STATUSES } from "@/db/schema/billing-schema";
 import { markBillingSynced, upsertSubscription } from "@/server/db/subscription-repository";
-import { invalidateSubscription } from "@/server/cache/cache-tags";
 import { logger } from "@/server/lib/logger";
 import { resolveRequestId } from "@/server/lib/request-id";
 
@@ -140,7 +139,6 @@ export async function POST(request: Request): Promise<Response> {
     // Proof the mirror is current for this user, which is what lets the plan
     // resolver serve them locally from here on without asking Polar.
     await markBillingSynced({ userId, at: new Date() });
-    invalidateSubscription(userId);
 
     log.info("webhook.polar_subscription_synced", {
       event: event.type,

@@ -35,7 +35,6 @@ import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { waitUntil } from "@vercel/functions";
 import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
-import { invalidateThreadList } from "@/server/cache/cache-tags";
 
 /**
  * Creates the thread on first message, or verifies ownership of an existing
@@ -67,7 +66,6 @@ export async function ensureThreadAccess(params: {
     title: deriveThreadTitle(messageContent),
     userId,
   });
-  invalidateThreadList(userId);
   log.info("chat.thread_created", { threadId, userId });
   return true;
 }

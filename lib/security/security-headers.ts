@@ -94,14 +94,29 @@ export function buildContentSecurityPolicy(options: SecurityHeaderOptions): stri
     [
       "img-src",
       [
+        // The runtime-chosen images — SerpAPI product thumbnails and Yahoo
+        // Finance article photos — go through `next/image`, so the browser
+        // fetches them from `/_next/image` on this origin. Their upstream hosts
+        // are enumerated in `next.config.ts` `remotePatterns` and checked again
+        // by `lib/remote-images.ts` before render, which is what lets this
+        // directive drop the blanket `https:` it used to carry.
         "'self'",
         "blob:",
         "data:",
-        // SerpAPI product thumbnails and Yahoo Finance article images are
-        // third-party URLs chosen at runtime, so they cannot be enumerated.
-        // Phase E moves them behind `next/image`, at which point this can
-        // narrow to 'self' plus the configured remotePatterns.
-        "https:",
+        // Two categories are still fetched cross-origin and so must be named.
+        //
+        // Clerk's user avatars and OAuth provider logos are rendered by Clerk's
+        // own components and by Radix `Avatar` as plain `<img>` elements
+        // pointed at `img.clerk.com`, never through the optimizer.
+        ...CLERK_ORIGINS,
+        // The model-provider logos in the model selector are `.svg`, and
+        // `next/image` applies `unoptimized` automatically to any `src` ending
+        // in `.svg` — Next declines to run SVG through the optimizer unless
+        // `dangerouslyAllowSVG` is set, which is not worth doing for a 12px
+        // icon. So these bypass `/_next/image` and hit `models.dev` directly;
+        // the `remotePatterns` entry for that host is never consulted. Listing
+        // one known host is still far narrower than `https:`.
+        "https://models.dev",
       ],
     ],
     [
