@@ -30,6 +30,7 @@ export const chatRuntimeContextSchema = z.object({
   threadId: threadIdSchema,
   requestId: requestIdSchema,
   selectedModel: z.enum(MODEL_IDS),
+  memoriesContent: z.string(),
 });
 
 export type ChatRuntimeContext = z.infer<typeof chatRuntimeContextSchema>;
@@ -44,6 +45,7 @@ export function toChatRuntimeContext(params: {
   threadId: string;
   requestId: string;
   selectedModel: string;
+  memoriesContent: string;
 }): ChatRuntimeContext {
   return chatRuntimeContextSchema.parse(params);
 }

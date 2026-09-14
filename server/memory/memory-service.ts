@@ -23,6 +23,8 @@ import { getStore } from "@/server/memory/store";
 import { REMEMBER_MEMORY_PROMPT } from "@/server/chat/prompts";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
+import { unstable_cache } from "next/cache";
+import { invalidateMemoryList, memoryListCacheTag } from "@/server/cache/cache-tags";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -47,6 +49,8 @@ export type MemoryRecord = {
   content: string;
   createdAt: Date;
 };
+
+type CachedMemoryRecord = Omit<MemoryRecord, "createdAt"> & { createdAt: string };
 
 const EMPTY_MEMORIES_CONTENT = "(empty)";
 const MEMORY_EXTRACTION_MODEL = "gpt-5-nano";
@@ -75,12 +79,19 @@ function toMemoryRecords(items: StoredMemoryItem[]): MemoryRecord[] {
 
 /** Every memory a user has stored, newest first. Backs the Memory Center. */
 export async function listMemories(userId: string): Promise<MemoryRecord[]> {
-  const store = getStore();
-  const items = await store.search(memoryNamespace(userId), { limit: MEMORY_LIST_LIMIT });
-
-  return toMemoryRecords(items).sort(
-    (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+  const readCachedMemories = unstable_cache(
+    async (): Promise<CachedMemoryRecord[]> => {
+      const store = getStore();
+      const items = await store.search(memoryNamespace(userId), { limit: MEMORY_LIST_LIMIT });
+      return toMemoryRecords(items)
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+        .map((memory) => ({ ...memory, createdAt: memory.createdAt.toISOString() }));
+    },
+    ["memory-list", userId],
+    { revalidate: 300, tags: [memoryListCacheTag(userId)] },
   );
+  const memories = await readCachedMemories();
+  return memories.map((memory) => ({ ...memory, createdAt: new Date(memory.createdAt) }));
 }
 
 /**
@@ -127,6 +138,7 @@ export async function saveMemory(userId: string, text: string): Promise<MemoryRe
   const store = getStore();
   const id = randomUUID();
   await store.put(memoryNamespace(userId), id, { data: text });
+  invalidateMemoryList(userId);
   return { id, content: text, createdAt: new Date() };
 }
 
@@ -144,6 +156,7 @@ export async function deleteMemory(params: {
   }
 
   await store.delete(memoryNamespace(params.userId), params.memoryId);
+  invalidateMemoryList(params.userId);
   params.log?.info("memory.deleted", { memoryId: params.memoryId });
 }
 
@@ -176,6 +189,7 @@ async function decideMemoriesToStore(params: {
 export async function extractAndStoreMemories(params: {
   userId: string;
   messageContent: string;
+  existingMemoriesContent: string;
   log?: Logger;
 }): Promise<void> {
   const { userId, messageContent } = params;
@@ -184,13 +198,9 @@ export async function extractAndStoreMemories(params: {
   try {
     if (messageContent.trim().length < MIN_MESSAGE_LENGTH_FOR_MEMORY) return;
 
-    const existingMemoriesContent = await getMemoriesPromptContent(
-      { userId, query: messageContent },
-      log,
-    );
     const decision = await decideMemoriesToStore({
       messageContent,
-      existingMemoriesContent,
+      existingMemoriesContent: params.existingMemoriesContent,
     });
 
     if (!decision?.should_write) return;

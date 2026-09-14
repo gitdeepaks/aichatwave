@@ -5,7 +5,6 @@ import { chatRuntimeContextSchema, type ChatRuntimeContext } from "@/server/chat
 import { tools } from "@/server/chat/tools";
 import { BASE_SYSTEM_PROMPT_TEMPLATE } from "@/server/chat/prompts";
 import { fenceUntrustedMessages, fenceUserMemories } from "@/server/chat/untrusted-content";
-import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
 import { ingestModelUsage } from "@/server/billing/subscription-service";
 import { recordQuotaTokens } from "@/server/billing/quota-service";
 import { usagePeriodFor } from "@/lib/billing/plan-policy";
@@ -66,31 +65,6 @@ const usageMetadataSchema = z
   })
   .catch({});
 
-/** Text of the most recent human message, used as the memory retrieval query. */
-function latestUserText(messages: BaseMessage[]): string {
-  const last = messages.at(-1);
-  if (!last) return "";
-  return typeof last.content === "string" ? last.content : "";
-}
-
-const memoryRememberNode: GraphNode<typeof MessagesState> = async (state, runtime) => {
-  const context = readContext(runtime);
-  const content = latestUserText(state.messages).trim();
-  if (content.length === 0) return {};
-
-  await extractAndStoreMemories({
-    userId: context.userId,
-    messageContent: content,
-    log: logger.child({
-      requestId: context.requestId,
-      userId: context.userId,
-      node: "memoryRememberNode",
-    }),
-  });
-
-  return {};
-};
-
 const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const context = readContext(runtime);
   const llmCallId = createLlmCallId();
@@ -106,15 +80,10 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
 
   const modelWithTools = getDynamicModel(modelId).bindTools(tools);
 
-  const memoriesContent = await getMemoriesPromptContent(
-    { userId: context.userId, query: latestUserText(state.messages) },
-    log,
-  );
-
   const formattedSystemPrompt = await BASE_SYSTEM_PROMPT_TEMPLATE.format({
     // Memories are derived from user messages, so they are untrusted for the
     // same reason tool output is, and carry the same fence.
-    user_details_content: fenceUserMemories(memoriesContent),
+    user_details_content: fenceUserMemories(context.memoriesContent),
   });
 
   const startedAt = Date.now();
@@ -149,6 +118,7 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   waitUntil(
     persistAssistantTurn({
       threadId: context.threadId,
+      userId: context.userId,
       message: response,
       modelId,
       inputTokens,
@@ -204,12 +174,7 @@ const toolNode = new ToolNode(tools);
 export const agent = new StateGraph(MessagesState)
   .addNode("callLlm", llmCall)
   .addNode("tools", toolNode)
-  .addNode("memoryRememberNode", memoryRememberNode)
-  .addConditionalEdges(START, () => ["callLlm", "memoryRememberNode"], {
-    callLlm: "callLlm",
-    memoryRememberNode: "memoryRememberNode",
-  })
-  .addEdge("memoryRememberNode", END)
+  .addEdge(START, "callLlm")
   .addConditionalEdges("callLlm", shouldContinue, {
     __end__: END,
     tools: "tools",

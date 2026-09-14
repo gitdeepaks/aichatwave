@@ -58,3 +58,31 @@ export function onStreamSettled<TChunk>(
     },
   });
 }
+
+/** Observes delivery without buffering or changing the stream's chunks. */
+export function onFirstMatchingChunk<TChunk>(
+  source: ReadableStream<TChunk>,
+  predicate: (chunk: TChunk) => boolean,
+  callback: () => void,
+): ReadableStream<TChunk> {
+  const reader = source.getReader();
+  let seen = false;
+
+  return new ReadableStream<TChunk>({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+      if (!seen && predicate(value)) {
+        seen = true;
+        callback();
+      }
+      controller.enqueue(value);
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
+}

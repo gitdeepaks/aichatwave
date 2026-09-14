@@ -19,7 +19,7 @@ import { agent } from "@/server/chat/agent";
 import { toChatRuntimeContext } from "@/server/chat/runtime-context";
 import { deriveThreadTitle } from "@/server/chat/thread-title";
 import { persistUserTurn } from "@/server/chat/turn-persistence";
-import { onStreamSettled } from "@/server/chat/stream-lifecycle";
+import { onFirstMatchingChunk, onStreamSettled } from "@/server/chat/stream-lifecycle";
 import { assertModelAccess, resolvePlan } from "@/server/billing/subscription-service";
 import { assertWithinQuota, refundQuota } from "@/server/billing/quota-service";
 import {
@@ -34,6 +34,8 @@ import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { waitUntil } from "@vercel/functions";
+import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
+import { invalidateThreadList } from "@/server/cache/cache-tags";
 
 /**
  * Creates the thread on first message, or verifies ownership of an existing
@@ -44,12 +46,12 @@ export async function ensureThreadAccess(params: {
   threadId: string;
   messageContent: string;
   log?: Logger;
-}): Promise<void> {
+}): Promise<boolean> {
   const { userId, threadId, messageContent } = params;
   const log = params.log ?? rootLogger;
 
   const owned = await threadRepository.findThreadForUser({ threadId, userId });
-  if (owned) return;
+  if (owned) return false;
 
   if (await threadRepository.threadExists(threadId)) {
     throw new AppError("FORBIDDEN", "You don't have access to this thread.");
@@ -65,7 +67,9 @@ export async function ensureThreadAccess(params: {
     title: deriveThreadTitle(messageContent),
     userId,
   });
+  invalidateThreadList(userId);
   log.info("chat.thread_created", { threadId, userId });
+  return true;
 }
 
 export type StreamChatParams = {
@@ -101,12 +105,9 @@ export type StreamChatParams = {
  * slot and refunds the reservation, so a failure never leaks either.
  */
 export async function streamChat(params: StreamChatParams): Promise<Response> {
+  const requestStartedAt = performance.now();
   const { messageContent, clientIp } = params;
-  // Parsed once, here: past this line `userId`, `threadId` and `requestId` are
-  // branded and non-optional, so no node downstream has to defend against a
-  // turn that is missing one.
-  const context = toChatRuntimeContext(params);
-  const { userId, threadId, selectedModel, requestId } = context;
+  const { userId, threadId, selectedModel, requestId } = params;
   const log = rootLogger.child({ requestId, userId, threadId, modelId: selectedModel });
   const now = new Date();
 
@@ -129,7 +130,7 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   let reservation: Awaited<ReturnType<typeof assertWithinQuota>> | null = null;
 
   try {
-    await ensureThreadAccess({ userId, threadId, messageContent, log });
+    const createdThread = await ensureThreadAccess({ userId, threadId, messageContent, log });
     // Availability (is this deployment configured for the model?) before access
     // (does the user's plan include it?): the first is a 503 an operator owns,
     // the second a 403 the user can resolve by upgrading. Checking availability
@@ -141,7 +142,15 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
 
     // Written before the model runs so the user's message survives a failed or
     // abandoned generation.
-    await persistUserTurn({ threadId, content: messageContent, log });
+    const memoryStartedAt = performance.now();
+    const [, memoriesContent] = await Promise.all([
+      persistUserTurn({ threadId, userId, content: messageContent, log }),
+      getMemoriesPromptContent({ userId, query: messageContent }, log),
+    ]);
+    const memoryLookupMs = Math.round(performance.now() - memoryStartedAt);
+    // Parsed once before graph entry: every id is branded and memory context is
+    // fixed for the turn, so tool loops do not repeat the embedding lookup.
+    const context = toChatRuntimeContext({ ...params, memoriesContent });
 
     const stream = await agent.streamEvents(
       { messages: [new HumanMessage(messageContent)] },
@@ -152,22 +161,42 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       },
     );
 
+    waitUntil(
+      extractAndStoreMemories({
+        userId,
+        messageContent,
+        existingMemoriesContent: memoriesContent,
+        log,
+      }),
+    );
+
     log.info("chat.stream_started", {
       planId: resolution.planId,
       planSource: resolution.source,
       quotaUsed: reservation.snapshot.used,
       quotaLimit: reservation.snapshot.limit,
       streamSlot: lease.slot,
+      createdThread,
+      memoryLookupMs,
+      preStreamMs: Math.round(performance.now() - requestStartedAt),
     });
 
     return createUIMessageStreamResponse({
       // The slot is held for as long as the answer is actually streaming, and
       // freed the moment it stops — including when the user navigates away
       // mid-answer, which a `finally` around this function would never see.
-      stream: onStreamSettled(toUIMessageStream(stream), (outcome) => {
-        log.info("chat.stream_settled", { outcome, streamSlot: lease.slot });
-        waitUntil(releaseChatStreamSlot(lease, log));
-      }),
+      stream: onFirstMatchingChunk(
+        onStreamSettled(toUIMessageStream(stream), (outcome) => {
+          log.info("chat.stream_settled", { outcome, streamSlot: lease.slot });
+          waitUntil(releaseChatStreamSlot(lease, log));
+        }),
+        (chunk) => chunk.type === "text-delta" && chunk.delta.trim().length > 0,
+        () => {
+          log.info("chat.first_token", {
+            timeToFirstTokenMs: Math.round(performance.now() - requestStartedAt),
+          });
+        },
+      ),
       headers: {
         "x-request-id": requestId,
         // Lets the composer show remaining messages without a second request.

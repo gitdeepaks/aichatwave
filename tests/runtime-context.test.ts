@@ -7,6 +7,7 @@ const turn = {
   threadId: "thread_456",
   requestId: "req_789",
   selectedModel: "gpt-5-nano",
+  memoriesContent: "- Prefers concise answers",
 };
 
 test("a complete turn parses, and the ids survive unchanged", () => {
@@ -23,6 +24,7 @@ test("extra fields are dropped, so the context carries only the turn", () => {
   const context = toChatRuntimeContext(withMessage);
 
   assert.deepEqual(Object.keys(context).sort(), [
+    "memoriesContent",
     "requestId",
     "selectedModel",
     "threadId",
@@ -31,7 +33,13 @@ test("extra fields are dropped, so the context carries only the turn", () => {
 });
 
 test("a missing field is a rejection, not a context with a hole in it", () => {
-  for (const field of ["userId", "threadId", "requestId", "selectedModel"] as const) {
+  for (const field of [
+    "userId",
+    "threadId",
+    "requestId",
+    "selectedModel",
+    "memoriesContent",
+  ] as const) {
     const { [field]: _dropped, ...rest } = turn;
     assert.equal(chatRuntimeContextSchema.safeParse(rest).success, false, `missing ${field}`);
   }

@@ -18,6 +18,7 @@ import { jsonValueSchema } from "@/lib/json";
 import { appendMessages } from "@/server/db/message-repository";
 import { touchThread } from "@/server/db/thread-repository";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
+import { invalidateThreadList } from "@/server/cache/cache-tags";
 
 /** Flattens LangChain's string-or-blocks content into plain text. */
 function readTextContent(message: BaseMessage): string {
@@ -43,6 +44,7 @@ function toToolParts(message: AIMessage): ToolPart[] {
 
 export async function persistUserTurn(params: {
   threadId: string;
+  userId: string;
   content: string;
   log?: Logger;
 }): Promise<void> {
@@ -52,6 +54,7 @@ export async function persistUserTurn(params: {
   try {
     await appendMessages([{ id: randomUUID(), threadId: params.threadId, role: "user", parts }]);
     await touchThread({ threadId: params.threadId, at: new Date() });
+    invalidateThreadList(params.userId);
   } catch (error) {
     log.error("message.persist_user_failed", { threadId: params.threadId }, error);
   }
@@ -59,6 +62,7 @@ export async function persistUserTurn(params: {
 
 export async function persistAssistantTurn(params: {
   threadId: string;
+  userId: string;
   message: AIMessage;
   modelId: ModelId;
   inputTokens: number;
@@ -88,6 +92,7 @@ export async function persistAssistantTurn(params: {
       },
     ]);
     await touchThread({ threadId: params.threadId, at: new Date() });
+    invalidateThreadList(params.userId);
   } catch (error) {
     log.error("message.persist_assistant_failed", { threadId: params.threadId }, error);
   }
