@@ -26,6 +26,32 @@ test("a configured app URL is taken as-is, including its scheme", () => {
   ]);
 });
 
+test("development also authorizes the origin serving the current request", () => {
+  assert.deepEqual(
+    resolveAuthorizedParties(
+      {
+        NODE_ENV: "development",
+        NEXT_PUBLIC_APP_URL: "https://www.aichatwave.in",
+      },
+      "http://localhost:3000",
+    ),
+    ["https://www.aichatwave.in", "http://localhost:3000"],
+  );
+});
+
+test("production never trusts an origin derived from the request", () => {
+  assert.deepEqual(
+    resolveAuthorizedParties(
+      {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_APP_URL: "https://www.aichatwave.in",
+      },
+      "https://attacker.example",
+    ),
+    ["https://www.aichatwave.in"],
+  );
+});
+
 test("trailing slashes are trimmed, because azp never carries one", () => {
   assert.deepEqual(
     resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "https://www.aichatwave.in/" }),

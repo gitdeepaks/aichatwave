@@ -20,6 +20,7 @@
  */
 
 export type AuthorizedPartiesEnv = {
+  NODE_ENV?: string | undefined;
   /** Set deliberately by an operator; already carries a scheme. */
   NEXT_PUBLIC_APP_URL?: string | undefined;
   /** Vercel: the project's production domain, e.g. `www.aichatwave.in`. */
@@ -30,12 +31,16 @@ export type AuthorizedPartiesEnv = {
   VERCEL_BRANCH_URL?: string | undefined;
 };
 
-export function resolveAuthorizedParties(env: AuthorizedPartiesEnv): string[] {
+export function resolveAuthorizedParties(
+  env: AuthorizedPartiesEnv,
+  requestOrigin?: string,
+): string[] {
   const origins = [
     env.NEXT_PUBLIC_APP_URL,
     withProtocol(env.VERCEL_PROJECT_PRODUCTION_URL),
     withProtocol(env.VERCEL_URL),
     withProtocol(env.VERCEL_BRANCH_URL),
+    env.NODE_ENV === "development" ? requestOrigin : undefined,
   ];
 
   return [
