@@ -1,6 +1,8 @@
 import { ExternalLink, Newspaper } from "lucide-react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DisplayNewsResult, NewsItem } from "@/lib/ai/tool-contracts";
+import { approvedRemoteImageUrl } from "@/lib/remote-images";
 
 const buildSummaryLead = (query: string, total: number): string => {
   const now = new Date().toLocaleDateString(undefined, {
@@ -65,39 +67,44 @@ export function NewsCard({ query, news, summary, error }: DisplayNewsResult) {
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="flex gap-3 overflow-x-auto pb-1">
-          {topCards.map((item) => (
-            <a
-              key={item.uuid}
-              href={item.link}
-              target="_blank"
-              rel="noreferrer"
-              className="group min-w-64 max-w-64 shrink-0 overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/30"
-            >
-              <div className="h-32 w-full overflow-hidden border-b bg-muted/40">
-                {item.thumbnail ? (
-                  <img
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                    No image
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2 p-3">
-                <h4 className="line-clamp-3 text-sm font-medium leading-snug">{item.title}</h4>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">{item.publisher}</span>
-                  <ExternalLink className="size-3.5 shrink-0" />
+          {topCards.map((item) => {
+            const thumbnail = approvedRemoteImageUrl(item.thumbnail);
+            return (
+              <a
+                key={item.uuid}
+                href={item.link}
+                target="_blank"
+                rel="noreferrer"
+                className="group min-w-64 max-w-64 shrink-0 overflow-hidden rounded-xl border bg-card transition-colors hover:bg-muted/30"
+              >
+                <div className="relative h-32 w-full overflow-hidden border-b bg-muted/40">
+                  {thumbnail ? (
+                    <Image
+                      src={thumbnail}
+                      alt={item.title}
+                      fill
+                      sizes="256px"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                      No image
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {item.publishTime || "Latest update"}
-                </p>
-              </div>
-            </a>
-          ))}
+                <div className="space-y-2 p-3">
+                  <h4 className="line-clamp-3 text-sm font-medium leading-snug">{item.title}</h4>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{item.publisher}</span>
+                    <ExternalLink className="size-3.5 shrink-0" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {item.publishTime || "Latest update"}
+                  </p>
+                </div>
+              </a>
+            );
+          })}
         </div>
 
         <p className="border-t pt-4 text-sm text-foreground/90">

@@ -25,6 +25,7 @@ import {
 import { billingApi } from "@/lib/api/client";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
 import { isCustomerHaveSubscription } from "@/lib/polar";
+import { subscriptionQueryKey } from "@/lib/query-keys";
 import { Skeleton } from "../ui/skeleton";
 import Link from "next/link";
 
@@ -46,7 +47,7 @@ export function SidebarFooterComponent() {
       : null;
 
   const { data: hasProSubscription } = useQuery({
-    queryKey: ["customer_subscription", clerkUser?.id],
+    queryKey: subscriptionQueryKey(clerkUser?.id),
     enabled: isLoaded && isSignedIn,
     queryFn: () => isCustomerHaveSubscription(),
   });

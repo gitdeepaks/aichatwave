@@ -1,7 +1,9 @@
 import { Star } from "lucide-react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { DisplayProductsResult } from "@/lib/ai/tool-contracts";
+import { approvedRemoteImageUrl } from "@/lib/remote-images";
 
 /**
  * Props are the parsed `display_products` result itself, so the card and the
@@ -49,7 +51,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
       {/* Scrollable container setup for the carousel */}
       <div className="flex  overflow-x-auto snap-x snap-mandatory hide-scrollbar -mx-1 px-1 gap-x-4">
         {products.map((product) => {
-          const imageUrl = product.thumbnail.trim() || null;
+          const imageUrl = approvedRemoteImageUrl(product.thumbnail);
           return (
             <Card
               key={product.id}
@@ -59,10 +61,12 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
               <a href={product.productLink} target="_blank" rel="noreferrer">
                 <div className="relative h-45 w-full bg-white flex items-center justify-center p-6 border-b border-border/50 overflow-hidden">
                   {imageUrl ? (
-                    <img
+                    <Image
                       src={imageUrl}
                       alt={product.title}
-                      className="max-h-full max-w-full object-contain mix-blend-multiply hover:scale-105 transition-transform duration-500 ease-out"
+                      fill
+                      sizes="(min-width: 640px) 240px, 220px"
+                      className="object-contain p-6 mix-blend-multiply hover:scale-105 transition-transform duration-500 ease-out"
                     />
                   ) : (
                     <div className="text-xs text-muted-foreground">Image unavailable</div>

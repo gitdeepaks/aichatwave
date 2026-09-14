@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { billingApi } from "@/lib/api/client";
 import { isCustomerHaveSubscription } from "@/lib/polar";
+import { subscriptionQueryKey } from "@/lib/query-keys";
 
 /** Header CTA: opens Polar checkout when the user has no active Pro subscription. */
 export function ProUpgradeCta() {
@@ -14,7 +15,7 @@ export function ProUpgradeCta() {
   const [isStarting, setIsStarting] = useState(false);
 
   const { data: hasProSubscription } = useQuery({
-    queryKey: ["customer_subscription", userId],
+    queryKey: subscriptionQueryKey(userId),
     enabled: isLoaded && isSignedIn,
     queryFn: () => isCustomerHaveSubscription(),
   });

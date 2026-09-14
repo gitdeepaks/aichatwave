@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 import { useQuery } from "@tanstack/react-query";
 import { isCustomerHaveSubscription } from "@/lib/polar";
+import { subscriptionQueryKey } from "@/lib/query-keys";
 import { useAuth } from "@clerk/nextjs";
 import type { ModelId } from "@/lib/ai/model-registry";
 
@@ -121,7 +122,7 @@ export const ModelSelectorComponent = () => {
   const { isLoaded, isSignedIn, userId } = useAuth();
 
   const { data: userHaveProPlan = false } = useQuery({
-    queryKey: ["customer_subscription", userId],
+    queryKey: subscriptionQueryKey(userId),
     enabled: isLoaded && isSignedIn,
     queryFn: () => isCustomerHaveSubscription(),
   });

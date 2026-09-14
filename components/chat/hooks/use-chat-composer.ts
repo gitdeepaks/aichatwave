@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useChatStore } from "@/store/chat-store";
 import type { ChatComposerController, SendChatMessage } from "@/components/chat/types";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { useQueryClient } from "@tanstack/react-query";
+import { THREADS_QUERY_KEY } from "@/lib/query-keys";
 
 export function useChatComposer({
   sendMessage,
@@ -21,6 +23,7 @@ export function useChatComposer({
 }): ChatComposerController {
   const { selectedModel } = useChatStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const threadIdParam = params["thread_id"];
   const threadIdFromUrl = typeof threadIdParam === "string" ? threadIdParam : threadIdParam?.[0];
@@ -53,10 +56,11 @@ export function useChatComposer({
       setInput("");
 
       if (!threadIdFromUrl) {
+        await queryClient.invalidateQueries({ queryKey: THREADS_QUERY_KEY });
         router.push(`/chat/${finalThreadId}`);
       }
     },
-    [finalThreadId, isBusy, router, selectedModel, sendMessage, threadIdFromUrl],
+    [finalThreadId, isBusy, queryClient, router, selectedModel, sendMessage, threadIdFromUrl],
   );
 
   const handleKeyDown = useCallback<ChatComposerController["handleKeyDown"]>((event) => {

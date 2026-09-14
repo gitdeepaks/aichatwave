@@ -23,8 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { threadsApi } from "@/lib/api/client";
 import type { ThreadDto } from "@/lib/api/contracts";
 import { cn } from "@/lib/utils";
-
-export const THREADS_QUERY_KEY = ["threads"] as const;
+import { THREADS_QUERY_KEY } from "@/lib/query-keys";
 
 export function ThreadsLists() {
   const pathname = usePathname() ?? "";
