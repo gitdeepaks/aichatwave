@@ -4,6 +4,9 @@ import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,10 +18,26 @@ import {
 } from "@/components/ui/card";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
+import { subscriptionQueryKey } from "@/lib/query-keys";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const checkoutId = searchParams.get("checkout_id");
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const refresh = () => queryClient.invalidateQueries({ queryKey: subscriptionQueryKey(userId) });
+    void refresh();
+    // The redirect can beat Polar's webhook. Bound polling to the delivery
+    // window so the persistent chat layout does not keep a stale free-plan row.
+    const interval = window.setInterval(() => void refresh(), 2_000);
+    const timeout = window.setTimeout(() => window.clearInterval(interval), 15_000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [queryClient, userId]);
 
   return (
     <Card className={cn("w-full max-w-110 text-zinc-50", brandGlassCardClass)}>

@@ -12,9 +12,6 @@ export default async function ChatPageLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Resource-level protection, per Clerk's guidance against middleware-based
-  // auth gating. Redirects signed-out visitors to sign-in; every page beneath
-  // this layout is covered, and the data layer checks ownership again.
   await auth.protect();
 
   return (

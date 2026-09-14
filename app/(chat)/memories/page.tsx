@@ -7,8 +7,21 @@ import { toMemoryDto } from "@/server/api/dto";
 import { redirect } from "next/navigation";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default async function UserMemoriesPanel() {
+export default function UserMemoriesPanel() {
+  return (
+    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden p-4">
+      <MemoryHeader />
+      <Suspense fallback={<MemoryRecordsFallback />}>
+        <MemoryRecords />
+      </Suspense>
+    </div>
+  );
+}
+
+async function MemoryRecords() {
   const userId = await getSessionUserId();
 
   if (!userId) {
@@ -17,28 +30,44 @@ export default async function UserMemoriesPanel() {
 
   const memories = (await listMemories(userId)).map(toMemoryDto);
 
-  return (
-    <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden p-4">
-      <Card className={cn("shrink-0 rounded-2xl", brandGlassCardClass)}>
-        <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-              <Sparkles className="size-3 text-orange-300" aria-hidden />
-              Long-term memory
-            </div>
-            <div className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-orange-300" />
-              <h2 className="text-xl font-semibold tracking-tight text-white">Memory Center</h2>
-            </div>
-            <p className="mt-1 max-w-lg text-[15px] leading-relaxed text-zinc-400">
-              Facts and preferences the assistant keeps across chats — same glass look as your
-              sign-in experience.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+  return <Records memories={memories} />;
+}
 
-      <Records memories={memories} />
+function MemoryHeader() {
+  return (
+    <Card className={cn("shrink-0 rounded-2xl", brandGlassCardClass)}>
+      <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">
+            <Sparkles className="size-3 text-orange-300" aria-hidden />
+            Long-term memory
+          </div>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-orange-300" />
+            <h2 className="text-xl font-semibold tracking-tight text-white">Memory Center</h2>
+          </div>
+          <p className="mt-1 max-w-lg text-[15px] leading-relaxed text-zinc-400">
+            Facts and preferences the assistant keeps across chats — same glass look as your sign-in
+            experience.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MemoryRecordsFallback() {
+  return (
+    <div className="flex flex-col gap-3" role="status" aria-label="Loading memories">
+      {[0, 1, 2, 3].map((index) => (
+        <Card key={index} className={cn("rounded-2xl", brandGlassCardClass)}>
+          <CardContent className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-3/4 bg-white/5" />
+            <Skeleton className="h-4 w-1/2 bg-white/5" />
+          </CardContent>
+        </Card>
+      ))}
+      <span className="sr-only">Loading memories...</span>
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { ChatInterfaceNew } from "@/components/chat-interface";
 import { getSessionUserId } from "@/server/auth/session";
 import { getThreadHistory } from "@/server/chat/chat-service";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
+import { ChatLoadingSkeleton } from "@/components/chat/chat-loading-skeleton";
 
 export default async function Page({
   params,
@@ -16,6 +18,14 @@ export default async function Page({
     notFound();
   }
 
+  return (
+    <Suspense fallback={<ChatLoadingSkeleton />}>
+      <Conversation threadId={threadId} />
+    </Suspense>
+  );
+}
+
+async function Conversation({ threadId }: Readonly<{ threadId: string }>) {
   const userId = await getSessionUserId();
   if (!userId) {
     redirect("/sign-in");

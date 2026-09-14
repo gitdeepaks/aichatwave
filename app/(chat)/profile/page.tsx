@@ -14,6 +14,7 @@ import { billingApi } from "@/lib/api/client";
 import { getCustomerMeters, isCustomerHaveSubscription } from "@/lib/polar";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
+import { subscriptionQueryKey } from "@/lib/query-keys";
 
 const profileCardClass = cn("rounded-2xl", brandGlassCardClass);
 
@@ -28,7 +29,7 @@ export default function ChatbotUserProfile() {
   const userId = clerkUser?.id;
 
   const { data: isProSubscription, isSuccess: isProSubscriptionSuccess } = useQuery({
-    queryKey: ["is_customer_have_subscription", userId],
+    queryKey: subscriptionQueryKey(userId),
     queryFn: () => isCustomerHaveSubscription(),
     enabled: isLoaded && isSignedIn,
   });
