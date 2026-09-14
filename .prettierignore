@@ -16,8 +16,5 @@ public/site.webmanifest
 # revert any formatting on the next `add`. `eslint.config.mjs` already exempts
 # `components/ui` from the assertion ban for the same reason — this keeps the
 # two tools' idea of "ours" consistent.
-#
-# `components/ai-elements` is additionally on the chopping block: Phase E
-# deletes 44 of its 48 files as unreachable.
 components/ui
 components/ai-elements

@@ -33,13 +33,17 @@ import { buildSecurityHeaders, generateNonce } from "@/lib/security/security-hea
  * `lib/security/authorized-parties.ts` for why a partial list is worse than
  * none.
  */
-function authorizedParties(): string[] {
-  return resolveAuthorizedParties({
-    NEXT_PUBLIC_APP_URL: process.env["NEXT_PUBLIC_APP_URL"],
-    VERCEL_PROJECT_PRODUCTION_URL: process.env["VERCEL_PROJECT_PRODUCTION_URL"],
-    VERCEL_URL: process.env["VERCEL_URL"],
-    VERCEL_BRANCH_URL: process.env["VERCEL_BRANCH_URL"],
-  });
+function authorizedParties(request: NextRequest): string[] {
+  return resolveAuthorizedParties(
+    {
+      NODE_ENV: process.env.NODE_ENV,
+      NEXT_PUBLIC_APP_URL: process.env["NEXT_PUBLIC_APP_URL"],
+      VERCEL_PROJECT_PRODUCTION_URL: process.env["VERCEL_PROJECT_PRODUCTION_URL"],
+      VERCEL_URL: process.env["VERCEL_URL"],
+      VERCEL_BRANCH_URL: process.env["VERCEL_BRANCH_URL"],
+    },
+    request.nextUrl.origin,
+  );
 }
 
 /** Report-only lets an operator watch for violations before enforcing. */
@@ -84,9 +88,7 @@ export default clerkMiddleware(
 
     return response;
   },
-  {
-    authorizedParties: authorizedParties(),
-  },
+  (request) => ({ authorizedParties: authorizedParties(request) }),
 );
 
 export const config = {

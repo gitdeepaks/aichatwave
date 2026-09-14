@@ -7,9 +7,8 @@ import unknownParseBoundary from "./eslint-rules/unknown-parse-boundary.mjs";
  * reverts any edit made to satisfy a rule — so it is exempt from the
  * type-safety rules for the same reason `.prettierignore` skips it.
  *
- * `components/ai-elements` is not linted at all (see `ignores` below): the same
- * CLI-output argument applies, and it is outside the TypeScript program, so the
- * type-aware rules have no types to work from.
+ * The four retained `components/ai-elements` files are typechecked but not
+ * linted (see `ignores` below): they remain AI Elements CLI output.
  */
 const VENDORED = ["components/ui/**"];
 
@@ -34,8 +33,7 @@ export default [
       "build/**",
       "node_modules/**",
       "next-env.d.ts",
-      // AI Elements output, excluded from `tsconfig.json` as well. Phase E
-      // deletes 44 of its 48 files.
+      // The four reachable AI Elements files remain generated CLI output.
       "components/ai-elements/**",
     ],
   },
@@ -49,7 +47,6 @@ export default [
       "react-hooks/purity": "off",
       "react-hooks/immutability": "off",
       "react-hooks/static-components": "off",
-      "@next/next/no-img-element": "off",
       "import/no-anonymous-default-export": "off",
     },
   },

@@ -80,6 +80,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm build
 
+      - name: Bundle budget
+        if: ${{ !cancelled() }}
+        run: pnpm bundle:check
+
       # Blocking, at high and critical, over production dependencies only.
       #
       # The advisories that have already been reviewed and accepted are listed
