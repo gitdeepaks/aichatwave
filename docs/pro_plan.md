@@ -1,7 +1,7 @@
 # AIChatWave — Production Hardening Plan
 
-> **Done:** A, A2, A3, B, C, D, and the billing incident. **Next:** Phase E (bundle, performance,
-> and dead code).
+> **Done:** A, A2, A3, B, C, D, and the billing incident. **In progress:** Phase E (implementation
+> complete; authenticated Lighthouse and production TTFT samples remain).
 > Owner: @gitdeepaks · Created 2026-09-09 · Restructured 2026-09-10 · Baseline commit `9f3e93d`
 
 Execution model: **one phase at a time**. Each phase ends with an exit-criteria checklist and a
@@ -53,7 +53,7 @@ this table.
 | **B — Guardrails and boot hygiene** | **`COMPLETED`** | CI green on `main`; error pages, registry-derived env, gitleaks |
 | **C — Bulletproof types**           | **`COMPLETED`** | typed tool contract, type-aware lint, 4 compiler flags added    |
 | **D — Security and cost**           | **`COMPLETED`** | limits, quota, local plan mirror, strict CSP, supply chain      |
-| **E — Bundle, perf, dead code**     | `NOT DONE`      | **next up** — 9,609 unreachable LOC still present               |
+| **E — Bundle, perf, dead code**     | `WIP`           | code landed; production Lighthouse + TTFT verification remain   |
 | **F — Conversation data**           | `NOT DONE`      | read switch, search, export, account deletion                   |
 | **G — Chat completeness**           | `NOT DONE`      | stop button, resumable streams, dead controls                   |
 | **H — Observability**               | `WIP`           | health probe + `onRequestError` landed early; no OTel yet       |
@@ -82,8 +82,8 @@ useful instead of becoming a historical curiosity. "Now" verified 2026-09-10.
 | ------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
 | `pnpm typecheck`                                  | ✅ clean                                             | ✅ clean                                     |
 | `pnpm lint`                                       | ✅ 0 errors, 5 warnings                              | ✅ 0 errors, 5 warnings                      |
-| `pnpm test`                                       | 29 tests                                             | **133 tests**                                |
-| Unreachable LOC in `components/ai-elements`       | 9,609 (44 of 48 files) — 42% of the codebase         | unchanged — Phase E                          |
+| `pnpm test`                                       | 29 tests                                             | **149 tests**                                |
+| Unreachable LOC in `components/ai-elements`       | 9,609 (44 of 48 files) — 42% of the codebase         | **0 — deleted in Phase E**                   |
 | Route handlers                                    | 2                                                    | **10**                                       |
 | Integration / E2E tests                           | 0                                                    | 0 — Phase I                                  |
 | CI pipeline                                       | none                                                 | ✅ `.github/workflows/ci.yml` + gitleaks     |
@@ -1015,7 +1015,6 @@ dependencies.
 | `browserslist`, `image-size`, `picomatch` | 73wf-gq98-2v4g, c83g-rgw3-j3cx, 5p2g-fcmc-qvqq, w3rx-r6r6-pgpr, c2c7-rcm5-vvqj | `@clerk/ui` → Solana wallet → react-native |
 | `kysely`                                  | 8cpq-38p9-67gx, pv5w-4p9q-p3v2, wmrf-hv6w-mr66                                 | `drizzle-orm` (optional peer, unused)      |
 | `langsmith`                               | 3644-q5cj-c5c7                                                                 | `@langchain/core`                          |
-| `linkify-it`                              | 22p9-wv53-3rq4, v245-v573-v5vm                                                 | `ansi-to-react` — **Phase E deletes it**   |
 | `lodash-es`                               | r5fr-rjxr-66jc                                                                 | `@streamdown/mermaid` → mermaid            |
 
 Revisit this list whenever Dependabot bumps one of those trees; `image-size` currently has no
@@ -1094,47 +1093,103 @@ thing that matters — how many of the next three get through.
 
 ## Phase E — Bundle, performance, and dead code
 
-**Goal:** ship less code, faster.
+**`WIP`** · **Goal:** ship less code, faster.
 **Risk:** low (deletions are verifiable). **Touches:** `components/ai-elements/`, `package.json`,
 `next.config.ts`.
 
 Promoted ahead of the chat work: it is the cheapest large win in the plan and unblocks nothing, so
 it can land whenever there is appetite for it.
 
-### Work
+### What landed
 
-1. **Delete the unreachable half of the UI.** Reachability analysis from the four actually-imported
-   roots (`prompt-input`, `message`, `model-selector`, `speech-input`) shows **44 of 48
-   `components/ai-elements` files — 9,609 LOC — are unreachable**, including `voice-selector`,
-   `test-results`, `stack-trace`, `schema-display`, `commit`, `file-tree`, `web-preview`, `sandbox`,
-   `canvas`, `node`, `edge`. Delete them (git history keeps them recoverable). Phase C already
-   removed the directory from `tsconfig.json`'s `exclude` list and ESLint's `ignores` — 25 of those
-   files fail `exactOptionalPropertyTypes` on generated third-party interop — so deleting them
-   should also let both exemptions go.
-2. **Drop the dependencies they alone pulled in** — `@xyflow/react`, `media-chrome`, `shiki`,
-   `@rive-app/react-webgl2`, `react-jsx-parser`, `tokenlens`, `ansi-to-react`, `use-stick-to-bottom`,
-   and the `@streamdown/*` add-ons if they stay unreferenced. Verified as having zero importers
-   outside the dead set.
-3. **Bundle analysis** in CI with a size budget that fails the build on regression.
-4. **Images.** `@next/next/no-img-element` is disabled and remote thumbnails (SerpAPI, Yahoo) render
-   as raw `<img>`. Move to `next/image` with `remotePatterns`, then re-enable the rule.
-5. **Caching** — `unstable_cache`/`revalidateTag` for thread lists, memories, and subscription
-   status; a static shell for the chat route.
-6. **Streaming SSR / Suspense boundaries** so the sidebar and thread list do not block first paint.
-7. **Time-to-first-token budget** — measure and optimize the pre-LLM work: today a turn does an
-   ownership `SELECT`, a Polar API call, a memory read, _and_ a parallel `gpt-5-nano` extraction call
-   before tokens flow. (Phase D item 3 removes the Polar call.)
+1. **Dead source removed.** Deleted the 44 unreachable AI Elements files identified in the original
+   graph: exactly **9,609 physical LOC**. A second reachability pass from every App Router entrypoint
+   found ten more disconnected shadcn files (909 LOC), also deleted. The only remaining AI Elements
+   files are the four reachable roots: `prompt-input`, `message`, `model-selector`, and
+   `speech-input`. `components/ai-elements` is back in the TypeScript program; its ESLint/Prettier
+   vendored-output exemption remains because the four files are still CLI-generated.
+2. **Fourteen direct production dependencies removed.** The dead UI took
+   `@radix-ui/react-use-controllable-state`, `@rive-app/react-webgl2`, `@xyflow/react`,
+   `ansi-to-react`, `media-chrome`, `motion`, `react-jsx-parser`, direct `shiki`, `tokenlens`, and
+   `use-stick-to-bottom` with it. The repository-wide pass also removed unused
+   `@tanstack/react-form`, `dotenv`, `embla-carousel-react`, and `next-themes`. Direct production
+   dependencies fell **53 → 39** and lockfile package entries **1,498 → 1,464**. Removing
+   `ansi-to-react` removed `linkify-it`, so its two accepted audit exceptions were deleted. The four
+   `@streamdown/*` add-ons stay: reachable `message.tsx` imports all four.
+3. **A blocking Turbopack bundle budget.** `pnpm bundle:check` parses Next 16's production
+   `.next/diagnostics/route-bundle-stats.json`, fails closed when a required route disappears, and
+   enforces a per-route first-load uncompressed-JS ceiling. CI runs it immediately after `build`.
+   `pnpm bundle:analyze` writes Next's supported Turbopack report for import tracing.
+4. **Images are constrained and optimized.** Product, Yahoo news, and model-provider images use
+   `next/image`; `@next/next/no-img-element` is re-enabled. `remotePatterns` name only the observed
+   Google/Yahoo/model-logo hosts, permit normal thumbnail query strings, and set
+   `maximumRedirects: 0`. Tool payloads are checked against the same HTTPS host allowlist before
+   render, preventing the optimizer from becoming an open proxy. Invalid/legacy URLs degrade to the
+   existing image-unavailable state.
+5. **User-scoped caching with invalidation.** Thread lists, the Memory Center list, and local
+   subscription snapshots use `unstable_cache` for five minutes and carry per-user tags. Next 16
+   recommends `use cache`, but enabling Cache Components would conflict with the request nonce CSP;
+   the supported existing cache API preserves that security posture. Mutations and the Polar
+   webhook expire tags immediately. Cached timestamps are serialized to ISO and rehydrated, rather
+   than relying on cache storage to preserve `Date` prototypes. Subscription snapshots also carry a
+   global transfer-invalidation tag so a previous owner cannot retain a cached Pro grant.
+6. **First paint no longer waits on history/list data.** Thread history has an explicit Suspense
+   fallback; Memory Center renders its real header immediately and suspends only records. The
+   sidebar list already fetches client-side behind row skeletons. Authentication and route
+   validation remain ahead of streaming so redirects and malformed ids preserve their real HTTP
+   status. This is origin-streamed SSR, **not PPR**: Next's nonce CSP guidance says per-request
+   nonces force dynamic rendering and are incompatible with a prerendered static shell. Weakening
+   `script-src` was not an acceptable performance trade.
+7. **The pre-model path is smaller and instrumented.** Warm plan resolution is one cached joined
+   database read instead of two serial reads. User-turn persistence and semantic-memory retrieval
+   now run concurrently. One memory snapshot is reused by every LLM/tool loop and by background
+   extraction, removing duplicate OpenAI embeddings and vector searches. Structured logs record
+   `preStreamMs`, `memoryLookupMs`, and the first non-empty `text-delta` as
+   `chat.first_token.timeToFirstTokenMs`; protocol start frames are deliberately not counted.
+
+### Measurements
+
+Measured locally on 2026-09-14 against Next 16.3.3 production builds:
+
+| Signal                                      | Before    | After      | Change              |
+| ------------------------------------------- | --------- | ---------- | ------------------- |
+| Unreachable AI Elements                     | 44 files  | 0 files    | **-9,609 LOC**      |
+| All unreachable UI found in the second pass | 54 files  | 0 files    | **-10,518 LOC**     |
+| Phase-compatible owned-source count         | 22,649    | **13,278** | -9,371 (about 13k)  |
+| Direct production dependencies              | 53        | **39**     | -14                 |
+| Lockfile package entries                    | 1,498     | **1,464**  | -34                 |
+| `/` first-load uncompressed JS              | 2,993,070 | 2,993,754  | +684 bytes (+0.02%) |
+| `/chat/[thread_id]` first-load JS           | 2,993,070 | 2,993,754  | +684 bytes (+0.02%) |
+
+The flat bundle result is expected and important to state plainly: Turbopack already tree-shook the
+44 disconnected files, so deleting them reduces source, install surface, audit noise, and future
+maintenance rather than pretending to remove bytes that were never shipped. The small increase is
+the `next/image` client integration and remains 2.96% below the 3,085,000-byte chat budget.
+
+One Lighthouse run was possible without credentials: the production **sign-in route** scored
+**73 performance / 98 accessibility** under Lighthouse 13.4.1's default mobile profile. It is not
+the authenticated chat route and therefore does not satisfy the criterion below. A signed-in Clerk
+test session is required to measure that route rather than its redirect. Likewise, TTFT logging
+starts with this change, so there is no honest pre-change production sample from which to invent a
+before/after p95.
 
 ### Exit criteria
 
-- [ ] Codebase under ~13k LOC with identical functionality.
-- [ ] Bundle budget enforced in CI; measured reduction recorded here.
+- [x] Codebase about 13k LOC with identical functionality. _(13,278 owned physical LOC under the
+      baseline counting method; 10,518 unreachable UI lines deleted; typecheck, lint, 149 tests, and build
+      pass.)_
+- [x] Bundle budget enforced in CI; measured reduction recorded here. _(Dead source was already
+      tree-shaken, so shipped JS is flat within 684 bytes; source/dependency reductions are above.)_
 - [ ] Lighthouse ≥ 95 performance / ≥ 95 a11y on the chat route.
 - [ ] p95 time-to-first-token recorded before and after.
 
 ### Phase E status
 
-> **`NOT DONE`** — Not started.
+> **`WIP`** — implementation is complete and every local gate passes. Do not mark `COMPLETED` until
+> an authenticated production Lighthouse run reaches 95/95 and enough `chat.first_token` samples
+> exist to record a real p95. The pre-change p95 is unavailable because this metric did not exist;
+> use the first production window after deployment as the explicit baseline rather than fabricating
+> a retrospective number.
 
 ---
 

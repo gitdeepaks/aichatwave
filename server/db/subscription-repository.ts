@@ -41,6 +41,11 @@ export type SubscriptionRecord = {
   updatedAt: Date;
 };
 
+export type BillingSnapshot = {
+  syncedAt: Date | null;
+  subscriptions: SubscriptionRecord[];
+};
+
 export type UpsertSubscriptionInput = {
   userId: string;
   polarSubscriptionId: string;
@@ -121,22 +126,51 @@ export async function findActiveSubscription(params: {
   return rows[0] ?? null;
 }
 
-/**
- * Whether this user's mirror has ever been reconciled against Polar directly.
- *
- * Without this flag, "no active subscription row" is ambiguous — it could mean
- * free, or it could mean the webhook has not landed yet — and the only safe
- * reading would be to ask Polar on every request, which is the call this whole
- * phase exists to remove.
- */
-export async function readBillingSyncedAt(userId: string): Promise<Date | null> {
+/** One round trip for the durable sync stamp and every possible access grant. */
+export async function readBillingSnapshot(userId: string): Promise<BillingSnapshot> {
   const rows = await db
-    .select({ billingSyncedAt: user.billingSyncedAt })
+    .select({
+      billingSyncedAt: user.billingSyncedAt,
+      id: subscription.id,
+      subscriptionUserId: subscription.userId,
+      polarSubscriptionId: subscription.polarSubscriptionId,
+      polarProductId: subscription.polarProductId,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      updatedAt: subscription.updatedAt,
+    })
     .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
+    .leftJoin(subscription, eq(subscription.userId, user.id))
+    .where(eq(user.id, userId));
 
-  return rows[0]?.billingSyncedAt ?? null;
+  return {
+    syncedAt: rows[0]?.billingSyncedAt ?? null,
+    subscriptions: rows.flatMap((row) => {
+      if (
+        row.id === null ||
+        row.subscriptionUserId === null ||
+        row.polarSubscriptionId === null ||
+        row.polarProductId === null ||
+        row.status === null ||
+        row.updatedAt === null
+      ) {
+        return [];
+      }
+      return [
+        {
+          id: row.id,
+          userId: row.subscriptionUserId,
+          polarSubscriptionId: row.polarSubscriptionId,
+          polarProductId: row.polarProductId,
+          status: row.status,
+          currentPeriodEnd: row.currentPeriodEnd,
+          cancelAtPeriodEnd: row.cancelAtPeriodEnd,
+          updatedAt: row.updatedAt,
+        },
+      ];
+    }),
+  };
 }
 
 /** Stamps the mirror as reconciled. No-op when the user row does not exist yet. */

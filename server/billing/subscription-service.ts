@@ -22,15 +22,18 @@ import { polarClient } from "@/lib/polar-client";
 import { isModelAccessible, type ModelId } from "@/lib/ai/model-registry";
 import { planFromSubscription, type PlanId } from "@/lib/billing/plan-policy";
 import {
+  ACTIVE_SUBSCRIPTION_STATUSES,
   findActiveSubscription,
   markBillingSynced,
-  readBillingSyncedAt,
+  readBillingSnapshot,
   upsertSubscription,
   type SubscriptionStatus,
 } from "@/server/db/subscription-repository";
 import { SUBSCRIPTION_STATUSES } from "@/db/schema/billing-schema";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
+import { unstable_cache } from "next/cache";
+import { invalidateSubscription, subscriptionCacheTags } from "@/server/cache/cache-tags";
 
 /**
  * How long a reconciliation is trusted before a background refresh is started.
@@ -69,7 +72,21 @@ export async function resolvePlan(
   log: Logger = rootLogger,
 ): Promise<{ resolution: PlanResolution; refresh: (() => Promise<void>) | null }> {
   const now = new Date();
-  const syncedAt = await readBillingSyncedAt(userId);
+  const snapshot = await unstable_cache(
+    async () => {
+      const value = await readBillingSnapshot(userId);
+      return {
+        syncedAt: value.syncedAt?.toISOString() ?? null,
+        subscriptions: value.subscriptions.map((item) => ({
+          status: item.status,
+          currentPeriodEnd: item.currentPeriodEnd?.toISOString() ?? null,
+        })),
+      };
+    },
+    ["billing", userId],
+    { revalidate: 300, tags: subscriptionCacheTags(userId) },
+  )();
+  const syncedAt = snapshot.syncedAt === null ? null : new Date(snapshot.syncedAt);
 
   if (syncedAt === null) {
     // Cold: "no local row" cannot be distinguished from "webhook not yet
@@ -78,8 +95,12 @@ export async function resolvePlan(
     return { resolution: { planId, source: "polar", refreshing: false }, refresh: null };
   }
 
-  const active = await findActiveSubscription({ userId, now });
-  const planId = planFromSubscription(active !== null);
+  const active = snapshot.subscriptions.some(
+    (item) =>
+      ACTIVE_SUBSCRIPTION_STATUSES.some((status) => status === item.status) &&
+      (item.currentPeriodEnd === null || new Date(item.currentPeriodEnd) > now),
+  );
+  const planId = planFromSubscription(active);
   const isStale = now.getTime() - syncedAt.getTime() > BILLING_CACHE_TTL_MS;
 
   return {
@@ -129,6 +150,7 @@ async function reconcileFromPolar(userId: string, log: Logger): Promise<PlanId> 
     }
 
     await markBillingSynced({ userId, at: now });
+    invalidateSubscription(userId);
     active = (await findActiveSubscription({ userId, now })) !== null;
 
     log.info("billing.subscription_reconciled", {
