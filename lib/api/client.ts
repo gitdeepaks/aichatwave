@@ -12,13 +12,16 @@ import type { JsonValue } from "@/lib/json";
 import {
   memoryListResponseSchema,
   messageListResponseSchema,
+  messageSearchResponseSchema,
   threadListResponseSchema,
   threadResponseSchema,
   type CreateThreadRequest,
   type MemoryDto,
   type MessageListResponse,
+  type MessageSearchResponse,
   type ThreadDto,
   type ThreadListResponse,
+  type ThreadView,
   type UpdateThreadRequest,
 } from "@/lib/api/contracts";
 
@@ -118,8 +121,34 @@ function buildQuery(params: Record<string, string | number | boolean | undefined
 }
 
 export const threadsApi = {
-  list: (params: { cursor?: string; limit?: number; includeArchived?: boolean } = {}) =>
-    request<ThreadListResponse>(`/api/threads${buildQuery(params)}`, threadListResponseSchema),
+  list: (
+    params: {
+      cursor?: string;
+      limit?: number;
+      view?: ThreadView;
+      pinned?: boolean;
+      signal?: AbortSignal;
+    } = {},
+  ) => {
+    const { signal, ...query } = params;
+    return request<ThreadListResponse>(
+      `/api/threads${buildQuery(query)}`,
+      threadListResponseSchema,
+      signal ? { signal } : {},
+    );
+  },
+
+  search: (
+    query: string,
+    params: { cursor?: string; limit?: number; signal?: AbortSignal } = {},
+  ) => {
+    const { signal, ...pagination } = params;
+    return request<MessageSearchResponse>(
+      `/api/threads/search${buildQuery({ q: query, ...pagination })}`,
+      messageSearchResponseSchema,
+      signal ? { signal } : {},
+    );
+  },
 
   create: async (body: CreateThreadRequest = {}): Promise<ThreadDto> => {
     const result = await request(`/api/threads`, threadResponseSchema, {
@@ -183,4 +212,14 @@ export const memoriesApi = {
 
   remove: (memoryId: string): Promise<void> =>
     request(`/api/memories/${memoryId}`, z.void(), { method: "DELETE" }),
+};
+
+const accountDeletionResponseSchema = z.object({ status: z.literal("deleted") });
+
+export const accountApi = {
+  remove: (confirmation: string): Promise<{ status: "deleted" }> =>
+    request("/api/account/delete", accountDeletionResponseSchema, {
+      method: "POST",
+      body: { confirmation },
+    }),
 };

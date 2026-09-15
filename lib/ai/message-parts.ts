@@ -18,9 +18,13 @@ export const messageRoleSchema = z.enum(MESSAGE_ROLES);
 export type MessageRole = z.infer<typeof messageRoleSchema>;
 
 /**
- * Lifecycle of a tool call. `input-streaming` and `input-available` are
- * transient stream states; only `output-available` and `output-error` are ever
- * persisted, because a turn is not written until it completes.
+ * Lifecycle of a tool call. `input-streaming` is a stream-only state and is
+ * never persisted. `input-available` is written durably but only in passing:
+ * the assistant turn is stored the moment the model asks for a tool, and
+ * `persistToolResults` resolves that part to `output-available` or
+ * `output-error` once the tool node answers. A row left at `input-available`
+ * means the turn was abandoned before its tool returned, and the renderer
+ * treats it as still running.
  */
 export const TOOL_PART_STATES = [
   "input-streaming",

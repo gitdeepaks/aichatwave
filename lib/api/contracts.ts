@@ -31,6 +31,9 @@ export const threadListResponseSchema = z.object({
 });
 export type ThreadListResponse = z.infer<typeof threadListResponseSchema>;
 
+export const threadViewSchema = z.enum(["active", "archived"]);
+export type ThreadView = z.infer<typeof threadViewSchema>;
+
 export const threadResponseSchema = z.object({ thread: threadDtoSchema });
 export type ThreadResponse = z.infer<typeof threadResponseSchema>;
 
@@ -71,6 +74,18 @@ export const messageListResponseSchema = z.object({
 });
 export type MessageListResponse = z.infer<typeof messageListResponseSchema>;
 
+export const messageSearchResultDtoSchema = z.object({
+  thread: threadDtoSchema,
+  message: messageDtoSchema,
+});
+export type MessageSearchResultDto = z.infer<typeof messageSearchResultDtoSchema>;
+
+export const messageSearchResponseSchema = z.object({
+  results: z.array(messageSearchResultDtoSchema),
+  nextCursor: z.string().nullable(),
+});
+export type MessageSearchResponse = z.infer<typeof messageSearchResponseSchema>;
+
 export const memoryDtoSchema = z.object({
   id: z.string().min(1),
   content: z.string(),
@@ -107,3 +122,16 @@ export const paginationQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+
+const queryBooleanSchema = z.enum(["true", "false"]).transform((value) => value === "true");
+
+export const threadListQuerySchema = paginationQuerySchema.extend({
+  view: threadViewSchema.default("active"),
+  pinned: queryBooleanSchema.optional(),
+});
+export type ThreadListQuery = z.infer<typeof threadListQuerySchema>;
+
+export const messageSearchQuerySchema = paginationQuerySchema.extend({
+  q: z.string().trim().min(1).max(200),
+});
+export type MessageSearchQuery = z.infer<typeof messageSearchQuerySchema>;
