@@ -1,7 +1,7 @@
-import { z } from "zod";
 import {
   createThreadRequestSchema,
   paginationQuerySchema,
+  threadListQuerySchema,
   type ThreadListResponse,
   type ThreadResponse,
 } from "@/lib/api/contracts";
@@ -9,24 +9,18 @@ import { toThreadDto } from "@/server/api/dto";
 import { createThread, listThreads } from "@/server/chat/thread-service";
 import { createRouteHandler, jsonResponse, noBody, noParams } from "@/server/lib/route-handler";
 
-const listQuerySchema = paginationQuerySchema.extend({
-  includeArchived: z
-    .enum(["true", "false"])
-    .optional()
-    .transform((value) => value === "true"),
-});
-
 export const GET = createRouteHandler({
   name: "GET /api/threads",
   params: noParams,
-  query: listQuerySchema,
+  query: threadListQuerySchema,
   body: noBody,
   handler: async ({ userId, query }) => {
     const page = await listThreads({
       userId,
       cursor: query.cursor,
       limit: query.limit,
-      includeArchived: query.includeArchived,
+      view: query.view,
+      pinned: query.pinned,
     });
 
     const response: ThreadListResponse = {

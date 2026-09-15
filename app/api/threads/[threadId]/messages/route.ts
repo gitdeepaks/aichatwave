@@ -20,6 +20,7 @@ export const GET = createRouteHandler({
       log,
     });
 
+    // Each page is chronological; the cursor requests the page immediately before it.
     const response: MessageListResponse = {
       messages: page.items.map(toMessageDto),
       nextCursor: page.nextCursor,

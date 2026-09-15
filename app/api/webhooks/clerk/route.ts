@@ -12,7 +12,8 @@ import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { ensurePolarCustomer } from "@/server/billing/checkout-service";
-import { deleteUser, resolveName, upsertUser } from "@/server/auth/user-service";
+import { resolveName, upsertUser } from "@/server/auth/user-service";
+import { deleteAccount } from "@/server/account/account-deletion-service";
 import { logger } from "@/server/lib/logger";
 import { resolveRequestId } from "@/server/lib/request-id";
 
@@ -56,13 +57,17 @@ export async function POST(request: NextRequest): Promise<Response> {
         email,
       });
 
-      await upsertUser({
+      const synced = await upsertUser({
         id,
         name,
         email,
         emailVerified: primaryEmail?.verification?.status === "verified",
         image: image_url.length > 0 ? image_url : null,
       });
+      if (!synced) {
+        log.info("webhook.user_ignored_deleted", { userId: id, event: event.type });
+        return new Response("Ignored", { status: 200 });
+      }
       log.info("webhook.user_synced", { userId: id, event: event.type });
 
       if (event.type === "user.created") {
@@ -73,8 +78,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (event.type === "user.deleted") {
       const { id } = event.data;
       if (id) {
-        // Threads, messages, and subscriptions cascade from the user row.
-        await deleteUser(id);
+        await deleteAccount({ userId: id, identityAlreadyGone: true, log });
         log.info("webhook.user_deleted", { userId: id });
       }
     }

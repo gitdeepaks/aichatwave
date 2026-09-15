@@ -122,7 +122,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    await upsertSubscription({
+    const synced = await upsertSubscription({
       userId,
       polarSubscriptionId: subscription.id,
       polarProductId: subscription.productId,
@@ -135,6 +135,11 @@ export async function POST(request: Request): Promise<Response> {
         ? (subscription.endsAt ?? subscription.currentPeriodEnd)
         : null,
     });
+
+    if (!synced) {
+      log.info("webhook.polar_ignored_deleted", { userId, event: event.type });
+      return new Response("Ignored", { status: 200 });
+    }
 
     // Proof the mirror is current for this user, which is what lets the plan
     // resolver serve them locally from here on without asking Polar.
