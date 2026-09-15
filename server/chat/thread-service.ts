@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { ThreadView } from "@/lib/api/contracts";
 import { ensureUserProvisioned } from "@/server/auth/user-service";
 import { deriveThreadTitle, FALLBACK_THREAD_TITLE } from "@/server/chat/thread-title";
 import * as messageRepository from "@/server/db/message-repository";
@@ -15,9 +16,11 @@ import * as threadRepository from "@/server/db/thread-repository";
 import type { Page } from "@/server/db/pagination";
 import { AppError } from "@/server/lib/app-error";
 import type { Logger } from "@/server/lib/logger";
+import { assertAccountActive } from "@/server/account/account-deletion-service";
 
 export type ThreadRecord = threadRepository.ThreadRecord;
 export type MessageRecord = messageRepository.MessageRecord;
+export type MessageSearchRecord = messageRepository.MessageSearchRecord;
 
 /**
  * A page of the user's threads, newest activity first.
@@ -35,13 +38,15 @@ export async function listThreads(params: {
   userId: string;
   cursor?: string | undefined;
   limit?: number | undefined;
-  includeArchived?: boolean;
+  view?: ThreadView;
+  pinned?: boolean | undefined;
 }): Promise<Page<ThreadRecord>> {
   return threadRepository.listThreads({
     userId: params.userId,
     cursor: params.cursor,
     ...(params.limit === undefined ? {} : { limit: params.limit }),
-    ...(params.includeArchived === undefined ? {} : { includeArchived: params.includeArchived }),
+    ...(params.view === undefined ? {} : { view: params.view }),
+    ...(params.pinned === undefined ? {} : { pinned: params.pinned }),
   });
 }
 
@@ -68,6 +73,7 @@ export async function createThread(params: {
   title?: string | undefined;
   log?: Logger;
 }): Promise<ThreadRecord> {
+  await assertAccountActive(params.userId);
   const id = params.id ?? randomUUID();
 
   const existing = await threadRepository.threadExists(id);
@@ -142,6 +148,23 @@ export async function listThreadMessages(params: {
 
   return messageRepository.listMessages({
     threadId: params.threadId,
+    cursor: params.cursor,
+    ...(params.limit === undefined ? {} : { limit: params.limit }),
+    ...(params.log === undefined ? {} : { log: params.log }),
+  });
+}
+
+/** Full-text search over text parts in messages owned by the acting user. */
+export async function searchMessages(params: {
+  userId: string;
+  query: string;
+  cursor?: string | undefined;
+  limit?: number | undefined;
+  log?: Logger;
+}): Promise<Page<MessageSearchRecord>> {
+  return messageRepository.searchMessages({
+    userId: params.userId,
+    query: params.query,
     cursor: params.cursor,
     ...(params.limit === undefined ? {} : { limit: params.limit }),
     ...(params.log === undefined ? {} : { log: params.log }),

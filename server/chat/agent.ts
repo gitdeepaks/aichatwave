@@ -8,7 +8,7 @@ import { fenceUntrustedMessages, fenceUserMemories } from "@/server/chat/untrust
 import { ingestModelUsage } from "@/server/billing/subscription-service";
 import { recordQuotaTokens } from "@/server/billing/quota-service";
 import { usagePeriodFor } from "@/lib/billing/plan-policy";
-import { persistAssistantTurn } from "@/server/chat/turn-persistence";
+import { persistAssistantTurn, persistToolResults } from "@/server/chat/turn-persistence";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
 import { getStore } from "@/server/memory/store";
 import { logger } from "@/server/lib/logger";
@@ -17,6 +17,7 @@ import { env } from "@/lib/env";
 import {
   AIMessage,
   SystemMessage,
+  isBaseMessage,
   type AIMessageChunk,
   type BaseMessage,
 } from "@langchain/core/messages";
@@ -115,17 +116,15 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
     toolCalls: response.tool_calls?.length ?? 0,
   });
 
-  waitUntil(
-    persistAssistantTurn({
-      threadId: context.threadId,
-      userId: context.userId,
-      message: response,
-      modelId,
-      inputTokens,
-      outputTokens,
-      log,
-    }),
-  );
+  await persistAssistantTurn({
+    threadId: context.threadId,
+    userId: context.userId,
+    message: response,
+    modelId,
+    inputTokens,
+    outputTokens,
+    log,
+  });
 
   waitUntil(
     ingestModelUsage(
@@ -170,10 +169,19 @@ function shouldContinue(state: typeof MessagesState.State) {
 }
 
 const toolNode = new ToolNode(tools);
+const toolNodeResultSchema = z.object({
+  messages: z.array(z.custom<BaseMessage>(isBaseMessage)),
+});
+const runTools: GraphNode<typeof MessagesState> = async (state, runtime) => {
+  const result = toolNodeResultSchema.parse(await toolNode.invoke(state, runtime));
+  const context = readContext(runtime);
+  await persistToolResults({ threadId: context.threadId, messages: result.messages });
+  return result;
+};
 
 export const agent = new StateGraph(MessagesState)
   .addNode("callLlm", llmCall)
-  .addNode("tools", toolNode)
+  .addNode("tools", runTools)
   .addEdge(START, "callLlm")
   .addConditionalEdges("callLlm", shouldContinue, {
     __end__: END,

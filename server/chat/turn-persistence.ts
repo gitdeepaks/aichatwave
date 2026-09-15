@@ -3,19 +3,19 @@
  *
  * LangGraph's checkpoint remains the agent's working state; this table is the
  * durable record the product reads for history, search, export, and deletion.
- * Both are written during the migration period — the checkpoint is still the
- * read path until the client is switched over.
+ * LangGraph still writes its checkpoint for agent execution, while all product
+ * reads use this table.
  *
- * Persistence is best-effort and never fails a turn: a database hiccup must not
- * cost the user the answer they are already reading.
+ * Persistence is best-effort and never fails a turn: a database hiccup is
+ * logged without replacing the model answer with an application error.
  */
 
 import { randomUUID } from "node:crypto";
-import type { AIMessage, BaseMessage } from "@langchain/core/messages";
+import { ToolMessage, type AIMessage, type BaseMessage } from "@langchain/core/messages";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { hasRenderableContent, type MessageParts, type ToolPart } from "@/lib/ai/message-parts";
 import { jsonValueSchema } from "@/lib/json";
-import { appendMessages } from "@/server/db/message-repository";
+import { appendMessages, completeToolCall } from "@/server/db/message-repository";
 import { touchThread } from "@/server/db/thread-repository";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 
@@ -92,5 +92,38 @@ export async function persistAssistantTurn(params: {
     await touchThread({ threadId: params.threadId, at: new Date() });
   } catch (error) {
     log.error("message.persist_assistant_failed", { threadId: params.threadId }, error);
+  }
+}
+
+export async function persistToolResults(params: {
+  threadId: string;
+  messages: BaseMessage[];
+  log?: Logger;
+}): Promise<void> {
+  const log = params.log ?? rootLogger;
+
+  for (const message of params.messages) {
+    if (!ToolMessage.isInstance(message)) continue;
+    const output = jsonValueSchema.catch(readTextContent(message)).parse(message.content);
+    const errorText = message.status === "error" ? readTextContent(message) : null;
+
+    try {
+      const completed = await completeToolCall({
+        threadId: params.threadId,
+        toolCallId: message.tool_call_id,
+        output,
+        errorText,
+        log,
+      });
+      if (!completed) {
+        log.warn("message.tool_call_not_found", { toolCallId: message.tool_call_id });
+      }
+    } catch (error) {
+      log.error(
+        "message.persist_tool_result_failed",
+        { threadId: params.threadId, toolCallId: message.tool_call_id },
+        error,
+      );
+    }
   }
 }

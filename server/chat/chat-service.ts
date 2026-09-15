@@ -4,16 +4,9 @@
  * or the agent graph directly.
  */
 
-import {
-  HumanMessage,
-  isBaseMessage,
-  mapChatMessagesToStoredMessages,
-  type BaseMessage,
-  type StoredMessage,
-} from "@langchain/core/messages";
+import { HumanMessage } from "@langchain/core/messages";
 import { createUIMessageStreamResponse } from "ai";
 import { toUIMessageStream } from "@ai-sdk/langchain";
-import { z } from "zod";
 import { ensureUserProvisioned } from "@/server/auth/user-service";
 import { agent } from "@/server/chat/agent";
 import { toChatRuntimeContext } from "@/server/chat/runtime-context";
@@ -35,6 +28,7 @@ import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { waitUntil } from "@vercel/functions";
 import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
+import { assertAccountActive } from "@/server/account/account-deletion-service";
 
 /**
  * Creates the thread on first message, or verifies ownership of an existing
@@ -108,6 +102,8 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   const { userId, threadId, selectedModel, requestId } = params;
   const log = rootLogger.child({ requestId, userId, threadId, modelId: selectedModel });
   const now = new Date();
+
+  await assertAccountActive(userId);
 
   // The plan decides the limits, so it has to be known before the first gate.
   // A warm read is local and costs no Polar call; a stale one is served locally
@@ -209,46 +205,4 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
     await releaseChatStreamSlot(lease, log);
     throw error;
   }
-}
-
-/**
- * Loads the persisted conversation for a thread the user owns.
- * Returns an empty history when the thread does not exist or is not theirs.
- */
-export async function getThreadHistory(params: {
-  userId: string;
-  threadId: string;
-}): Promise<StoredMessage[]> {
-  const owned = await threadRepository.findThreadForUser(params);
-  if (!owned) return [];
-
-  return mapChatMessagesToStoredMessages(await readThreadState(params.threadId));
-}
-
-/** A checkpoint value that is a LangChain message, and nothing else. */
-const baseMessageSchema = z.custom<BaseMessage>(isBaseMessage);
-
-/**
- * The graph state as this app reads it. `getState` resolves to
- * `Record<string, any>`, so the shape is checked by this schema instead of
- * being trusted: an entry that is not a message is dropped, and a state
- * without a message list reads as an empty conversation.
- */
-const threadStateSchema = z
-  .object({
-    messages: z
-      .array(baseMessageSchema.nullable().catch(null))
-      .transform((messages) => messages.filter((message) => message !== null))
-      .catch([]),
-  })
-  .catch({ messages: [] });
-
-/**
- * The single place LangGraph state is narrowed: `getState` and its parse live
- * together, so no caller can read the checkpoint without going through the
- * schema, and nothing outward of this function sees an untyped value.
- */
-async function readThreadState(threadId: string): Promise<BaseMessage[]> {
-  const snapshot = await agent.getState({ configurable: { thread_id: threadId } });
-  return threadStateSchema.parse(snapshot.values).messages;
 }
