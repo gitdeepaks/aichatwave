@@ -13,9 +13,10 @@
  */
 
 import { currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { user } from "@/db/schema/auth-schema";
+import { accountDeletion, user } from "@/db/schema/auth-schema";
+import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 
 export type UserProfile = {
@@ -54,29 +55,40 @@ export type UpsertUserInput = {
  * Idempotent write of a Clerk identity into the local table. Safe to call on
  * every request that needs the row to exist, and safe to call from the webhook.
  */
-export async function upsertUser(input: UpsertUserInput): Promise<void> {
+export async function upsertUser(input: UpsertUserInput): Promise<boolean> {
   const now = new Date();
 
-  await db
-    .insert(user)
-    .values({
-      id: input.id,
-      name: input.name,
-      email: input.email,
-      emailVerified: input.emailVerified,
-      image: input.image,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: user.id,
-      set: {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.id}))`);
+    const deleted = await tx
+      .select({ userId: accountDeletion.userId })
+      .from(accountDeletion)
+      .where(eq(accountDeletion.userId, input.id))
+      .limit(1);
+    if (deleted.length > 0) return false;
+
+    await tx
+      .insert(user)
+      .values({
+        id: input.id,
         name: input.name,
         email: input.email,
         emailVerified: input.emailVerified,
         image: input.image,
         updatedAt: now,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: user.id,
+        set: {
+          name: input.name,
+          email: input.email,
+          emailVerified: input.emailVerified,
+          image: input.image,
+          updatedAt: now,
+        },
+      });
+    return true;
+  });
 }
 
 export async function deleteUser(userId: string): Promise<void> {
@@ -97,19 +109,26 @@ export async function ensureUserProvisioned(
   userId: string,
   log: Logger = rootLogger,
 ): Promise<void> {
+  const deletion = await db
+    .select({ userId: accountDeletion.userId })
+    .from(accountDeletion)
+    .where(eq(accountDeletion.userId, userId))
+    .limit(1);
+  if (deletion.length > 0) throw new AppError("CONFLICT", "Account deletion is in progress.");
   if (await localUserExists(userId)) return;
 
   const clerkUser = await currentUser();
   if (!clerkUser || clerkUser.id !== userId) {
     // The session is valid but Clerk did not return the profile. Write a
     // placeholder so the foreign key holds; the webhook will correct it.
-    await upsertUser({
+    const provisioned = await upsertUser({
       id: userId,
       name: FALLBACK_NAME,
       email: `${userId}@placeholder.invalid`,
       emailVerified: false,
       image: null,
     });
+    if (!provisioned) throw new AppError("CONFLICT", "Account deletion is in progress.");
     log.warn("user.provisioned_without_profile", { userId });
     return;
   }
@@ -118,7 +137,7 @@ export async function ensureUserProvisioned(
     clerkUser.emailAddresses.find((address) => address.id === clerkUser.primaryEmailAddressId) ??
     clerkUser.emailAddresses[0];
 
-  await upsertUser({
+  const provisioned = await upsertUser({
     id: clerkUser.id,
     name: resolveName({
       firstName: clerkUser.firstName,
@@ -130,6 +149,7 @@ export async function ensureUserProvisioned(
     emailVerified: primaryEmail?.verification?.status === "verified",
     image: clerkUser.imageUrl.length > 0 ? clerkUser.imageUrl : null,
   });
+  if (!provisioned) throw new AppError("CONFLICT", "Account deletion is in progress.");
 
   log.info("user.provisioned", { userId });
 }

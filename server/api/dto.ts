@@ -7,8 +7,8 @@
  * `lib/api/contracts`, so a contract change breaks these first.
  */
 
-import type { MemoryDto, MessageDto, ThreadDto } from "@/lib/api/contracts";
-import type { MessageRecord } from "@/server/db/message-repository";
+import type { MemoryDto, MessageDto, MessageSearchResultDto, ThreadDto } from "@/lib/api/contracts";
+import type { MessageRecord, MessageSearchRecord } from "@/server/db/message-repository";
 import type { ThreadRecord } from "@/server/db/thread-repository";
 import type { MemoryRecord } from "@/server/memory/memory-service";
 
@@ -34,6 +34,13 @@ export function toMessageDto(record: MessageRecord): MessageDto {
     inputTokens: record.inputTokens,
     outputTokens: record.outputTokens,
     createdAt: record.createdAt.toISOString(),
+  };
+}
+
+export function toMessageSearchResultDto(record: MessageSearchRecord): MessageSearchResultDto {
+  return {
+    thread: toThreadDto(record.thread),
+    message: toMessageDto(record.message),
   };
 }
 
