@@ -1,9 +1,22 @@
 import { relations, sql } from "drizzle-orm";
-import { index, integer, jsonb, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  customType,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { MESSAGE_ROLES, type MessageParts } from "@/lib/ai/message-parts";
 import { user } from "./auth-schema";
 
 export const messageRole = pgEnum("message_role", MESSAGE_ROLES);
+
+const tsvector = customType<{ data: string }>({
+  dataType: () => "tsvector",
+});
 
 export const thread = pgTable(
   "thread",
@@ -60,11 +73,17 @@ export const message = pgTable(
     inputTokens: integer("input_tokens").default(0).notNull(),
     outputTokens: integer("output_tokens").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    searchVector: tsvector("search_vector")
+      .generatedAlwaysAs(
+        sql`to_tsvector('simple', coalesce(jsonb_path_query_array("parts", '$[*] ? (@.type == "text").text') #>> '{}', ''))`,
+      )
+      .notNull(),
   },
-  // Matches the keyset tuple (`order by created_at asc, id asc`) for the same
-  // reason as the thread index above.
+  // Postgres can scan this index backward for the history/search keyset tuple
+  // (`order by created_at desc, id desc`).
   (table) => [
     index("message_thread_id_created_at_id_idx").on(table.threadId, table.createdAt, table.id),
+    index("message_search_vector_idx").using("gin", table.searchVector),
   ],
 );
 

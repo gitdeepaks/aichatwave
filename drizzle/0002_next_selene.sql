@@ -1,0 +1,2 @@
+ALTER TABLE "message" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('simple', coalesce(jsonb_path_query_array("parts", '$[*] ? (@.type == "text").text') #>> '{}', ''))) STORED NOT NULL;--> statement-breakpoint
+CREATE INDEX "message_search_vector_idx" ON "message" USING gin ("search_vector");

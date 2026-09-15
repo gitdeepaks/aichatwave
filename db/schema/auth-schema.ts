@@ -45,4 +45,16 @@ export const user = pgTable(
   (table) => [index("user_email_idx").on(table.email)],
 );
 
-export const schema = { user };
+/**
+ * Permanent deletion marker, intentionally independent of `user` cascades.
+ * Its presence blocks identity reprovisioning and new user-owned writes even
+ * after the local and Clerk identity rows are gone.
+ */
+export const accountDeletion = pgTable("account_deletion", {
+  userId: text("user_id").primaryKey(),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  localDeletedAt: timestamp("local_deleted_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
+export const schema = { accountDeletion, user };

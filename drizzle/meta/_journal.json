@@ -15,6 +15,20 @@
       "when": 1789121601216,
       "tag": "0001_abuse_control",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789487878395,
+      "tag": "0002_next_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789488807208,
+      "tag": "0003_dashing_wraith",
+      "breakpoints": true
     }
   ]
 }
