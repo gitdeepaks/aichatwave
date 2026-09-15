@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatComposer } from "@/components/chat/chat-composer";
 import { ChatEmptyState } from "@/components/chat/chat-empty-state";
@@ -36,10 +36,17 @@ export function ChatShell({
 
   useChatViewport(composerRef);
 
+  // The server already rendered this window of history. `messages` lives in a
+  // module-level chat instance that may still hold another thread's turns, so
+  // it cannot be trusted until hydration — but the server's own payload can,
+  // and rendering it on the first paint is what keeps an existing conversation
+  // from flashing the empty state on reload.
+  const serverMessages = useMemo(() => convertMessageDtosToUI(initialMessages), [initialMessages]);
+
   useEffect(() => {
-    setMessages(convertMessageDtosToUI(initialMessages));
+    setMessages(serverMessages);
     setNextCursor(initialNextCursor);
-  }, [initialMessages, initialNextCursor, setMessages]);
+  }, [serverMessages, initialNextCursor, setMessages]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -52,7 +59,7 @@ export function ChatShell({
     });
   }, [error]);
 
-  const liveMessages: UIMessage[] = isHydrated ? messages : [];
+  const liveMessages: UIMessage[] = isHydrated ? messages : serverMessages;
   const liveStatus: ChatStatus = status;
   const visibleStatus = useChatVisibleStatus({ status: liveStatus, error, messages: liveMessages });
   const isEmpty = liveMessages.length === 0 && messages.length === 0;
