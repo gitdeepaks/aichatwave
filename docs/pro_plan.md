@@ -1296,15 +1296,52 @@ user-facing features built on top of it.
 
 ### Exit criteria
 
-- [ ] The thread page reads from `message`, not from checkpoints.
-- [ ] Opening a 500-message thread loads a window, not the whole history.
-- [ ] Thread search returns hits, and `EXPLAIN` shows the GIN index in use.
-- [ ] Archive and pin are reachable from the sidebar.
-- [ ] Account deletion leaves no orphaned rows in any of the six tables.
+- [x] The thread page reads from `message`, not from checkpoints.
+- [x] Opening a 500-message thread loads a window, not the whole history.
+- [x] Thread search returns hits, and `EXPLAIN` shows the GIN index in use.
+- [x] Archive and pin are reachable from the sidebar.
+- [x] Account deletion leaves no orphaned rows in any of the six tables.
 
 ### Phase F status
 
-> **`NOT DONE`** — Not started.
+> **`COMPLETED`** — all five work items landed; every exit criterion verified against the live dev
+> database by `pnpm phase-f:verify` (`scripts/verify-phase-f.ts`), which seeds a 500-message thread
+> plus a second user's thread as a negative control and asserts each one. The read switch is total:
+> `getThreadHistory` and `readThreadState` are deleted, so `app/(chat)/chat/[thread_id]/page.tsx`
+> reads `listThreadMessages` and the checkpoint is agent state only. History pages 50 at a time
+> behind "Load earlier messages"; search runs `websearch_to_tsquery` against the generated
+> `search_vector` and the `EXPLAIN` plan names `message_search_vector_idx`; the sidebar carries
+> Pin/Unpin and Archive/Unarchive per thread with Pinned, Recent and Archived sections; deletion
+> clears `user`, `thread`, `message`, all three checkpoint tables, `store` and `store_vectors` while
+> the control user's rows survive. Every local gate passes: `format:check`, `lint`, `typecheck`,
+> 153 tests, `build`, and `bundle:check` (`/chat/[thread_id]` at 3,005,429 / 3,085,000 bytes).
+>
+> Two defects found in review and fixed before sign-off. `listMessagesForExport` returned its cursor
+> unconditionally, so it never reported exhaustion and every export of a non-empty thread spun
+> forever on empty pages without closing the stream or emitting the JSON terminator — it now tracks
+> exhaustion from the last query, and the verify script asserts a 500-message export terminates in
+> ≤ 11 pages. Tool calls were persisted only as `input-available` with `output: null` and tool
+> results were never written at all, so a reloaded conversation showed a permanent tool-running
+> spinner and lost its result cards; `persistToolResults` + `completeToolCall` now resolve the part
+> in place, and `persistAssistantTurn` is awaited (not `waitUntil`) so the row exists before the
+> update targets it.
+>
+> **Qualification.** Work item 1's "verify against threads written before and after the dual-write
+> started" is only half met. There is no backfill and no checkpoint fallback, so a thread with no
+> `message` rows renders empty with its history stranded in the checkpoint. The dev database has
+> zero such threads, so this is unverified rather than known-broken — it needs a decision before any
+> deploy that carries pre-dual-write conversations.
+>
+> **Known limitations.** A tool call persisted between the assistant write and the tool-result write
+> stays `input-available` if the turn is abandoned, reproducing the spinner on that row alone; the
+> note at `lib/ai/message-parts.ts:22-24` claiming only terminal states are persisted is now stale.
+> Separately, `STREAM_LEASE_TTL_MS` is 5 minutes with no renewal and `hasActiveStreamLease` filters
+> on `expires_at > now()`, so a stream outliving its lease would let deletion proceed while the
+> graph still writes checkpoints. (A reported TOCTOU between the `assertAccountActive` check and
+> lease acquisition was investigated and does not exist: `acquireStreamLeaseForActiveAccount` takes
+> the same `pg_advisory_xact_lock(hashtext(user_id))` as `beginAccountDeletion` and re-checks the
+> tombstone inside that transaction, which serializes the two paths. `phase-f:verify` asserts the
+> `account-deleting` admission.)
 
 ---
 

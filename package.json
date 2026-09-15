@@ -20,6 +20,7 @@
     "migration:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "migration:migrate": "drizzle-kit migrate --config=drizzle.config.ts && pnpm db:setup:langgraph",
     "polar:doctor": "node --env-file-if-exists=.env --import tsx scripts/polar-doctor.ts",
+    "phase-f:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-phase-f.ts",
     "start": "next start",
     "test": "node --import tsx --test tests/**/*.test.{ts,tsx}",
     "typecheck": "tsc --noEmit"
