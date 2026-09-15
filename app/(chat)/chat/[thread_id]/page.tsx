@@ -1,6 +1,7 @@
 import { ChatInterfaceNew } from "@/components/chat-interface";
 import { getSessionUserId } from "@/server/auth/session";
-import { getThreadHistory } from "@/server/chat/chat-service";
+import { toMessageDto } from "@/server/api/dto";
+import { listThreadMessages } from "@/server/chat/thread-service";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ChatLoadingSkeleton } from "@/components/chat/chat-loading-skeleton";
@@ -31,7 +32,13 @@ async function Conversation({ threadId }: Readonly<{ threadId: string }>) {
     redirect("/sign-in");
   }
 
-  const conversationHistory = await getThreadHistory({ userId, threadId });
+  const page = await listThreadMessages({ userId, threadId, limit: 50 });
 
-  return <ChatInterfaceNew oldMessages={conversationHistory} />;
+  return (
+    <ChatInterfaceNew
+      threadId={threadId}
+      initialMessages={page.items.map(toMessageDto)}
+      initialNextCursor={page.nextCursor}
+    />
+  );
 }

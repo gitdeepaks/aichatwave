@@ -15,6 +15,7 @@ import { getCustomerMeters, isCustomerHaveSubscription } from "@/lib/polar";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 import { subscriptionQueryKey } from "@/lib/query-keys";
+import { DeleteAccountCard } from "@/components/profile/delete-account-card";
 
 const profileCardClass = cn("rounded-2xl", brandGlassCardClass);
 
@@ -216,6 +217,7 @@ export default function ChatbotUserProfile() {
           </CardContent>
         </Card>
       </div>
+      <DeleteAccountCard />
     </div>
   );
 }
