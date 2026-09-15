@@ -1314,7 +1314,16 @@ user-facing features built on top of it.
 > Pin/Unpin and Archive/Unarchive per thread with Pinned, Recent and Archived sections; deletion
 > clears `user`, `thread`, `message`, all three checkpoint tables, `store` and `store_vectors` while
 > the control user's rows survive. Every local gate passes: `format:check`, `lint`, `typecheck`,
-> 153 tests, `build`, and `bundle:check` (`/chat/[thread_id]` at 3,005,429 / 3,085,000 bytes).
+> 153 tests, `build`, and `bundle:check` (`/chat/[thread_id]` at 3,005,459 / 3,085,000 bytes).
+>
+> Browser-verified end to end against the running app: dual-write on a new turn, history restored
+> from `message` on reload, pin/unpin, archive/unarchive with the Archived view, full-text search
+> returning hits, and both export formats terminating (the JSON stream closes on `}]}`). A tool
+> conversation persists its call as `output-available` with its output and re-renders the full tool
+> card after reload, confirming the fix above in the real UI. One defect found in that pass and
+> fixed: `ChatShell` discarded the server-rendered window on first paint (`isHydrated ? messages : []`),
+> so an existing conversation flashed the empty-state hero on every reload; the pre-hydration
+> fallback is now the server's own payload.
 >
 > Two defects found in review and fixed before sign-off. `listMessagesForExport` returned its cursor
 > unconditionally, so it never reported exhaustion and every export of a non-empty thread spun
