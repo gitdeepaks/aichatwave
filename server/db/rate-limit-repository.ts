@@ -14,7 +14,7 @@
 
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/db";
+import { db, type Database } from "@/db";
 import {
   previousWindowWeight,
   retryAfterSeconds,
@@ -168,6 +168,13 @@ export type StreamLease = {
   expiresAt: Date;
 };
 
+type Executor = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+export type StreamLeaseAcquisition =
+  | { status: "acquired"; lease: StreamLease }
+  | { status: "busy" }
+  | { status: "account-deleting" };
+
 const leaseRowSchema = z.object({
   slot: z.coerce.number().int().nonnegative(),
   expires_at: z.coerce.date(),
@@ -188,16 +195,19 @@ const busyRowSchema = z.object({
  * slot first, the conflict arm's predicate is false and no row comes back,
  * which is the correct answer rather than a race.
  */
-export async function acquireStreamLease(params: {
-  ownerKey: string;
-  slots: number;
-  leaseId: string;
-  ttlMs: number;
-}): Promise<StreamLease | null> {
+export async function acquireStreamLease(
+  params: {
+    ownerKey: string;
+    slots: number;
+    leaseId: string;
+    ttlMs: number;
+  },
+  executor: Executor = db,
+): Promise<StreamLease | null> {
   const { ownerKey, slots, leaseId, ttlMs } = params;
   if (slots <= 0) return null;
 
-  const result = await db.execute(sql`
+  const result = await executor.execute(sql`
     insert into stream_lease (owner_key, slot, lease_id, acquired_at, expires_at)
     select
       ${ownerKey}::text,
@@ -228,6 +238,37 @@ export async function acquireStreamLease(params: {
 
   const parsed = leaseRowSchema.parse(row);
   return { ownerKey, slot: parsed.slot, leaseId, expiresAt: parsed.expires_at };
+}
+
+/** Serializes stream admission with account deletion for the same user. */
+export async function acquireStreamLeaseForActiveAccount(params: {
+  userId: string;
+  ownerKey: string;
+  slots: number;
+  leaseId: string;
+  ttlMs: number;
+}): Promise<StreamLeaseAcquisition> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${params.userId}))`);
+    const deletion = await tx.execute(sql`
+      select exists(
+        select 1 from account_deletion where user_id = ${params.userId}
+      ) as deleting
+    `);
+    const deleting = z.object({ deleting: z.boolean() }).parse(deletion.rows[0]).deleting;
+    if (deleting) return { status: "account-deleting" };
+
+    const lease = await acquireStreamLease(
+      {
+        ownerKey: params.ownerKey,
+        slots: params.slots,
+        leaseId: params.leaseId,
+        ttlMs: params.ttlMs,
+      },
+      tx,
+    );
+    return lease === null ? { status: "busy" } : { status: "acquired", lease };
+  });
 }
 
 /** When the earliest currently-held slot frees up; null when none are held. */

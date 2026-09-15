@@ -28,7 +28,7 @@ import {
   type PlanId,
 } from "@/lib/billing/plan-policy";
 import {
-  acquireStreamLease,
+  acquireStreamLeaseForActiveAccount,
   consumeWindow,
   nextStreamSlotFreeAt,
   releaseStreamLease,
@@ -133,14 +133,18 @@ export async function acquireChatStreamSlot(params: {
   const ownerKey = userBucketKey(params.userId);
   const slots = planLimits(params.planId).concurrentStreams;
 
-  const lease = await acquireStreamLease({
+  const acquisition = await acquireStreamLeaseForActiveAccount({
+    userId: params.userId,
     ownerKey,
     slots,
     leaseId: randomUUID(),
     ttlMs: STREAM_LEASE_TTL_MS,
   });
 
-  if (lease !== null) return lease;
+  if (acquisition.status === "acquired") return acquisition.lease;
+  if (acquisition.status === "account-deleting") {
+    throw new AppError("CONFLICT", "Account deletion is in progress.");
+  }
 
   const freeAt = await nextStreamSlotFreeAt(ownerKey);
   const retryAfter = freeAt === null ? 5 : Math.min(secondsUntil(freeAt, params.now), 30);

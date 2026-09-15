@@ -7,9 +7,10 @@
  * forget it.
  */
 
-import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { thread } from "@/db/schema/chat-schema";
+import type { ThreadView } from "@/lib/api/contracts";
 import { DEFAULT_PAGE_SIZE, decodeCursor, toPage, type Page } from "@/server/db/pagination";
 
 export type ThreadRecord = {
@@ -27,7 +28,8 @@ export type ThreadListOptions = {
   userId: string;
   limit?: number;
   cursor?: string | undefined;
-  includeArchived?: boolean;
+  view?: ThreadView;
+  pinned?: boolean | undefined;
 };
 
 export type CreateThreadInput = {
@@ -66,7 +68,12 @@ export async function listThreads(options: ThreadListOptions): Promise<Page<Thre
     .where(
       and(
         eq(thread.userId, options.userId),
-        options.includeArchived === true ? undefined : isNull(thread.archivedAt),
+        options.view === "archived" ? isNotNull(thread.archivedAt) : isNull(thread.archivedAt),
+        options.pinned === undefined
+          ? undefined
+          : options.pinned
+            ? isNotNull(thread.pinnedAt)
+            : isNull(thread.pinnedAt),
         cursor === null
           ? undefined
           : or(
@@ -150,12 +157,22 @@ export async function updateThread(params: {
 
 /** Returns true when a row was deleted, false when the user did not own it. */
 export async function deleteThread(params: { threadId: string; userId: string }): Promise<boolean> {
-  const rows = await db
-    .delete(thread)
-    .where(and(eq(thread.id, params.threadId), eq(thread.userId, params.userId)))
-    .returning({ id: thread.id });
+  return db.transaction(async (tx) => {
+    const owned = await tx
+      .select({ id: thread.id })
+      .from(thread)
+      .where(and(eq(thread.id, params.threadId), eq(thread.userId, params.userId)))
+      .limit(1);
+    if (owned.length === 0) return false;
 
-  return rows.length > 0;
+    await tx.execute(sql`delete from checkpoint_blobs where thread_id = ${params.threadId}`);
+    await tx.execute(sql`delete from checkpoint_writes where thread_id = ${params.threadId}`);
+    await tx.execute(sql`delete from checkpoints where thread_id = ${params.threadId}`);
+    await tx
+      .delete(thread)
+      .where(and(eq(thread.id, params.threadId), eq(thread.userId, params.userId)));
+    return true;
+  });
 }
 
 /** Marks activity on a thread so the sidebar can order by real use. */

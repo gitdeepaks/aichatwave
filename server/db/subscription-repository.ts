@@ -12,9 +12,9 @@
  * `user.billing_synced_at`.
  */
 
-import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { user } from "@/db/schema/auth-schema";
+import { accountDeletion, user } from "@/db/schema/auth-schema";
 import { subscription, SUBSCRIPTION_STATUSES } from "@/db/schema/billing-schema";
 
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
@@ -65,29 +65,40 @@ export type UpsertSubscriptionInput = {
  * too — a subscription transferred between customers is rare but real, and a
  * stale owner would leave a second user holding Pro.
  */
-export async function upsertSubscription(input: UpsertSubscriptionInput): Promise<void> {
-  await db
-    .insert(subscription)
-    .values({
-      id: input.polarSubscriptionId,
-      userId: input.userId,
-      polarSubscriptionId: input.polarSubscriptionId,
-      polarProductId: input.polarProductId,
-      status: input.status,
-      currentPeriodEnd: input.currentPeriodEnd,
-      cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-    })
-    .onConflictDoUpdate({
-      target: subscription.polarSubscriptionId,
-      set: {
+export async function upsertSubscription(input: UpsertSubscriptionInput): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.userId}))`);
+    const deletion = await tx
+      .select({ userId: accountDeletion.userId })
+      .from(accountDeletion)
+      .where(eq(accountDeletion.userId, input.userId))
+      .limit(1);
+    if (deletion.length > 0) return false;
+
+    await tx
+      .insert(subscription)
+      .values({
+        id: input.polarSubscriptionId,
         userId: input.userId,
+        polarSubscriptionId: input.polarSubscriptionId,
         polarProductId: input.polarProductId,
         status: input.status,
         currentPeriodEnd: input.currentPeriodEnd,
         cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-        updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: subscription.polarSubscriptionId,
+        set: {
+          userId: input.userId,
+          polarProductId: input.polarProductId,
+          status: input.status,
+          currentPeriodEnd: input.currentPeriodEnd,
+          cancelAtPeriodEnd: input.cancelAtPeriodEnd,
+          updatedAt: new Date(),
+        },
+      });
+    return true;
+  });
 }
 
 /**

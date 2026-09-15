@@ -23,6 +23,7 @@ import { getStore } from "@/server/memory/store";
 import { REMEMBER_MEMORY_PROMPT } from "@/server/chat/prompts";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
+import { assertAccountActive } from "@/server/account/account-deletion-service";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -132,6 +133,7 @@ export async function getMemoriesPromptContent(
 }
 
 export async function saveMemory(userId: string, text: string): Promise<MemoryRecord> {
+  await assertAccountActive(userId);
   const store = getStore();
   const id = randomUUID();
   await store.put(memoryNamespace(userId), id, { data: text });
@@ -199,6 +201,8 @@ export async function extractAndStoreMemories(params: {
     });
 
     if (!decision?.should_write) return;
+
+    await assertAccountActive(userId);
 
     for (const memory of decision.memories) {
       const text = memory.text.trim();
