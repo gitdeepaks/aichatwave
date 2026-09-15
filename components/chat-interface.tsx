@@ -1,8 +1,14 @@
 "use client";
 
-import type { StoredMessage } from "@langchain/core/messages";
 import { ChatShell } from "@/components/chat/chat-shell";
+import type { MessageDto } from "@/lib/api/contracts";
 
-export const ChatInterfaceNew = ({ oldMessages }: { oldMessages: StoredMessage[] }) => {
-  return <ChatShell oldMessages={oldMessages} />;
+type ChatInterfaceProps = {
+  threadId?: string;
+  initialMessages: MessageDto[];
+  initialNextCursor: string | null;
+};
+
+export const ChatInterfaceNew = (props: ChatInterfaceProps) => {
+  return <ChatShell {...props} />;
 };

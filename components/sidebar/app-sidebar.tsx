@@ -1,11 +1,17 @@
+"use client";
+
 import type { ComponentProps } from "react";
+import { useState } from "react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarRail } from "@/components/ui/sidebar";
+import type { ThreadView } from "@/lib/api/contracts";
 import { cn } from "@/lib/utils";
 import { SidebarFooterComponent } from "./sidebar-footer";
 import ThreadsLists from "./threads-list";
 import { MacosSidebarNav } from "./macos-sidebar-nav";
 
 export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
+  const [view, setView] = useState<ThreadView>("active");
+
   return (
     <Sidebar
       variant="floating"
@@ -15,10 +21,17 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       )}
       {...props}
     >
-      <MacosSidebarNav />
+      <MacosSidebarNav view={view} onViewChange={setView} />
 
       <SidebarContent className="mt-1 min-h-0 gap-0 px-1">
-        <ThreadsLists />
+        {view === "active" ? (
+          <>
+            <ThreadsLists view="active" pinned label="Pinned" />
+            <ThreadsLists view="active" pinned={false} label="Recent" />
+          </>
+        ) : (
+          <ThreadsLists view="archived" label="Archived" />
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-white/[0.06] pt-1">

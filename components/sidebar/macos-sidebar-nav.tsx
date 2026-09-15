@@ -1,9 +1,10 @@
 "use client";
 
-import { Database, LayoutGrid, Plus, Search } from "lucide-react";
+import { Archive, Database, LayoutGrid, Plus, Search } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   SidebarGroup,
   SidebarHeader,
@@ -13,11 +14,12 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
+import type { ThreadView } from "@/lib/api/contracts";
 import { cn } from "@/lib/utils";
+import { ThreadSearchDialog } from "./thread-search-dialog";
 
 const primaryNav = [
   { title: "New chat", icon: Plus, href: "/", match: (path: string) => path === "/" },
-  { title: "Search", icon: Search, href: "/", match: () => false },
   { title: "Images", icon: LayoutGrid, href: "/", match: () => false },
   {
     title: "Memories",
@@ -34,8 +36,26 @@ const macosItemClass =
   "data-[active=true]:text-white data-[active=true]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] " +
   "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0";
 
-export function MacosSidebarNav() {
+export function MacosSidebarNav({
+  view,
+  onViewChange,
+}: {
+  view: ThreadView;
+  onViewChange: (view: ThreadView) => void;
+}) {
   const pathname = usePathname() ?? "";
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen((current) => !current);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <>
@@ -71,6 +91,20 @@ export function MacosSidebarNav() {
 
       <SidebarGroup className="p-0 px-1.5">
         <SidebarMenu className="gap-0.5">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              tooltip="Search"
+              onClick={() => setSearchOpen(true)}
+              className={macosItemClass}
+            >
+              <Search className="h-4 w-4 shrink-0 text-zinc-500 transition-colors" />
+              <span className="group-data-[collapsible=icon]:hidden">Search</span>
+              <kbd className="ml-auto text-[10px] text-zinc-600 group-data-[collapsible=icon]:hidden">
+                ⌘K
+              </kbd>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {primaryNav.map((item) => {
             const Icon = item.icon;
             const isActive = item.match(pathname);
@@ -84,6 +118,7 @@ export function MacosSidebarNav() {
                 >
                   <Link
                     href={item.href}
+                    onClick={() => onViewChange("active")}
                     className={cn(
                       "flex w-full items-center gap-2.5",
                       !isActive && "hover:[&_svg]:text-orange-200/85",
@@ -101,8 +136,26 @@ export function MacosSidebarNav() {
               </SidebarMenuItem>
             );
           })}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              isActive={view === "archived"}
+              tooltip="Archived"
+              onClick={() => onViewChange(view === "archived" ? "active" : "archived")}
+              className={macosItemClass}
+            >
+              <Archive
+                className={cn(
+                  "h-4 w-4 shrink-0 transition-colors",
+                  view === "archived" ? "text-orange-300" : "text-zinc-500",
+                )}
+              />
+              <span className="group-data-[collapsible=icon]:hidden">Archived</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
+      <ThreadSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );
 }

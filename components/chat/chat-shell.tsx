@@ -2,7 +2,6 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { ChatStatus, UIMessage } from "ai";
-import type { StoredMessage } from "@langchain/core/messages";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatComposer } from "@/components/chat/chat-composer";
@@ -10,24 +9,37 @@ import { ChatEmptyState } from "@/components/chat/chat-empty-state";
 import { ChatMessageList } from "@/components/chat/chat-message-list";
 import { useChatViewport } from "@/components/chat/hooks/use-chat-viewport";
 import { useChatVisibleStatus } from "@/components/chat/hooks/use-chat-visible-status";
-import { convertLangChainToUI } from "@/lib/converters";
+import { threadsApi } from "@/lib/api/client";
+import type { MessageDto } from "@/lib/api/contracts";
+import { convertMessageDtosToUI, mergeEarlierMessages } from "@/lib/converters";
 import { useChatStore } from "@/store/chat-store";
 
-export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
+export function ChatShell({
+  threadId,
+  initialMessages,
+  initialNextCursor,
+}: {
+  threadId?: string;
+  initialMessages: MessageDto[];
+  initialNextCursor: string | null;
+}) {
   const { chatInstance } = useChatStore();
   const { messages, setMessages, sendMessage, status, error, regenerate, clearError } = useChat({
     chat: chatInstance,
   });
   const [isHydrated, setIsHydrated] = useState(false);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor ?? null);
+  const [isLoadingEarlier, setIsLoadingEarlier] = useState(false);
   const [starterPrompt, setStarterPrompt] = useState({ text: "", version: 0 });
   const composerRef = useRef<HTMLDivElement | null>(null);
+  const loadingEarlierRef = useRef(false);
 
   useChatViewport(composerRef);
 
   useEffect(() => {
-    const convertedOldMessages = convertLangChainToUI(oldMessages);
-    setMessages(convertedOldMessages);
-  }, [oldMessages, setMessages]);
+    setMessages(convertMessageDtosToUI(initialMessages));
+    setNextCursor(initialNextCursor);
+  }, [initialMessages, initialNextCursor, setMessages]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -53,6 +65,33 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
   const handlePromptSelect = useCallback((prompt: string) => {
     setStarterPrompt((current) => ({ text: prompt, version: current.version + 1 }));
   }, []);
+
+  const loadEarlier = useCallback(async () => {
+    if (
+      !threadId ||
+      !nextCursor ||
+      loadingEarlierRef.current ||
+      status === "submitted" ||
+      status === "streaming"
+    )
+      return;
+
+    loadingEarlierRef.current = true;
+    setIsLoadingEarlier(true);
+    try {
+      const page = await threadsApi.messages(threadId, { cursor: nextCursor, limit: 50 });
+      const earlier = convertMessageDtosToUI(page.messages);
+      setMessages((current) => mergeEarlierMessages(current, earlier));
+      setNextCursor(page.nextCursor);
+    } catch (loadError) {
+      toast.error(
+        loadError instanceof Error ? loadError.message : "Could not load earlier messages",
+      );
+    } finally {
+      loadingEarlierRef.current = false;
+      setIsLoadingEarlier(false);
+    }
+  }, [nextCursor, setMessages, status, threadId]);
 
   if (isEmpty) {
     return (
@@ -87,7 +126,13 @@ export function ChatShell({ oldMessages }: { oldMessages: StoredMessage[] }) {
           aria-hidden
         />
         <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-          <ChatMessageList messages={liveMessages} status={liveStatus} />
+          <ChatMessageList
+            messages={liveMessages}
+            status={liveStatus}
+            hasEarlierMessages={nextCursor !== null}
+            isLoadingEarlier={isLoadingEarlier}
+            onLoadEarlier={loadEarlier}
+          />
           <ChatComposer
             sendMessage={sendMessage}
             status={liveStatus}
