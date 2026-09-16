@@ -1,7 +1,7 @@
 # AIChatWave — Production Hardening Plan
 
-> **Done:** A, A2, A3, B, C, D, and the billing incident. **In progress:** Phase E (implementation
-> complete; authenticated Lighthouse and production TTFT samples remain).
+> **Done:** A, A2, A3, B, C, D, F, G, and the billing incident. **In progress:** Phase E
+> (implementation complete; authenticated Lighthouse and production TTFT samples remain).
 > Owner: @gitdeepaks · Created 2026-09-09 · Restructured 2026-09-10 · Baseline commit `9f3e93d`
 
 Execution model: **one phase at a time**. Each phase ends with an exit-criteria checklist and a
@@ -54,8 +54,8 @@ this table.
 | **C — Bulletproof types**           | **`COMPLETED`** | typed tool contract, type-aware lint, 4 compiler flags added    |
 | **D — Security and cost**           | **`COMPLETED`** | limits, quota, local plan mirror, strict CSP, supply chain      |
 | **E — Bundle, perf, dead code**     | `WIP`           | code landed; production Lighthouse + TTFT verification remain   |
-| **F — Conversation data**           | `NOT DONE`      | read switch, search, export, account deletion                   |
-| **G — Chat completeness**           | `NOT DONE`      | stop button, resumable streams, dead controls                   |
+| **F — Conversation data**           | **`COMPLETED`** | read switch, search, export, account deletion; verified on dev  |
+| **G — Chat completeness**           | **`COMPLETED`** | stop, resumable streams, attachments, attribution; verified     |
 | **H — Observability**               | `WIP`           | health probe + `onRequestError` landed early; no OTel yet       |
 | **I — Test depth**                  | `NOT DONE`      | needs a Clerk session fixture for authenticated routes          |
 | **J — Product surface**             | `NOT DONE`      | no public landing or pricing page yet                           |
@@ -1395,15 +1395,168 @@ Depends on Phase F: resumable streams need the message table to be the read path
 
 ### Exit criteria
 
-- [ ] Stop cancels the stream, persists the partial answer, stops billing.
-- [ ] Refresh mid-stream resumes the same answer.
-- [ ] A turn's two messages commit in one transaction.
-- [ ] No control in the UI is a no-op.
-- [ ] Rapidly switching threads mid-stream never mixes messages.
+- [x] Stop cancels the stream, persists the partial answer, stops billing. _(Browser-verified: the
+      stream row settles `aborted`, the partial turn commits, and `llm.call_failed` records the
+      provider `AbortError` — the call is cancelled, not merely ignored.)_
+- [x] Refresh mid-stream resumes the same answer. _(`chat_stream` + `chat_stream_chunk` replay;
+      `phase-g:verify` asserts replay, the resume boundary, and owner scoping.)_
+- [x] A turn's two messages commit in one transaction. _(`commitTurn`; `phase-g:verify` asserts both
+      halves and their ordering.)_
+- [x] No control in the UI is a no-op. _(`+` uploads an image or PDF a model then reads — verified
+      end to end; Retry regenerates; Switch model regenerates on another model.)_
+- [x] Rapidly switching threads mid-stream never mixes messages. _(One `Chat` per thread id; the
+      module-level singleton and its shared fallback id are gone.)_
+
+### How the pieces fit
+
+The three hardest items are one mechanism, not three. A turn's assistant message is accumulated
+from the **stream** rather than from inside the graph (`server/chat/turn-recorder.ts`), because the
+stream is what the user actually saw, it settles exactly once, and it exists for exactly as long as
+the turn does. That single change is what makes stop, resumption, and one-transaction persistence
+all possible:
+
+- **Stop** commits whatever was streamed before the stop, so a cut-short answer is kept rather than
+  lost — including a tool call the model asked for and nothing answered, which stays
+  `input-available` and renders as interrupted.
+- **Resumption** stores the turn's Server-Sent Events verbatim (`consumeSseStream` → a Postgres
+  chunk log) and replays them as bytes. Nothing on that path parses the AI SDK's chunk union, so an
+  SDK upgrade cannot silently drop a chunk type from a resumed stream.
+- **One transaction** follows because both halves of the turn are finally in hand at the same
+  moment.
+
+Two consequences were not obvious and are worth recording:
+
+**Stop cannot be inferred from a dropped connection.** At the HTTP level, pressing stop and
+refreshing the page are the same event — the browser cancels the fetch — and they need opposite
+outcomes. So the request signal is deliberately _not_ wired to the graph; stop is an explicit
+`DELETE /api/chat/[threadId]/stream`, and a disconnect lets the answer finish into the buffer where
+a reload can rejoin it. The stop is written to the row first so it survives landing on an instance
+that is not the one generating; that instance notices on its next buffer flush.
+
+**A turn that outlives its client needs a ceiling.** Because a disconnect no longer ends
+generation, nothing else would ever stop a stalled one, and it would hold one of the account's
+concurrent-stream slots — the _only_ slot on the free plan — until the lease expired.
+`MAX_TURN_DURATION_MS` bounds it, set just inside `STREAM_LEASE_TTL_MS` so a turn always ends while
+its lease is still held. That also closes the Phase F note about a stream outliving its lease and
+letting account deletion proceed while the graph still writes.
+
+### Attachments
+
+Stored in **Postgres**, bytes and all, reached only through `/api/attachments/[id]` — which
+checks ownership on every read. There is no URL anywhere, signed or otherwise, that serves a file
+without a session. That matters because a chat attachment can be an invoice or a medical document.
+
+This was not the first design. UploadThing with a **private ACL** was built first and rejected the
+upload with `400`:
+
+> Private files are not allowed for free apps. Upgrade your app to a paid tier to enable private
+> files.
+
+Public-read uploads succeeded immediately, which was the whole problem: the only ACL available on
+the free tier is the one where anyone holding the URL can read the file forever, without signing
+in. Postgres was chosen over paying for private ACLs, and it brings two simplifications with it —
+deletion is a single transaction again rather than a local commit plus a remote call that can fail
+on its own, and the `attachment_purge` queue that existed to make that second call durable is gone
+entirely.
+
+What it costs, stated plainly:
+
+- **The database carries the bytes**, and a turn that re-reads an attachment pays a row read.
+- **Size is bounded by the transport, not by the models.** Attachments travel as base64 inside a
+  JSON body — 4/3 the file size — and a serverless request body is capped at 4.5 MB. Hence 2 MB for
+  images and 3 MB for PDFs: a 4 MB PDF would arrive as 5.3 MB and be rejected by the platform before
+  any code here ran, which is a failure with no useful error message available to it. Raising these
+  means moving the bytes out of the request body — a presigned upload to object storage — not
+  raising the numbers.
+
+Attachments never enter graph state. The user's message reaches the checkpoint as text with a note
+naming what was attached, and the bytes are spliced onto the last human message inside `llmCall`,
+on the way to the provider only — the same place `fenceUntrustedMessages` splices in its
+delimiters. Otherwise the checkpoint would carry a base64 copy of every file ever attached to the
+thread, in every saved version of the state, and every later turn would re-send them.
+
+### Defects found while verifying, and fixed
+
+All of these were found by running the app, not by reading it. The last three are the reason
+attachments are listed as working rather than as written:
+
+1. **A turn's answer could sort above its own question.** `created_at` defaults to `now()`, which
+   Postgres resolves to the _transaction's_ start time — so both halves of a one-transaction turn
+   carried the same value, and history, ordered by `(created_at, id)`, broke the tie on a random
+   uuid. Seen in a real conversation: `[user, assistant, user]`. Both halves are now stamped
+   explicitly, a millisecond apart, and `phase-g:verify` asserts the ordering.
+2. **Every new conversation flashed an error page.** The composer now navigates to `/chat/{id}` as
+   the stream starts rather than after it ends — necessary, or a reload mid-first-answer lands back
+   on `/` and mints a new id, leaving the running answer with nothing to reconnect to. But the
+   thread row is created _inside_ the chat request, a beat later, deliberately, because the
+   rate-limit and quota gates run before anything is written. `readThreadWindow` now treats "not
+   yet" as an empty window while keeping "not yours" a 403.
+3. **Every completed stream logged an abort.** The final buffer flush found the row no longer
+   `streaming` — because this instance had just marked it completed — and reported its own settle
+   as someone else's stop.
+4. **Retry could throw on an empty conversation.** `regenerate()` targets the last message by index
+   and throws on an empty list, which the status bar's Retry could reach after a turn failed before
+   rendering anything.
+5. **An attachment could vanish between the composer and the request — silently.** Two defects in a
+   chain. `connect-src` had no `blob:`, so the composer's read-back of the file the user had just
+   picked was refused with no network request to show for it; and the converter then _skipped_ the
+   file it could not decode instead of failing, so the message was sent with no attachment at all
+   and the model answered as though none had been sent. Both halves are fixed — the CSP permits
+   `blob:`, and `lib/chat/attachment-files.ts` throws rather than returning a shorter list. The
+   silent-skip was much the worse of the two: it looked like it had worked.
+6. **Send required text, so an image-only message could never be sent.** The request schema accepts
+   one; the button was the only thing refusing.
+7. **The model was handed a content block it could not read.** LangChain translates a multimodal
+   block into a provider's wire format only when its `isDataContentBlock` guard recognises it, and
+   that guard tests for `source_type`. Blocks written in the newer `{ type, mimeType, data }` style
+   fail it silently and are passed through untouched; OpenAI answered
+   `400 Invalid value: 'image'`. `lib/ai/attachment-blocks.ts` now emits the `source_type` /
+   `mime_type` form, and its test asserts against LangChain's own guard rather than against a copy
+   of the expected shape.
 
 ### Phase G status
 
-> **`NOT DONE`** — Not started.
+> **`COMPLETED`** — every exit criterion is met and verified in a browser against the running app,
+> not only in tests.
+>
+> Local gates: `format:check`, `lint`, `typecheck`, **213 tests**, `build`, `bundle:check`
+> (`/chat/[thread_id]` at 3,001,643 / 3,085,000 bytes — _below_ where Phase E left it, because
+> removing the storage SDK gave back more than this phase added), and `pnpm phase-g:verify` against
+> the live dev database.
+>
+> **Browser-verified end to end:**
+>
+> - **Stop** mid-answer: the row settles `aborted` and stays that way, the partial turn commits,
+>   and `llm.call_failed` records the provider `AbortError` — the call is cancelled, not ignored.
+> - **Attachments**: a 64×64 image with a red half and a blue half was uploaded, and GPT-5 mini
+>   answered _"Red on the left, blue on the right."_ After reload the image is served from
+>   `/api/attachments/[id]` at its true 64×64, and the stored bytes match the file exactly.
+> - **Attribution**, live and after reload: `GPT-5 mini · 849 tokens · $0.0004`, matching list
+>   price to the cent, rebuilt from the persisted columns on reload.
+> - **Generated titles**: "History of the bicycle" and "Colors in image and sides" replaced the
+>   truncated placeholders in the sidebar.
+> - **CSP** enforcing, with `blob:` present in `connect-src` and no storage-vendor origins at all.
+>
+> **Deferred from item 7, deliberately.** Per-message model attribution, token counts, cost, and
+> regenerate-with-a-different-model landed. Edit & resend and branch/fork did not: branching needs
+> a thread-parent column and checkpoint forking in LangGraph, which is a phase of its own rather
+> than a line item, and neither appears in this phase's exit criteria.
+>
+> **Known limitations.**
+>
+> - A stopped turn leaves its `HumanMessage` in the LangGraph checkpoint, so the next turn sees the
+>   abandoned question and may answer it. Observed: stopping "write an 800-word essay" and then
+>   asking a one-line question produced the essay. The checkpoint is the agent's state and the
+>   question genuinely was asked, so this is arguable rather than plainly wrong — but it is
+>   surprising, and it is not what the `message` table shows.
+> - A stray bubble can appear _during_ streaming — a second, partial text block the SDK opens and
+>   then supersedes. Cosmetic and live-only: it is not persisted and is gone after reload, which is
+>   how it was confirmed rather than assumed.
+> - Cross-instance stop takes up to one buffer flush (~250 ms) to reach the provider call. Within a
+>   single instance it is immediate.
+> - `preStreamMs` runs 7–9 s in development, most of it `memoryLookupMs` (~3–5 s) and the plan read.
+>   Pre-existing, not introduced here, but it is the first thing Phase H should measure.
+> - Attachment size is capped by the JSON request body, not by the models — see above.
 
 ---
 

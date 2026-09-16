@@ -23,7 +23,8 @@
     "phase-f:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-phase-f.ts",
     "start": "next start",
     "test": "node --import tsx --test tests/**/*.test.{ts,tsx}",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "phase-g:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-phase-g.ts"
   },
   "dependencies": {
     "@ai-sdk/langchain": "^3.0.11",
