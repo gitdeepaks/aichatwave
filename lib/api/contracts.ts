@@ -86,6 +86,20 @@ export const messageSearchResponseSchema = z.object({
 });
 export type MessageSearchResponse = z.infer<typeof messageSearchResponseSchema>;
 
+/**
+ * An uploaded file, as the composer holds it before the message is sent.
+ *
+ * `id` is this app's attachment id, not UploadThing's file key: the key is a
+ * handle on private bytes and never leaves the server.
+ */
+export const attachmentDtoSchema = z.object({
+  id: z.string().min(1),
+  filename: z.string().min(1),
+  mediaType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+});
+export type AttachmentDto = z.infer<typeof attachmentDtoSchema>;
+
 export const memoryDtoSchema = z.object({
   id: z.string().min(1),
   content: z.string(),

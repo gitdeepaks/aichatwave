@@ -15,6 +15,8 @@ import {
   messageSearchResponseSchema,
   threadListResponseSchema,
   threadResponseSchema,
+  attachmentDtoSchema,
+  type AttachmentDto,
   type CreateThreadRequest,
   type MemoryDto,
   type MessageListResponse,
@@ -179,6 +181,63 @@ export const threadsApi = {
       `/api/threads/${threadId}/messages${buildQuery(params)}`,
       messageListResponseSchema,
     ),
+};
+
+const attachmentResponseSchema = z.object({ attachment: attachmentDtoSchema });
+
+export const attachmentsApi = {
+  /**
+   * Uploads one file and returns its attachment record.
+   *
+   * Base64 in a JSON body, which is what lets this go through the same typed
+   * request path as every other call — including the error envelope, which is
+   * how a rejected file produces a message the user can act on rather than an
+   * opaque failure.
+   */
+  upload: async (file: File): Promise<AttachmentDto> => {
+    const data = await toBase64(file);
+    const result = await request(`/api/attachments`, attachmentResponseSchema, {
+      method: "POST",
+      body: { filename: file.name, mediaType: file.type, data },
+    });
+    return result.attachment;
+  },
+};
+
+/**
+ * Encodes in chunks.
+ *
+ * `String.fromCharCode(...bytes)` on a multi-megabyte file spreads millions of
+ * arguments onto the call stack and throws `RangeError` — a failure that only
+ * appears on large files, which are exactly the ones worth testing with.
+ */
+async function toBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const CHUNK = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + CHUNK));
+  }
+  return btoa(binary);
+}
+
+const stopStreamResponseSchema = z.object({ stopped: z.boolean() });
+
+export const chatApi = {
+  /**
+   * Stops the answer a thread is currently streaming.
+   *
+   * Necessary in addition to the SDK's own `stop()`, which only aborts the
+   * browser's fetch. At the HTTP level that is indistinguishable from a page
+   * refresh, and the two need opposite outcomes — one ends the turn, the other
+   * leaves it running so the reload can reattach — so the intent has to be
+   * stated rather than inferred from a dropped connection.
+   */
+  stopStream: (threadId: string): Promise<{ stopped: boolean }> =>
+    request(`/api/chat/${encodeURIComponent(threadId)}/stream`, stopStreamResponseSchema, {
+      method: "DELETE",
+    }),
 };
 
 const billingUrlResponseSchema = z.object({ url: z.url() });
