@@ -1,7 +1,7 @@
 import { ChatInterfaceNew } from "@/components/chat-interface";
 import { getSessionUserId } from "@/server/auth/session";
 import { toMessageDto } from "@/server/api/dto";
-import { listThreadMessages } from "@/server/chat/thread-service";
+import { readThreadWindow } from "@/server/chat/thread-service";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ChatLoadingSkeleton } from "@/components/chat/chat-loading-skeleton";
@@ -32,7 +32,7 @@ async function Conversation({ threadId }: Readonly<{ threadId: string }>) {
     redirect("/sign-in");
   }
 
-  const page = await listThreadMessages({ userId, threadId, limit: 50 });
+  const page = await readThreadWindow({ userId, threadId, limit: 50 });
 
   return (
     <ChatInterfaceNew

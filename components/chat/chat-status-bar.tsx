@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Loader2, Sparkles, TimerReset } from "lucide-react";
+import { AlertCircle, CircleStop, Loader2, Sparkles, TimerReset, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { billingApi } from "@/lib/api/client";
@@ -36,6 +36,10 @@ function renderIcon(status: ChatVisibleStatus) {
   switch (status.kind) {
     case "idle":
       return null;
+    case "stopped":
+      return <CircleStop className="size-3.5 text-zinc-400" aria-hidden />;
+    case "uploading":
+      return <Upload className="size-3.5 animate-pulse text-orange-200" aria-hidden />;
     case "error":
       return <AlertCircle className="size-3.5 text-red-300" aria-hidden />;
     case "quota-exceeded":
@@ -76,6 +80,8 @@ function renderAction(status: ChatVisibleStatus, onRetry: (() => void) | undefin
       return <UpgradeAction label={status.upgradeLabel} />;
 
     case "idle":
+    case "stopped":
+    case "uploading":
     case "submitted":
     case "streaming":
     case "tool-running":

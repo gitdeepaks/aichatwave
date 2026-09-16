@@ -17,6 +17,8 @@ export type SendChatMessage = (
  */
 export type ChatVisibleStatus =
   | { kind: "idle" }
+  | { kind: "uploading"; label: string }
+  | { kind: "stopped"; label: string }
   | { kind: "submitted"; label: string }
   | { kind: "streaming"; label: string }
   | { kind: "tool-running"; label: string; toolName: string }
@@ -28,10 +30,17 @@ export type ChatComposerController = {
   input: string;
   setInput: (input: string) => void;
   canSubmit: boolean;
+  /** True while an answer is in flight and there is something to stop. */
+  canStop: boolean;
   isBusy: boolean;
+  /** True while the turn's attachments are being uploaded, before it is sent. */
+  isUploading: boolean;
   handleSubmit: (message: PromptInputMessage) => void | Promise<void>;
+  handleStop: () => void;
   handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
   handleTranscriptionChange: (text: string) => void;
+  /** Pre-flight check for picked files, so a rejection is immediate. */
+  validateFiles: (files: File[]) => boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
 };
 

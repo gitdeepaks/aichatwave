@@ -1,4 +1,5 @@
-import type { ChatStatus, UIMessage } from "ai";
+import type { ChatStatus } from "ai";
+import type { AppUIMessage } from "@/lib/chat/ui-message";
 import type { ChatVisibleStatus } from "@/components/chat/types";
 import { formatRetryDelay, parseChatError } from "@/lib/api/chat-error";
 import { parseToolName, type ToolName } from "@/lib/ai/tool-contracts";
@@ -22,7 +23,7 @@ export function getChatVisibleStatus({
 }: {
   status: ChatStatus;
   error: Error | null | undefined;
-  messages: UIMessage[];
+  messages: AppUIMessage[];
 }): ChatVisibleStatus {
   const chatError = parseChatError(error);
   if (chatError !== null) {
@@ -66,14 +67,20 @@ export function getChatVisibleStatus({
     }
   }
 
-  for (const message of messages.toReversed()) {
-    for (const part of message.parts.toReversed()) {
-      if (part.type === "dynamic-tool" && part.state !== "output-available") {
-        return {
-          kind: "tool-running",
-          label: getToolStatusLabel(part.toolName),
-          toolName: part.toolName,
-        };
+  // A tool is only *running* while the turn is. On an idle conversation an
+  // unresolved call is the residue of a stopped or failed turn, and reporting
+  // it as in-progress is what produced the permanent spinner: the status bar
+  // spoke for a tool that nothing was going to answer.
+  if (status === "submitted" || status === "streaming") {
+    for (const message of messages.toReversed()) {
+      for (const part of message.parts.toReversed()) {
+        if (part.type === "dynamic-tool" && part.state !== "output-available") {
+          return {
+            kind: "tool-running",
+            label: getToolStatusLabel(part.toolName),
+            toolName: part.toolName,
+          };
+        }
       }
     }
   }

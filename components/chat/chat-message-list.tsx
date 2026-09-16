@@ -1,6 +1,8 @@
 "use client";
 
-import type { ChatStatus, UIMessage } from "ai";
+import type { ChatStatus } from "ai";
+import type { ModelId } from "@/lib/ai/model-registry";
+import type { AppUIMessage } from "@/lib/chat/ui-message";
 import { LoaderCircle } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { MessageRenderer } from "@/components/custom/message-renderer";
@@ -14,12 +16,14 @@ export function ChatMessageList({
   hasEarlierMessages,
   isLoadingEarlier,
   onLoadEarlier,
+  onRegenerate,
 }: {
-  messages: UIMessage[];
+  messages: AppUIMessage[];
   status: ChatStatus;
   hasEarlierMessages: boolean;
   isLoadingEarlier: boolean;
   onLoadEarlier: () => Promise<void>;
+  onRegenerate?: (modelId?: ModelId) => void;
 }) {
   const { scrollRef, onScroll, showScrollButton, scrollToBottom } = useChatScrollController({
     messages,
@@ -68,7 +72,11 @@ export function ChatMessageList({
               {isLoadingEarlier ? "Loading history" : "Load earlier messages"}
             </button>
           ) : null}
-          <MessageRenderer messages={messages} status={status} />
+          <MessageRenderer
+            messages={messages}
+            status={status}
+            {...(onRegenerate === undefined ? {} : { onRegenerate })}
+          />
         </div>
       </div>
       <ChatScrollButton

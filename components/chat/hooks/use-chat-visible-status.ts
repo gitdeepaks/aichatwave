@@ -1,6 +1,7 @@
 "use client";
 
-import type { ChatStatus, UIMessage } from "ai";
+import type { ChatStatus } from "ai";
+import type { AppUIMessage } from "@/lib/chat/ui-message";
 import { getChatVisibleStatus } from "@/components/chat/utils/chat-status";
 import type { ChatVisibleStatus } from "@/components/chat/types";
 
@@ -11,7 +12,7 @@ export function useChatVisibleStatus({
 }: {
   status: ChatStatus;
   error: Error | null | undefined;
-  messages: UIMessage[];
+  messages: AppUIMessage[];
 }): ChatVisibleStatus {
   return getChatVisibleStatus({ status, error, messages });
 }
