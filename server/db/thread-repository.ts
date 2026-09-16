@@ -165,6 +165,8 @@ export async function deleteThread(params: { threadId: string; userId: string })
       .limit(1);
     if (owned.length === 0) return false;
 
+    // Attachments carry their bytes in the row and cascade from `thread`, so
+    // deleting the thread deletes the files with it.
     await tx.execute(sql`delete from checkpoint_blobs where thread_id = ${params.threadId}`);
     await tx.execute(sql`delete from checkpoint_writes where thread_id = ${params.threadId}`);
     await tx.execute(sql`delete from checkpoints where thread_id = ${params.threadId}`);

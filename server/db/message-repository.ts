@@ -43,6 +43,17 @@ export type CreateMessageInput = {
   modelId?: ModelId | null;
   inputTokens?: number;
   outputTokens?: number;
+  /**
+   * Explicit insertion time, for callers that write more than one message at
+   * once.
+   *
+   * The column defaults to `now()`, which in Postgres is the *transaction's*
+   * start time — identical for every row a transaction inserts. History is
+   * ordered by `(created_at, id)`, so two messages written together would then
+   * be ordered by their random uuids, and a turn could render its answer above
+   * the question it answers. Callers that write a turn set this per message.
+   */
+  createdAt?: Date;
 };
 
 export type MessageListOptions = {
@@ -268,6 +279,7 @@ export async function appendMessages(
     modelId: input.modelId ?? null,
     inputTokens: input.inputTokens ?? 0,
     outputTokens: input.outputTokens ?? 0,
+    ...(input.createdAt === undefined ? {} : { createdAt: input.createdAt }),
   }));
 
   await executor.insert(message).values(values);

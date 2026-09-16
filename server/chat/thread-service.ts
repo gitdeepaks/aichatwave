@@ -136,6 +136,44 @@ export async function deleteThread(params: {
   params.log?.info("thread.deleted", { threadId: params.threadId });
 }
 
+/**
+ * The newest window of a thread, for the page that renders it.
+ *
+ * Tolerates a thread that does not exist *yet*, which is a real and ordinary
+ * state rather than an error: the composer navigates to `/chat/{id}` the
+ * moment the first message is sent, and the row is created inside the chat
+ * request a beat later — deliberately, because the rate-limit and quota gates
+ * run before anything is written. Treating that as a 404 made every new
+ * conversation flash an error page.
+ *
+ * A thread that exists and belongs to someone else is still a 403. The
+ * distinction is the point: "not yours" and "not yet" are different answers.
+ */
+export async function readThreadWindow(params: {
+  threadId: string;
+  userId: string;
+  limit?: number | undefined;
+  log?: Logger;
+}): Promise<Page<MessageRecord>> {
+  const owned = await threadRepository.findThreadForUser({
+    threadId: params.threadId,
+    userId: params.userId,
+  });
+
+  if (owned === null) {
+    if (await threadRepository.threadExists(params.threadId)) {
+      throw new AppError("FORBIDDEN", "You don't have access to this thread.");
+    }
+    return { items: [], nextCursor: null };
+  }
+
+  return messageRepository.listMessages({
+    threadId: params.threadId,
+    ...(params.limit === undefined ? {} : { limit: params.limit }),
+    ...(params.log === undefined ? {} : { log: params.log }),
+  });
+}
+
 /** Paginated message history for a thread the user owns. */
 export async function listThreadMessages(params: {
   threadId: string;

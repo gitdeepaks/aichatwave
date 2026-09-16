@@ -1,14 +1,18 @@
 import { z } from "zod";
 import { getDynamicModel, getEffectiveModelId } from "@/server/ai/model-service";
 import { MessagesState } from "@/server/chat/state";
-import { chatRuntimeContextSchema, type ChatRuntimeContext } from "@/server/chat/runtime-context";
+import {
+  chatRuntimeContextSchema,
+  type ChatRuntimeContext,
+  type TurnId,
+} from "@/server/chat/runtime-context";
 import { tools } from "@/server/chat/tools";
 import { BASE_SYSTEM_PROMPT_TEMPLATE } from "@/server/chat/prompts";
 import { fenceUntrustedMessages, fenceUserMemories } from "@/server/chat/untrusted-content";
 import { ingestModelUsage } from "@/server/billing/subscription-service";
 import { recordQuotaTokens } from "@/server/billing/quota-service";
 import { usagePeriodFor } from "@/lib/billing/plan-policy";
-import { persistAssistantTurn, persistToolResults } from "@/server/chat/turn-persistence";
+import { findTurn, recordTurnUsage } from "@/server/chat/turn-registry";
 import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-string";
 import { getStore } from "@/server/memory/store";
 import { logger } from "@/server/lib/logger";
@@ -16,6 +20,7 @@ import { createLlmCallId } from "@/server/lib/request-id";
 import { env } from "@/lib/env";
 import {
   AIMessage,
+  HumanMessage,
   SystemMessage,
   isBaseMessage,
   type AIMessageChunk,
@@ -66,6 +71,56 @@ const usageMetadataSchema = z
   })
   .catch({});
 
+/**
+ * Puts the current turn's attachment bytes in front of the model, and only the
+ * current turn's.
+ *
+ * Graph state deliberately never holds a file. The user's message enters the
+ * graph as text — with a one-line note naming what was attached — and the
+ * bytes are spliced onto the last human message here, on the way to the
+ * provider, exactly as `fenceUntrustedMessages` splices in its delimiters.
+ *
+ * Two problems are avoided by doing it here rather than upstream. The
+ * checkpoint would otherwise carry a base64 copy of every file ever attached
+ * to the thread, forever, in every saved version of the state — a 10 MB PDF
+ * becomes tens of megabytes of `checkpoint_blobs`. And every later turn would
+ * re-send those files to the provider, paying image and document tokens again
+ * on each one. Older attachments stay as their text note, which keeps the
+ * conversation readable ("the chart you sent" still resolves) at no cost.
+ *
+ * A turn with no attachments returns the messages untouched.
+ */
+function hydrateLatestAttachments(messages: BaseMessage[], turnId: TurnId): BaseMessage[] {
+  const record = findTurn(turnId);
+  if (!record || record.attachmentBlocks.length === 0) return messages;
+
+  const lastHumanIndex = messages.findLastIndex((message) => HumanMessage.isInstance(message));
+  const lastHuman = messages[lastHumanIndex];
+  if (lastHumanIndex === -1 || lastHuman === undefined) return messages;
+
+  const text =
+    typeof lastHuman.content === "string"
+      ? lastHuman.content
+      : lastHuman.content.map((block) => (block.type === "text" ? block.text : "")).join("");
+
+  const hydrated = new HumanMessage({
+    content: [
+      ...(text.trim().length > 0 ? [{ type: "text" as const, text }] : []),
+      ...record.attachmentBlocks,
+      ...(record.unavailableAttachments.length === 0
+        ? []
+        : [
+            {
+              type: "text" as const,
+              text: `[These attachments could not be read: ${record.unavailableAttachments.join(", ")}]`,
+            },
+          ]),
+    ],
+  });
+
+  return messages.with(lastHumanIndex, hydrated);
+}
+
 const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const context = readContext(runtime);
   const llmCallId = createLlmCallId();
@@ -96,8 +151,12 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const response: AIMessageChunk = await modelWithTools
     // Fenced on the way to the model only. `state.messages` keeps the exact
     // tool JSON, which is what the gen-UI cards parse and what the checkpoint
-    // stores; only the model's view is delimited.
-    .invoke([new SystemMessage(formattedSystemPrompt), ...fenceUntrustedMessages(state.messages)])
+    // stores; only the model's view is delimited. Attachments are added here
+    // for the same reason — see `hydrateLatestAttachments`.
+    .invoke([
+      new SystemMessage(formattedSystemPrompt),
+      ...hydrateLatestAttachments(fenceUntrustedMessages(state.messages), context.turnId),
+    ])
     .catch((error: unknown) => {
       log.error("llm.call_failed", { latencyMs: Date.now() - startedAt }, error);
       throw error;
@@ -116,15 +175,10 @@ const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
     toolCalls: response.tool_calls?.length ?? 0,
   });
 
-  await persistAssistantTurn({
-    threadId: context.threadId,
-    userId: context.userId,
-    message: response,
-    modelId,
-    inputTokens,
-    outputTokens,
-    log,
-  });
+  // Recorded, not written. The turn's message is assembled from the stream and
+  // committed once, when that stream settles — see `server/chat/turn-commit.ts`.
+  // A tool loop re-enters this node, so usage accumulates across steps.
+  recordTurnUsage(context.turnId, { modelId, inputTokens, outputTokens });
 
   waitUntil(
     ingestModelUsage(
@@ -173,10 +227,11 @@ const toolNodeResultSchema = z.object({
   messages: z.array(z.custom<BaseMessage>(isBaseMessage)),
 });
 const runTools: GraphNode<typeof MessagesState> = async (state, runtime) => {
-  const result = toolNodeResultSchema.parse(await toolNode.invoke(state, runtime));
-  const context = readContext(runtime);
-  await persistToolResults({ threadId: context.threadId, messages: result.messages });
-  return result;
+  // Tool results are no longer written here. They reach the database through
+  // the stream, as `tool-output-available` chunks the turn recorder folds into
+  // the assistant message — which is why a stopped turn can no longer leave a
+  // tool call stuck at `input-available` with nothing to resolve it.
+  return toolNodeResultSchema.parse(await toolNode.invoke(state, runtime));
 };
 
 export const agent = new StateGraph(MessagesState)

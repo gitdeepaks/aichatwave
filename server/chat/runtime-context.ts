@@ -25,10 +25,22 @@ export type ThreadId = z.infer<typeof threadIdSchema>;
 export const requestIdSchema = z.string().min(1).brand<"RequestId">();
 export type RequestId = z.infer<typeof requestIdSchema>;
 
+/**
+ * Identifies the turn currently streaming, so a graph node can find the record
+ * the stream is accumulating into (`server/chat/turn-registry.ts`).
+ *
+ * Branded like the others and for the same reason: it is a string among four
+ * strings, and handing a thread id to `recordTurnUsage` would silently record
+ * nothing rather than fail.
+ */
+export const turnIdSchema = z.string().min(1).brand<"TurnId">();
+export type TurnId = z.infer<typeof turnIdSchema>;
+
 export const chatRuntimeContextSchema = z.object({
   userId: userIdSchema,
   threadId: threadIdSchema,
   requestId: requestIdSchema,
+  turnId: turnIdSchema,
   selectedModel: z.enum(MODEL_IDS),
   memoriesContent: z.string(),
 });
@@ -44,6 +56,7 @@ export function toChatRuntimeContext(params: {
   userId: string;
   threadId: string;
   requestId: string;
+  turnId: string;
   selectedModel: string;
   memoriesContent: string;
 }): ChatRuntimeContext {
