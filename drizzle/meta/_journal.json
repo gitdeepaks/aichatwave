@@ -29,6 +29,13 @@
       "when": 1789488807208,
       "tag": "0003_dashing_wraith",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789575146657,
+      "tag": "0004_nosy_doctor_faustus",
+      "breakpoints": true
     }
   ]
 }
