@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MAX_TURN_DURATION_MS,
   PLAN_IDS,
   PLAN_LIMITS,
+  STREAM_LEASE_TTL_MS,
   planFromSubscription,
   planLimits,
   quotaSnapshot,
@@ -61,4 +63,13 @@ test("seconds-until is a whole number and never below one", () => {
 
   assert.equal(secondsUntil(new Date("2026-09-11T00:00:10.400Z"), now), 11);
   assert.equal(secondsUntil(new Date("2026-09-10T00:00:00.000Z"), now), 1);
+});
+
+test("a turn's ceiling sits inside its lease, so it never outlives it", () => {
+  assert.ok(
+    MAX_TURN_DURATION_MS < STREAM_LEASE_TTL_MS,
+    "a turn that outlived its lease would let account deletion run while the graph still writes",
+  );
+  // And long enough to be a backstop rather than a limit users meet.
+  assert.ok(MAX_TURN_DURATION_MS >= 3 * 60_000);
 });

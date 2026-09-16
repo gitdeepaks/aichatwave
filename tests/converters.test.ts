@@ -112,3 +112,51 @@ test("prepends earlier messages chronologically and deduplicates ids", () => {
   );
   assert.equal(merged[1], current[0]);
 });
+
+test("a file part becomes a UI file pointing at this app, not at the store", () => {
+  const message = convertMessageDtoToUI(
+    messageDto([
+      {
+        type: "file",
+        attachmentId: "att-1",
+        filename: "invoice.pdf",
+        mediaType: "application/pdf",
+        sizeBytes: 2048,
+      },
+    ]),
+  );
+
+  assert.deepEqual(message.parts[0], {
+    type: "file",
+    mediaType: "application/pdf",
+    filename: "invoice.pdf",
+    url: "/api/attachments/att-1",
+  });
+});
+
+/**
+ * Attribution has to survive a reload: the live stream reports the model and
+ * its token counts as a `message-metadata` chunk, and history has to rebuild
+ * the same shape from the columns, or an answer changes appearance on refresh.
+ */
+test("the persisted columns are rebuilt as message metadata", () => {
+  const message = convertMessageDtoToUI({
+    ...messageDto([{ type: "text", text: "answer" }]),
+    modelId: "gpt-5-mini",
+    inputTokens: 1200,
+    outputTokens: 340,
+  });
+
+  assert.deepEqual(message.metadata, {
+    modelId: "gpt-5-mini",
+    inputTokens: 1200,
+    outputTokens: 340,
+    createdAt: "2026-09-15T12:00:00.000Z",
+  });
+});
+
+test("a user message carries no model, and attribution reads as absent", () => {
+  const message = convertMessageDtoToUI(messageDto([{ type: "text", text: "hi" }]));
+
+  assert.equal(message.metadata?.modelId, null);
+});

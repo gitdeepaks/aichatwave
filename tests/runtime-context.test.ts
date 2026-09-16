@@ -6,6 +6,7 @@ const turn = {
   userId: "user_123",
   threadId: "thread_456",
   requestId: "req_789",
+  turnId: "turn_abc",
   selectedModel: "gpt-5-nano",
   memoriesContent: "- Prefers concise answers",
 };
@@ -16,6 +17,7 @@ test("a complete turn parses, and the ids survive unchanged", () => {
   assert.equal(context.userId, "user_123");
   assert.equal(context.threadId, "thread_456");
   assert.equal(context.requestId, "req_789");
+  assert.equal(context.turnId, "turn_abc");
   assert.equal(context.selectedModel, "gpt-5-nano");
 });
 
@@ -28,6 +30,7 @@ test("extra fields are dropped, so the context carries only the turn", () => {
     "requestId",
     "selectedModel",
     "threadId",
+    "turnId",
     "userId",
   ]);
 });
@@ -37,6 +40,7 @@ test("a missing field is a rejection, not a context with a hole in it", () => {
     "userId",
     "threadId",
     "requestId",
+    "turnId",
     "selectedModel",
     "memoriesContent",
   ] as const) {
@@ -51,6 +55,7 @@ test("an empty id is rejected", () => {
   assert.equal(chatRuntimeContextSchema.safeParse({ ...turn, userId: "" }).success, false);
   assert.equal(chatRuntimeContextSchema.safeParse({ ...turn, threadId: "" }).success, false);
   assert.equal(chatRuntimeContextSchema.safeParse({ ...turn, requestId: "" }).success, false);
+  assert.equal(chatRuntimeContextSchema.safeParse({ ...turn, turnId: "" }).success, false);
 });
 
 test("an unknown model id is rejected rather than defaulted", () => {

@@ -147,3 +147,35 @@ test("nonces are base64 and do not repeat", () => {
     assert.match(nonce, /^[A-Za-z0-9+/]+={0,2}$/u);
   }
 });
+
+test("connect-src permits blob:, so a picked attachment can be read back", () => {
+  const csp = buildContentSecurityPolicy({
+    nonce: "test-nonce",
+    isDevelopment: false,
+    isSecure: true,
+    reportOnly: false,
+  });
+  const connectSrc = csp.split("; ").find((directive) => directive.startsWith("connect-src "));
+
+  // The composer holds a picked file as a `blob:` URL and reads it back with
+  // `fetch` to upload it. Without this that read is refused with no network
+  // request to show for it, and the attachment is lost between the chip the
+  // user sees and the request that is sent — which is exactly what happened.
+  assert.ok(connectSrc?.includes(" blob:"), connectSrc);
+});
+
+test("attachments are served from this origin, so no external image host is needed", () => {
+  const csp = buildContentSecurityPolicy({
+    nonce: "test-nonce",
+    isDevelopment: false,
+    isSecure: true,
+    reportOnly: false,
+  });
+  const imgSrc = csp.split("; ").find((entry) => entry.startsWith("img-src ")) ?? "";
+
+  // `'self'` covers `/api/attachments/[id]`. Storing the bytes in Postgres is
+  // what keeps this directive free of a storage vendor's wildcard host.
+  assert.ok(imgSrc.includes("'self'"));
+  assert.equal(imgSrc.includes("uploadthing"), false);
+  assert.equal(imgSrc.includes("ufs.sh"), false);
+});
