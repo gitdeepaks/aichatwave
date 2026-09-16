@@ -123,6 +123,13 @@ export function buildContentSecurityPolicy(options: SecurityHeaderOptions): stri
       "connect-src",
       [
         "'self'",
+        // A file the user attaches is held by the composer as a `blob:` URL,
+        // and reading it back to upload it is a `fetch` of that URL. Without
+        // this the read fails as a CSP violation with no network request to
+        // show for it, the file is silently lost, and the message is sent as
+        // if it never had an attachment. Blob URLs are minted by this page and
+        // readable only by it, so this grants no cross-origin reach.
+        "blob:",
         ...CLERK_ORIGINS,
         ...CLERK_TELEMETRY_ORIGINS,
         // Next's dev server pushes HMR updates over a websocket.

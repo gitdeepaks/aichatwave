@@ -1,7 +1,7 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import { accountDeletion, user } from "@/db/schema/auth-schema";
-import { thread } from "@/db/schema/chat-schema";
+import { attachment, chatStream, thread } from "@/db/schema/chat-schema";
 import { rateLimitBucket, streamLease } from "@/db/schema/limits-schema";
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -61,6 +61,13 @@ export async function deleteLocalAccountData(userId: string): Promise<void> {
       tx,
       ownedThreads.map((owned) => owned.id),
     );
+    // Bytes and row together, in this transaction. Storing attachments in
+    // Postgres is what makes that true: there is no object store left holding
+    // a copy that a second, separately-failable call would have to remove.
+    await tx.delete(attachment).where(eq(attachment.userId, userId));
+    // A live stream row would otherwise outlive its user and keep reporting
+    // itself resumable until its heartbeat expired.
+    await tx.delete(chatStream).where(eq(chatStream.userId, userId));
     await tx.execute(sql`delete from store where namespace_path = ${`${userId}:memories`}`);
     await tx.delete(rateLimitBucket).where(eq(rateLimitBucket.bucketKey, `chat:user:${userId}`));
     await tx.delete(streamLease).where(eq(streamLease.ownerKey, `chat:user:${userId}`));

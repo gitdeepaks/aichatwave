@@ -63,6 +63,23 @@ export const RATE_LIMIT_WINDOW_MS = 60_000;
  */
 export const STREAM_LEASE_TTL_MS = 5 * 60_000;
 
+/**
+ * The longest a single turn may generate before it is stopped.
+ *
+ * Deliberately just inside the lease TTL. A turn now keeps running when its
+ * client disconnects — that is what makes a refresh resumable — so "the user
+ * closed the tab" no longer ends generation, and without a ceiling a stalled
+ * provider call would hold one of the account's concurrent-stream slots until
+ * the lease expired. On the free plan that is the *only* slot, so the account
+ * would be unable to send anything at all in the meantime.
+ *
+ * Under the TTL rather than equal to it so the turn always ends while its
+ * lease is still held: a stream that outlived its lease would let account
+ * deletion proceed (`hasActiveStreamLease` filters on `expires_at > now()`)
+ * while the graph was still writing checkpoints.
+ */
+export const MAX_TURN_DURATION_MS = STREAM_LEASE_TTL_MS - 30_000;
+
 export function planLimits(planId: PlanId): PlanLimits {
   return PLAN_LIMITS[planId];
 }
