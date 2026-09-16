@@ -18,13 +18,14 @@ export const messageRoleSchema = z.enum(MESSAGE_ROLES);
 export type MessageRole = z.infer<typeof messageRoleSchema>;
 
 /**
- * Lifecycle of a tool call. `input-streaming` is a stream-only state and is
- * never persisted. `input-available` is written durably but only in passing:
- * the assistant turn is stored the moment the model asks for a tool, and
- * `persistToolResults` resolves that part to `output-available` or
- * `output-error` once the tool node answers. A row left at `input-available`
- * means the turn was abandoned before its tool returned, and the renderer
- * treats it as still running.
+ * Lifecycle of a tool call.
+ *
+ * Since Phase G a turn is written once, when its stream settles, so a
+ * persisted call is normally terminal — `output-available` or `output-error`.
+ * The two input states are still representable because an aborted or failed
+ * stream is recorded exactly as far as it got: a call the model asked for but
+ * whose tool never answered stays `input-available`, and the renderer shows it
+ * as interrupted rather than pretending it produced nothing.
  */
 export const TOOL_PART_STATES = [
   "input-streaming",
@@ -47,6 +48,23 @@ export const reasoningPartSchema = z.object({
 });
 export type ReasoningPart = z.infer<typeof reasoningPartSchema>;
 
+/**
+ * A file the user attached, stored by reference.
+ *
+ * The bytes live in the `attachment` table and are served from
+ * `attachmentUrl(attachmentId)`; only the reference is written into `parts`,
+ * so a message row stays small and the same upload can be re-read by the model
+ * on a regenerate without being re-encoded into the history.
+ */
+export const filePartSchema = z.object({
+  type: z.literal("file"),
+  attachmentId: z.string().min(1),
+  filename: z.string().min(1),
+  mediaType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative(),
+});
+export type FilePart = z.infer<typeof filePartSchema>;
+
 export const toolPartSchema = z.object({
   type: z.literal("tool"),
   toolCallId: z.string().min(1),
@@ -61,6 +79,7 @@ export type ToolPart = z.infer<typeof toolPartSchema>;
 export const messagePartSchema = z.discriminatedUnion("type", [
   textPartSchema,
   reasoningPartSchema,
+  filePartSchema,
   toolPartSchema,
 ]);
 export type MessagePart = z.infer<typeof messagePartSchema>;
@@ -79,7 +98,12 @@ export function messagePartsToPlainText(parts: MessageParts): string {
 
 export function hasRenderableContent(parts: MessageParts): boolean {
   return parts.some((part) => {
-    if (part.type === "tool") return true;
+    if (part.type === "tool" || part.type === "file") return true;
     return part.text.trim().length > 0;
   });
+}
+
+/** The attachments carried by a message, in the order they were attached. */
+export function messageFileParts(parts: MessageParts): FilePart[] {
+  return parts.filter((part): part is FilePart => part.type === "file");
 }

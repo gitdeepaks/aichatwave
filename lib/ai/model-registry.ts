@@ -36,30 +36,71 @@ export type AnthropicModelOptions = {
   maxTokens?: number;
 };
 
-export type ModelConfig =
-  | { provider: "openai"; tier: ModelTier; options?: OpenAiModelOptions }
-  | { provider: "google"; tier: ModelTier; options?: GoogleModelOptions }
-  | { provider: "anthropic"; tier: ModelTier; options?: AnthropicModelOptions };
+/**
+ * What a model can be shown, beyond text.
+ *
+ * Declared per model rather than assumed per provider: a provider ships
+ * text-only models alongside multimodal ones, and the composer has to refuse
+ * an attachment the selected model cannot read *before* it is uploaded.
+ */
+export type ModelModalities = {
+  image: boolean;
+  pdf: boolean;
+};
+
+/**
+ * List price in US dollars per million tokens, as published by the provider.
+ *
+ * Carried here so the per-message cost the UI shows is derived from the same
+ * table the model is chosen from, and adding a model is a compile error until
+ * its price is stated. These are list prices for display, not a billing
+ * record — Polar remains the billing record.
+ */
+export type ModelPricing = {
+  inputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+};
+
+type ModelFacts = {
+  tier: ModelTier;
+  modalities: ModelModalities;
+  pricing: ModelPricing;
+};
+
+export type ModelConfig = ModelFacts &
+  (
+    | { provider: "openai"; options?: OpenAiModelOptions }
+    | { provider: "google"; options?: GoogleModelOptions }
+    | { provider: "anthropic"; options?: AnthropicModelOptions }
+  );
 
 export const MODEL_REGISTRY = {
   "gpt-5-mini": {
     provider: "openai",
     tier: "free",
+    modalities: { image: true, pdf: true },
+    pricing: { inputPerMillionUsd: 0.25, outputPerMillionUsd: 2 },
     options: { reasoning: { effort: "low" } },
   },
   "gpt-5-nano": {
     provider: "openai",
     tier: "free",
+    modalities: { image: true, pdf: true },
+    pricing: { inputPerMillionUsd: 0.05, outputPerMillionUsd: 0.4 },
     options: { reasoning: { effort: "low" } },
   },
   "gemini-3.1-pro": {
     provider: "google",
     tier: "subscription",
+    modalities: { image: true, pdf: true },
+    pricing: { inputPerMillionUsd: 1.25, outputPerMillionUsd: 10 },
     options: { temperature: 0 },
   },
   "claude-sonnet-4-20250514": {
     provider: "anthropic",
     tier: "subscription",
+    modalities: { image: true, pdf: true },
+    pricing: { inputPerMillionUsd: 3, outputPerMillionUsd: 15 },
   },
 } satisfies Record<ModelId, ModelConfig>;
 
@@ -145,6 +186,46 @@ export function getEffectiveModelId(value: unknown): ModelId {
 
 export function getModelConfig(modelId: ModelId): ModelConfig {
   return MODEL_REGISTRY[modelId];
+}
+
+export function getModelModalities(modelId: ModelId): ModelModalities {
+  return MODEL_REGISTRY[modelId].modalities;
+}
+
+/**
+ * Whether `modelId` can read an attachment of this kind.
+ *
+ * Takes the kind rather than the media type so the caller is forced through
+ * `attachmentKindOf`, which is the allowlist — a media type this product does
+ * not accept never reaches a capability question.
+ */
+export function modelAcceptsAttachmentKind(modelId: ModelId, kind: "image" | "pdf"): boolean {
+  return MODEL_REGISTRY[modelId].modalities[kind];
+}
+
+export function getModelPricing(modelId: ModelId): ModelPricing {
+  return MODEL_REGISTRY[modelId].pricing;
+}
+
+/**
+ * List cost of one message, in US dollars.
+ *
+ * Returns null for a message with no recorded model — a user turn, or an
+ * assistant turn written before token counts were persisted — so the UI can
+ * omit the figure instead of showing a confident `$0.0000`.
+ */
+export function messageCostUsd(params: {
+  modelId: ModelId | null;
+  inputTokens: number;
+  outputTokens: number;
+}): number | null {
+  if (params.modelId === null) return null;
+  const pricing = getModelPricing(params.modelId);
+  return (
+    (params.inputTokens * pricing.inputPerMillionUsd +
+      params.outputTokens * pricing.outputPerMillionUsd) /
+    1_000_000
+  );
 }
 
 /** Pure access policy: free-tier models are open, subscription models need an active plan. */
