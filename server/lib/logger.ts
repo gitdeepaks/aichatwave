@@ -1,7 +1,16 @@
 /**
  * Structured logger wrapper. All server-side logging goes through this module
  * so every line is a single JSON object carrying request/user/thread context.
+ *
+ * Since Phase H every line also carries the active trace and span ids when
+ * something is recording. That is the join between the two halves of an
+ * investigation: a user quotes a request id, `grep` finds the line, and the
+ * line names the trace whose route → graph → LLM → tool tree explains it.
+ * The reader is injected rather than imported so this module stays free of
+ * OpenTelemetry and its test needs no SDK.
  */
+
+import { currentTraceCorrelation } from "@/server/observability/tracing";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -61,13 +70,29 @@ const defaultSink: LogSink = (entry) => {
 };
 /* eslint-enable no-console */
 
-export function createLogger(base: LogContext = {}, sink: LogSink = defaultSink): Logger {
+/**
+ * Supplies the ids of whatever is currently being traced, or an empty object.
+ *
+ * A function rather than a value because it is read per line: one logger
+ * instance spans many requests, and the active span changes underneath it.
+ */
+export type TraceContextReader = () => LogContext;
+
+const noTraceContext: TraceContextReader = () => ({});
+
+export function createLogger(
+  base: LogContext = {},
+  sink: LogSink = defaultSink,
+  readTraceContext: TraceContextReader = noTraceContext,
+): Logger {
   const emit = (level: LogLevel, message: string, context?: LogContext, cause?: unknown): void => {
     sink({
       level,
       time: new Date().toISOString(),
       message,
-      context: { ...base, ...context },
+      // Trace ids first, so an explicit field of the same name always wins —
+      // nothing about correlation may overwrite what a call site chose to say.
+      context: { ...readTraceContext(), ...base, ...context },
       ...(cause === undefined ? {} : { error: serializeError(cause) }),
     });
   };
@@ -77,8 +102,8 @@ export function createLogger(base: LogContext = {}, sink: LogSink = defaultSink)
     info: (message, context) => emit("info", message, context),
     warn: (message, context, cause) => emit("warn", message, context, cause),
     error: (message, context, cause) => emit("error", message, context, cause),
-    child: (context) => createLogger({ ...base, ...context }, sink),
+    child: (context) => createLogger({ ...base, ...context }, sink, readTraceContext),
   };
 }
 
-export const logger = createLogger();
+export const logger = createLogger({}, defaultSink, currentTraceCorrelation);

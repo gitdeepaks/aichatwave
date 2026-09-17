@@ -25,6 +25,9 @@ import {
 } from "@/server/lib/app-error";
 import { logger, type Logger } from "@/server/lib/logger";
 import { resolveRequestId } from "@/server/lib/request-id";
+import { reportError } from "@/server/observability/error-reporter";
+import { annotateActiveSpan, withSpan, type SpanHandle } from "@/server/observability/tracing";
+import { recordApiOutcome } from "@/server/observability/metrics";
 
 export const noParams = z.object({});
 export const noQuery = z.object({});
@@ -81,6 +84,10 @@ export function createRouteHandler<TParams, TQuery, TBody>(
 ): RouteHandler {
   return build(config, async (base) => {
     const userId = await requireSessionUserId();
+    // The route span is opened before the session is known, so the user is
+    // attached here instead of at creation. Without it a trace can be found by
+    // request id but not filtered by who it happened to.
+    annotateActiveSpan({ "app.user_id": userId });
     return config.handler({ ...base, userId, log: base.log.child({ userId }) });
   });
 }
@@ -104,39 +111,86 @@ function build<TParams, TQuery, TBody>(
     const requestId = resolveRequestId(request.headers);
     const log = logger.child({ requestId, route: config.name });
 
-    try {
-      // Before anything is parsed, and for every route built from this factory:
-      // a write that names a foreign origin is refused. Webhook routes do not
-      // go through this factory — they are verified by signature and are
-      // legitimately called cross-origin — so they are unaffected.
-      assertSameOrigin({
-        method: request.method,
-        headers: request.headers,
-        appOrigin: appUrl(),
-      });
-
-      const rawParams = rawContext?.params === undefined ? {} : await rawContext.params;
-      const params = parseOrThrow(config.params, rawParams, "params");
-      const query = parseOrThrow(
-        config.query,
-        Object.fromEntries(new URL(request.url).searchParams),
-        "query",
-      );
-      const body = parseOrThrow(config.body, await readJsonBody(request), "body");
-
-      const response = await run({ request, requestId, params, query, body, log });
-      return withRequestId(response, requestId);
-    } catch (error) {
-      const appError = toAppError(error);
-      const level = appError.status >= 500 ? "error" : "warn";
-      log[level](
-        "route.request_failed",
-        { code: appError.code, status: appError.status },
-        isAppError(error) ? error.cause : error,
-      );
-      return appErrorResponse(appError, requestId);
-    }
+    // The root of every API trace. Next emits its own server span, but its
+    // attributes are fixed and carry none of this app's ids — and the request
+    // id is the one a user actually quotes.
+    return withSpan(
+      "route",
+      {
+        "http.request.method": request.method,
+        "http.route": config.name,
+        "app.request_id": requestId,
+      },
+      (span) => runRoute({ request, rawContext, config, run, requestId, log, span }),
+    );
   };
+}
+
+/**
+ * The body of a request, extracted so the span wrapper above stays readable.
+ *
+ * Every failure funnels through the one `catch`: it maps to the typed error
+ * envelope, decides whether the failure is an incident (a 4xx is not), and
+ * records the outcome for the API 5xx-rate SLO. Those three used to be three
+ * decisions nobody made consistently.
+ */
+async function runRoute<TParams, TQuery, TBody>(args: {
+  request: Request;
+  rawContext: RawRouteContext | undefined;
+  config: BaseConfig<TParams, TQuery, TBody>;
+  run: (base: PublicRouteContext<TParams, TQuery, TBody>) => Promise<Response>;
+  requestId: string;
+  log: Logger;
+  span: SpanHandle;
+}): Promise<Response> {
+  const { request, rawContext, config, run, requestId, log, span } = args;
+
+  try {
+    // Before anything is parsed, and for every route built from this factory:
+    // a write that names a foreign origin is refused. Webhook routes do not
+    // go through this factory — they are verified by signature and are
+    // legitimately called cross-origin — so they are unaffected.
+    assertSameOrigin({
+      method: request.method,
+      headers: request.headers,
+      appOrigin: appUrl(),
+    });
+
+    const rawParams = rawContext?.params === undefined ? {} : await rawContext.params;
+    const params = parseOrThrow(config.params, rawParams, "params");
+    const query = parseOrThrow(
+      config.query,
+      Object.fromEntries(new URL(request.url).searchParams),
+      "query",
+    );
+    const body = parseOrThrow(config.body, await readJsonBody(request), "body");
+
+    const response = await run({ request, requestId, params, query, body, log });
+    span.setAttributes({ "http.response.status_code": response.status });
+    recordApiOutcome({ route: config.name, status: response.status });
+    return withRequestId(response, requestId);
+  } catch (error) {
+    const appError = toAppError(error);
+    const level = appError.status >= 500 ? "error" : "warn";
+    span.setAttributes({
+      "http.response.status_code": appError.status,
+      "app.error.code": appError.code,
+    });
+    recordApiOutcome({ route: config.name, status: appError.status });
+    log[level](
+      "route.request_failed",
+      { code: appError.code, status: appError.status },
+      isAppError(error) ? error.cause : error,
+    );
+    // The classifier, not the status, decides what pages someone — but the two
+    // agree here by construction: only a 5xx is ever an incident.
+    reportError({
+      error,
+      log,
+      context: { requestId, route: config.name, status: appError.status },
+    });
+    return appErrorResponse(appError, requestId);
+  }
 }
 
 /** Returns `undefined` for verbs without a body, so `noBody` validates cleanly. */
