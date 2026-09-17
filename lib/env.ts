@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requiresRuntimeConfig } from "@/lib/env-policy";
+import { parseAdminUserIds } from "@/lib/security/admin-policy";
 import {
   defaultModelProvider,
   getProviderEnvKey,
@@ -73,6 +74,46 @@ const envSchema = z.object({
    */
   SERP_API_KEY: z.string().min(1).optional(),
 
+  /**
+   * Comma-separated Clerk user ids allowed to read `/admin/*` and
+   * `/api/admin/*` — the cost and SLO surfaces. Unset means nobody; see
+   * `lib/security/admin-policy.ts` for why that is the safe reading.
+   */
+  ADMIN_USER_IDS: z.string().optional(),
+
+  /* ─── Observability (all optional; absent means "off", never "broken") ──── */
+
+  /**
+   * Where traces go. Setting it is what turns the OpenTelemetry SDK on outside
+   * Vercel — on Vercel the platform supplies the exporter and this stays unset.
+   * With neither, `withSpan` still runs against the API's no-op tracer, so the
+   * instrumentation in the code costs nothing and needs no feature flag.
+   */
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+  OTEL_SERVICE_NAME: z.string().min(1).default("aichatwave"),
+  /** The standard OTel kill switch, honored here so an operator can disable tracing without a deploy. */
+  OTEL_SDK_DISABLED: z.enum(["true", "false"]).optional(),
+
+  /**
+   * Optional webhook the error reporter posts incidents to.
+   *
+   * Vendor-neutral on purpose: the payload is this app's own shape, and the
+   * primary destination for an exception is the active trace span. This is the
+   * escape hatch for a deployment with no tracing backend, not the main path.
+   */
+  ERROR_WEBHOOK_URL: z.url().optional(),
+
+  /**
+   * LangSmith. `LANGSMITH_TRACING=true` is what the LangChain SDK itself reads,
+   * so it is named exactly that rather than wrapped — but it is declared here
+   * so a deployment that turns tracing on without a key fails at boot instead
+   * of silently sending nothing.
+   */
+  LANGSMITH_TRACING: z.enum(["true", "false"]).optional(),
+  LANGSMITH_API_KEY: z.string().min(1).optional(),
+  LANGSMITH_PROJECT: z.string().min(1).optional(),
+  LANGSMITH_ENDPOINT: z.url().optional(),
+
   NEXT_PUBLIC_APP_URL: z.url().optional(),
   VERCEL_URL: z.string().min(1).optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -94,6 +135,16 @@ const envSchemaWithGuards = envSchema.superRefine((value, context) => {
       code: "custom",
       path: [defaultProviderKey],
       message: `${defaultProviderKey} is required: it is the provider for the default model.`,
+    });
+  }
+
+  // Tracing on with no key is the worst of both: the SDK builds and queues
+  // runs it can never deliver, and the operator believes they have traces.
+  if (value.LANGSMITH_TRACING === "true" && value.LANGSMITH_API_KEY === undefined) {
+    context.addIssue({
+      code: "custom",
+      path: ["LANGSMITH_API_KEY"],
+      message: "LANGSMITH_API_KEY is required when LANGSMITH_TRACING=true.",
     });
   }
 
@@ -144,6 +195,39 @@ export const configuredProviders: ReadonlySet<ModelProvider> = new Set(
 
 /** Whether the SerpAPI-backed `display_products` tool can run at all. */
 export const hasSerpApiKey = Boolean(env.SERP_API_KEY);
+
+/** Clerk user ids allowed to read `/admin/*`. Empty set means nobody — see `admin-policy.ts`. */
+export const adminUserIds: ReadonlySet<string> = parseAdminUserIds(env.ADMIN_USER_IDS);
+
+export type TracingConfig = {
+  readonly enabled: boolean;
+  readonly serviceName: string;
+  readonly endpoint: string | null;
+};
+
+/**
+ * Whether to start an OpenTelemetry SDK, and where it should send.
+ *
+ * Registering an SDK with nowhere to export to costs every request a span it
+ * builds, batches, and drops — so the SDK starts only when there is a
+ * destination: an OTLP endpoint we were given, or Vercel, which supplies one.
+ * The instrumentation in the application code is unconditional either way,
+ * because `@opentelemetry/api` resolves to a no-op tracer when no SDK is
+ * registered. That is the whole point of instrumenting against the API rather
+ * than against an SDK: there is no flag to forget.
+ */
+export function tracingConfig(): TracingConfig {
+  const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT ?? null;
+  const onVercel = env.VERCEL_URL !== undefined;
+  return {
+    enabled: env.OTEL_SDK_DISABLED !== "true" && (endpoint !== null || onVercel),
+    serviceName: env.OTEL_SERVICE_NAME,
+    endpoint,
+  };
+}
+
+/** LangChain reads `LANGSMITH_TRACING` itself; this is the same answer, for logging and for the health of the config. */
+export const langsmithEnabled = env.LANGSMITH_TRACING === "true";
 
 /**
  * Absolute origin of this deployment. Polar checkout and portal redirects need
