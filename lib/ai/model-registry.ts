@@ -232,3 +232,56 @@ export function messageCostUsd(params: {
 export function isModelAccessible(modelId: ModelId, hasActiveSubscription: boolean): boolean {
   return MODEL_REGISTRY[modelId].tier === "free" || hasActiveSubscription;
 }
+
+/**
+ * Tier ordering, so "do not silently upgrade the user" is arithmetic rather
+ * than a pair of if-statements that has to be revisited when a tier is added.
+ */
+const TIER_RANK: Record<ModelTier, number> = { free: 0, subscription: 1 };
+
+/**
+ * The model to answer with when `modelId`'s provider is failing, or null when
+ * there is nothing honest to fall back to.
+ *
+ * Three constraints, in order:
+ *
+ *  - **A different provider.** Falling back within the failing provider is not
+ *    a fallback; it is the same outage with a different model name.
+ *  - **Configured and healthy.** `available` is "this deployment holds a key",
+ *    `healthy` is "this provider's circuit breaker is closed". Both must hold,
+ *    or the fallback fails the same way the original call did.
+ *  - **Same tier or lower.** A free-tier user must never be quietly served a
+ *    subscription model — that is unbilled spend, and it teaches them the
+ *    paywall is soft. Preferring the same tier first keeps a Pro user's answer
+ *    at the quality they paid for whenever that is still possible.
+ *
+ * Returning null is a real outcome and the caller must handle it: during an
+ * OpenAI outage a free-tier user has no fallback, because both free models are
+ * OpenAI's. Failing the turn is the correct answer there, and it is better
+ * than the alternative of handing out Claude for free.
+ */
+export function fallbackModelId(params: {
+  modelId: ModelId;
+  /** Providers this deployment holds a key for. */
+  available: ReadonlySet<ModelProvider>;
+  /** Providers whose circuit breaker is closed. */
+  healthy: ReadonlySet<ModelProvider>;
+}): ModelId | null {
+  const failingProvider = MODEL_REGISTRY[params.modelId].provider;
+  const requestedRank = TIER_RANK[MODEL_REGISTRY[params.modelId].tier];
+
+  const candidates = MODEL_IDS.filter((candidate) => {
+    const config = MODEL_REGISTRY[candidate];
+    if (config.provider === failingProvider) return false;
+    if (!params.available.has(config.provider)) return false;
+    if (!params.healthy.has(config.provider)) return false;
+    return TIER_RANK[config.tier] <= requestedRank;
+  });
+
+  // Same tier first, then lower; registry order breaks ties, so the choice is
+  // deterministic and reviewable rather than "whichever the filter met first".
+  const sameTier = candidates.find(
+    (candidate) => TIER_RANK[MODEL_REGISTRY[candidate].tier] === requestedRank,
+  );
+  return sameTier ?? candidates[0] ?? null;
+}
