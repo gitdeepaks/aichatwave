@@ -149,3 +149,95 @@ export const messageSearchQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().min(1).max(200),
 });
 export type MessageSearchQuery = z.infer<typeof messageSearchQuerySchema>;
+
+/* ─── Operations (admin only) ─────────────────────────────────────────────── */
+
+/**
+ * A model id as it appears in a *historical* row rather than a request.
+ *
+ * Not `z.enum(MODEL_IDS)`: `message.model_id` is plain text precisely so a
+ * model retired from the registry does not make a year-old row unreadable. The
+ * dashboard has to be able to show "claude-3-opus: $412" for spend that
+ * genuinely happened on a model this deployment no longer offers.
+ */
+const recordedModelIdSchema = z.string().min(1);
+
+export const costBucketDtoSchema = z.object({
+  messages: z.number().int().nonnegative(),
+  inputTokens: z.number().nonnegative(),
+  outputTokens: z.number().nonnegative(),
+  /** Null when the model is no longer in the registry and has no price to quote. */
+  costUsd: z.number().nonnegative().nullable(),
+});
+export type CostBucketDto = z.infer<typeof costBucketDtoSchema>;
+
+export const costByDayDtoSchema = costBucketDtoSchema.extend({
+  day: z.string().min(1),
+});
+export type CostByDayDto = z.infer<typeof costByDayDtoSchema>;
+
+export const costByModelDtoSchema = costBucketDtoSchema.extend({
+  modelId: recordedModelIdSchema,
+  /** False for a model that has left the registry, so the UI can say why cost is missing. */
+  priced: z.boolean(),
+});
+export type CostByModelDto = z.infer<typeof costByModelDtoSchema>;
+
+export const spendAnomalyDtoSchema = z.object({
+  anomalous: z.boolean(),
+  /** Today's spend over the trailing median. Null when there is no baseline to divide by. */
+  ratio: z.number().nullable(),
+  reason: z.string().min(1),
+});
+export type SpendAnomalyDto = z.infer<typeof spendAnomalyDtoSchema>;
+
+export const costByUserDtoSchema = costBucketDtoSchema.extend({
+  userId: z.string().min(1),
+  todayUsd: z.number().nonnegative(),
+  anomaly: spendAnomalyDtoSchema,
+});
+export type CostByUserDto = z.infer<typeof costByUserDtoSchema>;
+
+export const costReportResponseSchema = z.object({
+  windowDays: z.number().int().positive(),
+  generatedAt: isoDateTime,
+  /** True when the row cap was hit, so the figures below are a floor, not a total. */
+  truncated: z.boolean(),
+  totals: costBucketDtoSchema,
+  byDay: z.array(costByDayDtoSchema),
+  byModel: z.array(costByModelDtoSchema),
+  topUsers: z.array(costByUserDtoSchema),
+});
+export type CostReportResponse = z.infer<typeof costReportResponseSchema>;
+
+export const costReportQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).optional(),
+});
+export type CostReportQuery = z.infer<typeof costReportQuerySchema>;
+
+export const sloEvaluationDtoSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  unit: z.enum(["milliseconds", "ratio"]),
+  status: z.enum(["healthy", "degraded", "paging", "insufficient_data"]),
+  value: z.number().nullable(),
+  sample: z.number().int().nonnegative(),
+  objective: z.number(),
+  pageAt: z.number(),
+  /**
+   * Whether the number describes the whole fleet or only the instance that
+   * answered. Shown, not hidden: two of the four SLOs are counted in process
+   * memory because nothing durable records them.
+   */
+  scope: z.enum(["fleet", "instance"]),
+  runbook: z.string().min(1),
+});
+export type SloEvaluationDto = z.infer<typeof sloEvaluationDtoSchema>;
+
+export const sloReportResponseSchema = z.object({
+  windowMinutes: z.number().int().positive(),
+  generatedAt: isoDateTime,
+  paging: z.boolean(),
+  objectives: z.array(sloEvaluationDtoSchema),
+});
+export type SloReportResponse = z.infer<typeof sloReportResponseSchema>;
