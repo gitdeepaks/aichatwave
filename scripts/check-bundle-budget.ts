@@ -11,6 +11,10 @@ const routeBundleStatsSchema = z.array(
 const ROUTE_BUDGETS = {
   "/": 3_085_000,
   "/chat/[thread_id]": 3_085_000,
+  // The operations dashboard is a server component through and through: its
+  // first-load JS is the shell every page in the (chat) group carries and
+  // nothing more. Budgeted so that stays true.
+  "/admin/operations": 1_520_000,
   "/memories": 1_540_000,
   "/profile": 1_530_000,
   "/success": 1_525_000,
