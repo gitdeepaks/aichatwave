@@ -32,6 +32,7 @@ import {
 import { SUBSCRIPTION_STATUSES } from "@/db/schema/billing-schema";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
+import { recordBillingIngest } from "@/server/observability/metrics";
 
 /**
  * How long a reconciliation is trusted before a background refresh is started.
@@ -244,7 +245,12 @@ export async function ingestModelUsage(
         },
       ],
     });
+    recordBillingIngest({ failed: false });
   } catch (error) {
+    // Counted as well as logged: usage that never reaches Polar is revenue
+    // that is never billed, and it fails silently by design (this call is
+    // non-fatal). The SLO is what makes a slow leak visible.
+    recordBillingIngest({ failed: true });
     log.error(
       "billing.usage_ingest_failed",
       { userId: externalCustomerId, model: event.model, requestId: event.requestId },

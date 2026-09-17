@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { getDynamicModel, getEffectiveModelId } from "@/server/ai/model-service";
+import { callModelWithResilience } from "@/server/ai/llm-invoke";
+import { MODEL_REGISTRY } from "@/lib/ai/model-registry";
+import { reportError } from "@/server/observability/error-reporter";
+import { withSpan } from "@/server/observability/tracing";
+import { withTurnSpan } from "@/server/observability/turn-trace";
 import { MessagesState } from "@/server/chat/state";
 import {
   chatRuntimeContextSchema,
@@ -17,7 +22,7 @@ import { pgConnectionStringWithExplicitVerifyFull } from "@/lib/pg-connection-st
 import { getStore } from "@/server/memory/store";
 import { logger } from "@/server/lib/logger";
 import { createLlmCallId } from "@/server/lib/request-id";
-import { env } from "@/lib/env";
+import { configuredProviders, env } from "@/lib/env";
 import {
   AIMessage,
   HumanMessage,
@@ -124,95 +129,155 @@ function hydrateLatestAttachments(messages: BaseMessage[], turnId: TurnId): Base
 const llmCall: GraphNode<typeof MessagesState> = async (state, runtime) => {
   const context = readContext(runtime);
   const llmCallId = createLlmCallId();
-  const modelId = getEffectiveModelId(context.selectedModel);
+  const requestedModelId = getEffectiveModelId(context.selectedModel);
   const log = logger.child({
     requestId: context.requestId,
     llmCallId,
     userId: context.userId,
     threadId: context.threadId,
-    modelId,
+    modelId: requestedModelId,
     node: "llmCall",
   });
 
-  const modelWithTools = getDynamicModel(modelId).bindTools(tools);
-
-  const formattedSystemPrompt = await BASE_SYSTEM_PROMPT_TEMPLATE.format({
-    // Memories are derived from user messages, so they are untrusted for the
-    // same reason tool output is, and carry the same fence.
-    user_details_content: fenceUserMemories(context.memoriesContent),
-  });
-
-  const startedAt = Date.now();
-
-  // Annotated because `getDynamicModel` returns a union of three provider
-  // clients, and the union of their `invoke` results intersects to `never` —
-  // every provider resolves to an `AIMessageChunk`, so that is the true type
-  // of the value here and the one the rest of the node reads.
-  const response: AIMessageChunk = await modelWithTools
-    // Fenced on the way to the model only. `state.messages` keeps the exact
-    // tool JSON, which is what the gen-UI cards parse and what the checkpoint
-    // stores; only the model's view is delimited. Attachments are added here
-    // for the same reason — see `hydrateLatestAttachments`.
-    .invoke([
-      new SystemMessage(formattedSystemPrompt),
-      ...hydrateLatestAttachments(fenceUntrustedMessages(state.messages), context.turnId),
-    ])
-    .catch((error: unknown) => {
-      log.error("llm.call_failed", { latencyMs: Date.now() - startedAt }, error);
-      throw error;
-    });
-
-  const usage = usageMetadataSchema.parse(response.usage_metadata);
-  const inputTokens = usage.input_tokens ?? 0;
-  const outputTokens = usage.output_tokens ?? 0;
-  const totalTokens = usage.total_tokens ?? 0;
-
-  log.info("llm.call_completed", {
-    latencyMs: Date.now() - startedAt,
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    toolCalls: response.tool_calls?.length ?? 0,
-  });
-
-  // Recorded, not written. The turn's message is assembled from the stream and
-  // committed once, when that stream settles — see `server/chat/turn-commit.ts`.
-  // A tool loop re-enters this node, so usage accumulates across steps.
-  recordTurnUsage(context.turnId, { modelId, inputTokens, outputTokens });
-
-  waitUntil(
-    ingestModelUsage(
+  // Re-entered rather than inherited. The graph is driven by pulls on a stream
+  // that outlives the request, in a different async context, so without this
+  // the node's span would be the root of its own trace instead of a child of
+  // the turn — see `server/observability/turn-trace.ts`.
+  return withTurnSpan(context.turnId, () =>
+    withSpan(
+      "graph.llm_call",
       {
-        userId: context.userId,
-        model: modelId,
-        requestId: context.requestId,
-        llmCallId,
-        inputTokens,
-        outputTokens,
-        totalTokens,
+        "graph.node": "callLlm",
+        "app.request_id": context.requestId,
+        "app.llm_call_id": llmCallId,
+        "app.user_id": context.userId,
+        "app.thread_id": context.threadId,
+        "llm.model.requested": requestedModelId,
       },
-      log,
+      async (span) => {
+        const formattedSystemPrompt = await BASE_SYSTEM_PROMPT_TEMPLATE.format({
+          // Memories are derived from user messages, so they are untrusted for
+          // the same reason tool output is, and carry the same fence.
+          user_details_content: fenceUserMemories(context.memoriesContent),
+        });
+
+        // Fenced on the way to the model only. `state.messages` keeps the exact
+        // tool JSON, which is what the gen-UI cards parse and what the
+        // checkpoint stores; only the model's view is delimited. Attachments
+        // are added here for the same reason — see `hydrateLatestAttachments`.
+        const messages = [
+          new SystemMessage(formattedSystemPrompt),
+          ...hydrateLatestAttachments(fenceUntrustedMessages(state.messages), context.turnId),
+        ];
+
+        const startedAt = Date.now();
+
+        const outcome = await callModelWithResilience<AIMessageChunk>({
+          modelId: requestedModelId,
+          log,
+          availableProviders: configuredProviders,
+          call: async ({ modelId: attemptModelId, timeoutMs }) => {
+            // Annotated because `getDynamicModel` returns a union of three
+            // provider clients, and the union of their `invoke` results
+            // intersects to `never` — every provider resolves to an
+            // `AIMessageChunk`, so that is the true type of the value here.
+            const chunk: AIMessageChunk = await getDynamicModel(attemptModelId)
+              .bindTools(tools)
+              .invoke(messages, { timeout: timeoutMs });
+            return chunk;
+          },
+        }).catch((error: unknown) => {
+          log.error("llm.call_failed", { latencyMs: Date.now() - startedAt }, error);
+          reportError({
+            error,
+            log,
+            context: {
+              requestId: context.requestId,
+              llmCallId,
+              userId: context.userId,
+              threadId: context.threadId,
+              modelId: requestedModelId,
+            },
+          });
+          throw error;
+        });
+
+        const response = outcome.result;
+        // The model that actually answered, which a fallback makes different
+        // from the one that was asked for. Everything downstream — attribution,
+        // Polar ingest, the cost dashboard — must attribute the real one.
+        const modelId = outcome.modelId;
+
+        const usage = usageMetadataSchema.parse(response.usage_metadata);
+        const inputTokens = usage.input_tokens ?? 0;
+        const outputTokens = usage.output_tokens ?? 0;
+        const totalTokens = usage.total_tokens ?? 0;
+
+        span.setAttributes({
+          "llm.model.answered": modelId,
+          "llm.provider": MODEL_REGISTRY[modelId].provider,
+          "llm.attempts": outcome.attempts,
+          "llm.fallback_from": outcome.fallbackFrom ?? undefined,
+          "llm.usage.input_tokens": inputTokens,
+          "llm.usage.output_tokens": outputTokens,
+          "llm.usage.total_tokens": totalTokens,
+          "llm.tool_calls": response.tool_calls?.length ?? 0,
+        });
+
+        log.info("llm.call_completed", {
+          latencyMs: Date.now() - startedAt,
+          answeredModelId: modelId,
+          attempts: outcome.attempts,
+          fallbackFrom: outcome.fallbackFrom,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          toolCalls: response.tool_calls?.length ?? 0,
+        });
+
+        // Recorded, not written. The turn's message is assembled from the
+        // stream and committed once, when that stream settles — see
+        // `server/chat/turn-commit.ts`. A tool loop re-enters this node, so
+        // usage accumulates across steps.
+        recordTurnUsage(context.turnId, { modelId, inputTokens, outputTokens });
+
+        waitUntil(
+          ingestModelUsage(
+            {
+              userId: context.userId,
+              model: modelId,
+              requestId: context.requestId,
+              llmCallId,
+              inputTokens,
+              outputTokens,
+              totalTokens,
+            },
+            log,
+          ),
+        );
+
+        // The local counterpart of the Polar ingest above. Polar stays the
+        // billing record; this is what `assertWithinQuota` reads, so
+        // enforcement no longer depends on a vendor round trip. Tokens are
+        // recorded, never enforced — the quota gate counts messages — so
+        // attributing a turn that straddles midnight on the first to the period
+        // it finished in is accurate enough.
+        waitUntil(
+          recordQuotaTokens(
+            {
+              userId: context.userId,
+              periodStart: usagePeriodFor(new Date()).start,
+              inputTokens,
+              outputTokens,
+            },
+            log,
+          ),
+        );
+
+        return { messages: [response] };
+      },
     ),
   );
-
-  // The local counterpart of the Polar ingest above. Polar stays the billing
-  // record; this is what `assertWithinQuota` reads, so enforcement no longer
-  // depends on a vendor round trip. Tokens are recorded, never enforced — the
-  // quota gate counts messages — so attributing a turn that straddles midnight
-  // on the first to the period it finished in is accurate enough.
-  waitUntil(
-    recordQuotaTokens(
-      {
-        userId: context.userId,
-        periodStart: usagePeriodFor(new Date()).start,
-        inputTokens,
-        outputTokens,
-      },
-      log,
-    ),
-  );
-
-  return { messages: [response] };
 };
 
 function shouldContinue(state: typeof MessagesState.State) {
@@ -227,11 +292,34 @@ const toolNodeResultSchema = z.object({
   messages: z.array(z.custom<BaseMessage>(isBaseMessage)),
 });
 const runTools: GraphNode<typeof MessagesState> = async (state, runtime) => {
-  // Tool results are no longer written here. They reach the database through
-  // the stream, as `tool-output-available` chunks the turn recorder folds into
-  // the assistant message — which is why a stopped turn can no longer leave a
-  // tool call stuck at `input-available` with nothing to resolve it.
-  return toolNodeResultSchema.parse(await toolNode.invoke(state, runtime));
+  const context = readContext(runtime);
+  const lastMessage = state.messages.at(-1);
+  const toolNames =
+    lastMessage !== undefined && AIMessage.isInstance(lastMessage)
+      ? (lastMessage.tool_calls ?? []).map((call) => call.name).join(",")
+      : "";
+
+  // Re-entered for the same reason `llmCall` is: the tool spans below have to
+  // hang off the turn, not start traces of their own.
+  return withTurnSpan(context.turnId, () =>
+    withSpan(
+      "graph.tools",
+      {
+        "graph.node": "tools",
+        "app.request_id": context.requestId,
+        "app.thread_id": context.threadId,
+        "tool.names": toolNames,
+      },
+      async () => {
+        // Tool results are no longer written here. They reach the database
+        // through the stream, as `tool-output-available` chunks the turn
+        // recorder folds into the assistant message — which is why a stopped
+        // turn can no longer leave a tool call stuck at `input-available` with
+        // nothing to resolve it.
+        return toolNodeResultSchema.parse(await toolNode.invoke(state, runtime));
+      },
+    ),
+  );
 };
 
 export const agent = new StateGraph(MessagesState)

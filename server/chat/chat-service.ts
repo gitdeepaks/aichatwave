@@ -32,7 +32,10 @@ import { bufferStreamToDatabase, markStreamSettled } from "@/server/chat/stream-
 import { accumulatedText, recordChunk } from "@/server/chat/turn-recorder";
 import { commitTurn } from "@/server/chat/turn-commit";
 import { createTurnId, registerTurn, releaseTurn } from "@/server/chat/turn-registry";
-import { createChatStream } from "@/server/db/chat-stream-repository";
+import { createChatStream, markChatStreamFirstToken } from "@/server/db/chat-stream-repository";
+import { endTurnSpan, startTurnSpan } from "@/server/observability/turn-trace";
+import { langsmithRunConfig } from "@/server/observability/langsmith";
+import { reportError } from "@/server/observability/error-reporter";
 import { assertModelAccess, resolvePlan } from "@/server/billing/subscription-service";
 import { assertWithinQuota, refundQuota } from "@/server/billing/quota-service";
 import {
@@ -242,12 +245,41 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       memoriesContent,
     });
 
+    // Opened before the graph so every node, provider call and tool hangs off
+    // one span for the turn — and closed in `onStreamSettled` below, because a
+    // turn outlives the request that started it and no `finally` here would
+    // ever run at the right moment.
+    const traceId = startTurnSpan({
+      turnId,
+      attributes: {
+        "app.request_id": requestId,
+        "app.user_id": userId,
+        "app.thread_id": threadId,
+        "chat.stream_id": streamId,
+        "chat.model.requested": selectedModel,
+        "chat.attachments": attachments.length,
+        "chat.regenerate": regenerate,
+        "billing.plan_id": resolution.planId,
+      },
+    });
+
     const stream = await agent.streamEvents(
       { messages: [new HumanMessage(userMessageForGraph(params, attachments))] },
       {
         configurable: { thread_id: threadId },
         version: "v2",
         context,
+        // Carries this turn's ids into LangSmith, when LangSmith is on. Without
+        // them a traced run shows the prompt and the answer and connects to
+        // nothing else in the system — see `server/observability/langsmith.ts`.
+        ...langsmithRunConfig({
+          requestId,
+          userId,
+          threadId,
+          turnId,
+          modelId: selectedModel,
+          planId: resolution.planId,
+        }),
         // The turn's own signal, not the request's. Next aborts the request
         // signal whenever the client disconnects, and a page refresh is a
         // disconnect — using it here would tear the answer down at exactly the
@@ -278,6 +310,10 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       streamId,
       memoryLookupMs,
       preStreamMs: Math.round(performance.now() - requestStartedAt),
+      // Null when no tracing backend is configured. Present, it is the other
+      // half of the exit criterion: a user quotes a request id, this line
+      // names the trace that explains it.
+      traceId,
     });
 
     // A turn that outlives its client keeps generating so a reload can rejoin
@@ -323,6 +359,17 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
               ? "aborted"
               : toStreamState(outcome);
             log.info("chat.stream_settled", { outcome, streamSlot: lease.slot, streamId });
+            endTurnSpan({
+              turnId,
+              outcome:
+                state === "completed" ? "completed" : state === "aborted" ? "aborted" : "failed",
+              attributes: {
+                "chat.model.answered": record.modelId,
+                "chat.usage.input_tokens": record.usage.inputTokens,
+                "chat.usage.output_tokens": record.usage.outputTokens,
+                "chat.duration_ms": Math.round(performance.now() - requestStartedAt),
+              },
+            });
             waitUntil(
               finalizeTurn({
                 turnId,
@@ -338,6 +385,15 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
           log.info("chat.first_token", {
             timeToFirstTokenMs: Math.round(performance.now() - requestStartedAt),
           });
+          // Also written to the row, because the p95 of this number is an SLO
+          // and an SLO computed from one process's memory is a different
+          // figure on every instance. `waitUntil` keeps the write off the path
+          // of the token the user is waiting for.
+          waitUntil(
+            markChatStreamFirstToken({ streamId, at: new Date() }).catch((error: unknown) => {
+              log.warn("chat.first_token_write_failed", { streamId }, error);
+            }),
+          );
         },
       ),
       consumeSseStream: ({ stream: sseStream }) => {
@@ -364,6 +420,10 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
     // the slot immediately rather than waiting out the lease TTL.
     if (reservation !== null) await refundQuota(reservation, log);
     await releaseChatStreamSlot(lease, log);
+    // Reported here as well as in the route wrapper because a pre-stream
+    // failure is the one a user notices most — the answer never starts — and
+    // the classifier drops the 4xx half of these anyway.
+    reportError({ error, log, context: { requestId, userId, threadId, route: "streamChat" } });
     throw error;
   }
 }

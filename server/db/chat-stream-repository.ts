@@ -7,7 +7,7 @@
  * without the writer and the reader coordinating.
  */
 
-import { and, asc, desc, eq, gt, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { chatStream, chatStreamChunk, thread } from "@/db/schema/chat-schema";
@@ -30,6 +30,7 @@ export type ChatStreamRecord = {
   attachmentIds: string[];
   createdAt: Date;
   heartbeatAt: Date;
+  firstTokenAt: Date | null;
   settledAt: Date | null;
 };
 
@@ -75,6 +76,23 @@ export async function appendChatStreamChunk(params: {
 
     return live.length > 0;
   });
+}
+
+/**
+ * Stamps the moment the first visible token reached the client.
+ *
+ * Guarded on the column still being null so a resumed stream, which replays
+ * chunks from the log, cannot rewrite the original latency — the user waited
+ * once, and that is the number the SLO is about.
+ */
+export async function markChatStreamFirstToken(params: {
+  streamId: string;
+  at: Date;
+}): Promise<void> {
+  await db
+    .update(chatStream)
+    .set({ firstTokenAt: params.at })
+    .where(and(eq(chatStream.id, params.streamId), isNull(chatStream.firstTokenAt)));
 }
 
 /**
@@ -228,6 +246,7 @@ function toChatStreamRecord(row: ChatStreamRow): ChatStreamRecord {
     attachmentIds: attachmentIdsSchema.parse(row.attachmentIds),
     createdAt: row.createdAt,
     heartbeatAt: row.heartbeatAt,
+    firstTokenAt: row.firstTokenAt,
     settledAt: row.settledAt,
   };
 }
