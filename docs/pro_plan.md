@@ -1,6 +1,6 @@
 # AIChatWave — Production Hardening Plan
 
-> **Done:** A, A2, A3, B, C, D, F, G, and the billing incident. **In progress:** Phase E
+> **Done:** A, A2, A3, B, C, D, F, G, H, and the billing incident. **In progress:** Phase E
 > (implementation complete; authenticated Lighthouse and production TTFT samples remain).
 > Owner: @gitdeepaks · Created 2026-09-09 · Restructured 2026-09-10 · Baseline commit `9f3e93d`
 
@@ -45,20 +45,20 @@ would break the link to their commits, so they keep them.
 The single source of truth for phase status. Every `### Phase X status` block below must agree with
 this table.
 
-| Phase                               | Status          | Notes                                                           |
-| ----------------------------------- | --------------- | --------------------------------------------------------------- |
-| **A — DB foundation + API**         | **`COMPLETED`** | A1–A8 verified; absorbed most of old phases 0/1/2/3             |
-| **A2 — Better Auth → Clerk**        | **`COMPLETED`** | Unplanned; Better Auth fully removed                            |
-| **A3 — Auth screen redesign**       | **`COMPLETED`** | Unplanned; app-wide Sora regression fixed along the way         |
-| **B — Guardrails and boot hygiene** | **`COMPLETED`** | CI green on `main`; error pages, registry-derived env, gitleaks |
-| **C — Bulletproof types**           | **`COMPLETED`** | typed tool contract, type-aware lint, 4 compiler flags added    |
-| **D — Security and cost**           | **`COMPLETED`** | limits, quota, local plan mirror, strict CSP, supply chain      |
-| **E — Bundle, perf, dead code**     | `WIP`           | code landed; production Lighthouse + TTFT verification remain   |
-| **F — Conversation data**           | **`COMPLETED`** | read switch, search, export, account deletion; verified on dev  |
-| **G — Chat completeness**           | **`COMPLETED`** | stop, resumable streams, attachments, attribution; verified     |
-| **H — Observability**               | `WIP`           | health probe + `onRequestError` landed early; no OTel yet       |
-| **I — Test depth**                  | `NOT DONE`      | needs a Clerk session fixture for authenticated routes          |
-| **J — Product surface**             | `NOT DONE`      | no public landing or pricing page yet                           |
+| Phase                               | Status          | Notes                                                                              |
+| ----------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| **A — DB foundation + API**         | **`COMPLETED`** | A1–A8 verified; absorbed most of old phases 0/1/2/3                                |
+| **A2 — Better Auth → Clerk**        | **`COMPLETED`** | Unplanned; Better Auth fully removed                                               |
+| **A3 — Auth screen redesign**       | **`COMPLETED`** | Unplanned; app-wide Sora regression fixed along the way                            |
+| **B — Guardrails and boot hygiene** | **`COMPLETED`** | CI green on `main`; error pages, registry-derived env, gitleaks                    |
+| **C — Bulletproof types**           | **`COMPLETED`** | typed tool contract, type-aware lint, 4 compiler flags added                       |
+| **D — Security and cost**           | **`COMPLETED`** | limits, quota, local plan mirror, strict CSP, supply chain                         |
+| **E — Bundle, perf, dead code**     | `WIP`           | code landed; production Lighthouse + TTFT verification remain                      |
+| **F — Conversation data**           | **`COMPLETED`** | read switch, search, export, account deletion; verified on dev                     |
+| **G — Chat completeness**           | **`COMPLETED`** | stop, resumable streams, attachments, attribution; verified                        |
+| **H — Observability**               | **`COMPLETED`** | OTel traces, incident reporting, LangSmith, retries + fallback, cost/SLO dashboard |
+| **I — Test depth**                  | `NOT DONE`      | needs a Clerk session fixture for authenticated routes                             |
+| **J — Product surface**             | `NOT DONE`      | no public landing or pricing page yet                                              |
 
 Not phases, but recorded below because they shaped the code:
 
@@ -88,7 +88,7 @@ useful instead of becoming a historical curiosity. "Now" verified 2026-09-10.
 | Integration / E2E tests                           | 0                                                    | 0 — Phase I                                  |
 | CI pipeline                                       | none                                                 | ✅ `.github/workflows/ci.yml` + gitleaks     |
 | Auth middleware                                   | absent                                               | `proxy.ts` (bare `clerkMiddleware`)          |
-| `instrumentation.ts`                              | absent                                               | `onRequestError` only; OTel is Phase H       |
+| `instrumentation.ts`                              | absent                                               | ✅ `register()` + `onRequestError` (Phase H) |
 | `app/error.tsx` / `loading.tsx` / `not-found.tsx` | absent                                               | ✅ all present, plus `global-error.tsx`      |
 | Rate limiting                                     | absent (`RATE_LIMITED` defined, never thrown)        | ✅ per-user + per-IP window, concurrency cap |
 | Quota enforcement                                 | absent                                               | ✅ `assertWithinQuota`, `QUOTA_EXCEEDED` 429 |
@@ -578,7 +578,7 @@ and stack never reach the browser at all.
 A digest is only useful if it resolves to something, so this phase also added a minimal
 **`instrumentation.ts`** exporting `onRequestError`, which logs the digest, the inbound
 `x-request-id` when the caller sent one, and the route. That turns the code on screen into a
-`grep`-able key. Phase H adds OpenTelemetry `register()` to the same file; the two are independent.
+`grep`-able key. Phase H added OpenTelemetry `register()` to the same file; the two are independent.
 
 Verified against a production build with a temporary throwing route (since removed):
 
@@ -1555,7 +1555,8 @@ attachments are listed as working rather than as written:
 > - Cross-instance stop takes up to one buffer flush (~250 ms) to reach the provider call. Within a
 >   single instance it is immediate.
 > - `preStreamMs` runs 7–9 s in development, most of it `memoryLookupMs` (~3–5 s) and the plan read.
->   Pre-existing, not introduced here, but it is the first thing Phase H should measure.
+>   Pre-existing, not introduced here. Phase H now measures it: `chat_time_to_first_token_p95`
+>   reads `chat_stream.first_token_at`, and its runbook points at `preStreamMs` first.
 > - Attachment size is capped by the JSON request body, not by the models — see above.
 
 ---
@@ -1566,38 +1567,160 @@ attachments are listed as working rather than as written:
 and per model.
 **Risk:** low-medium. **Touches:** `instrumentation.ts`, `server/lib/`, provider call sites.
 
-**Partially started.** Item 5 landed early, out of order, during the billing incident.
+Item 5 landed early, out of order, during the billing incident; the other six shipped together.
+
+**`/admin/operations` is reachable by URL only**, and deliberately not linked from the sidebar —
+a link in a shared component would put the path in front of every user. Note the route is still
+discoverable by status code; see the known limitation on that below.
 
 ### Work
 
-1. **OpenTelemetry** via `instrumentation.ts` — spans for route → graph node → LLM call → tool call,
-   carrying the existing `requestId` / `llmCallId` / `userId` / `modelId` as attributes. The logger
-   already emits these fields; make them trace attributes too.
-2. **Error tracking** (Sentry or equivalent) with source maps, `requestId` correlation, and
-   `AppError.code` as the grouping key. Explicitly do not capture `AppError` 4xx as incidents.
-3. **LangSmith tracing** for the agent graph — prompt/response/tool visibility during incidents.
-4. **Resilience on provider calls** — timeouts, bounded retries with jittered backoff, and a circuit
-   breaker per provider that degrades to a fallback model instead of failing the turn. `llmCall`
-   currently logs and rethrows with no retry.
+1. ✅ **OpenTelemetry** via `instrumentation.ts` — `register()` starts `@vercel/otel` when an
+   exporter is configured, and the app is instrumented against `@opentelemetry/api` so a deployment
+   with no backend runs the same code path against a no-op tracer. There is no feature flag to
+   forget. Spans: `route` → `chat.turn` → `graph.llm_call` / `graph.tools` → `llm.attempt` /
+   `tool.<name>`, carrying `requestId`, `llmCallId`, `userId`, `threadId`, `modelId` and the token
+   counts as attributes. The logger now stamps `traceId`/`spanId` on every line, so the join works
+   in both directions.
+2. ✅ **Error tracking**, vendor-neutral (see the decision below). `AppError.code` is the grouping
+   key; exceptions land on the active span; an optional `ERROR_WEBHOOK_URL` is the escape hatch for
+   a deployment with no tracing backend. **4xx is never an incident**, and neither is a deliberate
+   abort — enforced by `classifyIncident`, not by review.
+3. ✅ **LangSmith tracing** — off by default and explicitly a data-residency decision, since
+   turning it on sends conversation content. `langsmithRunConfig` attaches this app's ids to every
+   run, so a traced run connects to the request that produced it.
+4. ✅ **Resilience on provider calls** — per-attempt timeout, three attempts with full-jitter
+   backoff, a circuit breaker per provider, and a fallback model on a healthy provider of the same
+   or a lower tier. `llmCall` no longer logs and rethrows.
 5. ✅ **Health & readiness** — `/api/health` (liveness) and `GET /api/health?deep=1` (DB + Polar
    billing readiness). **Shipped during the billing incident**, ahead of this phase.
-6. **Cost dashboard** — the structured logs already carry input/output/total tokens per call, and
-   Phase A persists them per message. Ship queries + a dashboard for spend per user, per model, per
-   day, with an anomaly alert.
-7. **SLOs and alerts** — chat p95 time-to-first-token, stream error rate, 5xx rate, and Polar ingest
-   failure rate, each with a paging threshold.
+6. ✅ **Cost dashboard** — `/admin/operations` and `GET /api/admin/costs`: spend per user, per
+   model, per day, with a robust (median + MAD) anomaly flag per user. Prices come from
+   `MODEL_REGISTRY`, never from a second copy in SQL.
+7. ✅ **SLOs and alerts** — four objectives declared in `lib/observability/slo.ts` with objective
+   and paging thresholds and a runbook each. A breach emits `slo.breached` and is reported as an
+   incident. `GET /api/admin/slo` answers 503 when anything is paging, so a monitor needs no body
+   parsing.
 
 ### Exit criteria
 
-- [ ] A user-reported request id resolves to a full trace: route span → graph → LLM → tool.
-- [ ] A provider outage degrades to a fallback model instead of a 500.
-- [ ] Daily spend per user is queryable and alerting on anomalies.
+- [x] A user-reported request id resolves to a full trace: route span → graph → LLM → tool.
+- [x] A provider outage degrades to a fallback model instead of a 500.
+- [x] Daily spend per user is queryable and alerting on anomalies.
 - [x] A deep health probe reports DB and billing readiness.
+
+### What landed
+
+**New surfaces.** `/admin/operations` (server-rendered, allowlisted), `GET /api/admin/costs`,
+`GET /api/admin/slo`, and `pnpm phase-h:verify`.
+
+**New modules.** Pure and tested: `lib/observability/{incident-policy,cost-anomaly,slo}.ts`,
+`lib/ai/resilience-policy.ts`, `lib/security/admin-policy.ts`, `fallbackModelId` in the registry.
+Effectful: `server/observability/{tracing,turn-trace,error-reporter,error-facts,metrics,langsmith,cost-repository,cost-service,slo-repository,slo-service}.ts`,
+`server/ai/{llm-invoke,provider-failure,provider-health}.ts`, `server/auth/admin.ts`.
+
+**One migration**, `0005` — `chat_stream.first_token_at`, nullable and additive. Time to first
+token is an SLO, and an SLO computed from one process's memory is a different number on every
+instance and resets on every cold start. Null for a turn that never produced a token, which is
+exactly the set the percentile must exclude rather than score as instant.
+
+**Dependencies added:** `@vercel/otel`, `@opentelemetry/api`, and the three packages its Next
+integration requires. No bundle impact — `/admin/operations` is 1,470,085 bytes against a 1,520,000
+budget, below every other authenticated page.
+
+### Decisions
+
+**Vendor-neutral error tracking over the Sentry SDK** (owner, 2026-09-17). The plan said "Sentry or
+equivalent". What a vendor SDK adds over what shipped is a hosted UI and source-mapped stacks; what
+it costs is a build plugin in `next.config.ts`, a source-map upload token in CI, a second wire
+protocol, and a second place an error can be dropped. The seam is one function — `reportError` —
+so adopting a vendor later means writing one more sink, not touching the call sites.
+
+**In-app admin page over a CLI report** (owner, 2026-09-17). It needed an admin identity, which
+this app did not have; `ADMIN_USER_IDS` is an allowlist in configuration rather than a role on the
+user row, so no request, webhook, or row update can grant it. Unset means **nobody**, and a
+non-admin is refused with a 404 rather than a 403, so the refusal does not confirm that someone
+somewhere is an admin. On the page that 404 is partial — see the known limitation below.
+
+**Same-or-lower-tier fallback across providers** (owner, 2026-09-17). Derived from
+`MODEL_REGISTRY`, so adding a model cannot forget it. A free-tier user is never silently upgraded
+to a paid model: since both free models are OpenAI's, an OpenAI outage leaves a free turn with no
+fallback and it fails honestly. That is the correct answer, and it is asserted by a test.
+
+### Verified
+
+Local gates: `format:check`, `lint`, `typecheck`, **275 tests** (213 → 275; 62 added), `build`,
+`bundle:check`, and `pnpm phase-h:verify` against the live dev database.
+
+**Browser-verified end to end**, against `next dev` with a throwaway OTLP receiver on `:4318`:
+
+- **The exit criterion, in the real app.** One chat turn ("weather in Shimla") exported a single
+  trace whose tree read `POST /api/chat` → `route` (`app.request_id=9626dfac…`) → `chat.turn` →
+  `graph.llm_call` → `llm.attempt` → the OpenAI fetch, and `graph.tools` → `tool.display_weather` →
+  the two Open-Meteo fetches, with a second `graph.llm_call` for the tool loop's return pass. The
+  same trace id appears on `chat.stream_started`, `chat.first_token` and `chat.stream_settled` in
+  the logs, so a user-quoted request id resolves to that tree.
+- **`register()` runs inside Next**, not just in a harness: `otel.registered` with
+  `endpoint=http://localhost:4318`, `runtime=nodejs`, alongside `langsmith.status enabled=false`.
+- **`first_token_at` persists**: the turn's row carries a 10,157 ms time-to-first-token; older rows
+  written before the migration remain null and are excluded from the percentile rather than scored
+  as instant.
+- **The dashboard renders and reconciles**: spend moved $0.0016 → $0.0028 and 2 → 3 assistant
+  messages across the turn, by-day and by-model agree, and the TTFT objective picked up its first
+  fleet-scoped observation.
+
+**Two defects were found this way and fixed.** Both are the kind only a running app shows:
+
+1. **The metrics counters existed twice in one process.** Next bundles server components and route
+   handlers into separate module graphs, so `/admin/operations` rendered `API 5xx rate: 0
+observations` while `/api/admin/slo` reported `sample: 27` from the same server. The dashboard
+   silently under-reported half its objectives to zero. Fixed by pinning the registry to a
+   symbol-keyed `globalThis` slot — the same idiom a database client needs, and for the same
+   reason. Re-tested: 14 observations on the page, matching the route handler.
+2. **The page's 404 was not a 404.** Guarding inside the Suspense boundaries meant Next had already
+   committed a 200 and streamed the shell. Moving the guard to the page body fixed the ordering —
+   no query now runs for a non-admin — but not the status, because the `(chat)` layout renders
+   above it either way. Measured rather than assumed: a nonexistent URL answers 404 in ~28 KB, this
+   answers 200 in ~98 KB. The claim in this document was corrected to match.
+
+### Known limitations
+
+- **The admin page is discoverable by status code**, though nothing it guards is. A non-admin gets
+  the ordinary not-found screen with no cost or SLO data in the response at all — that is the
+  property that matters and it is verified — but the 200/98 KB response is distinguishable from the
+  404/28 KB a genuinely missing URL returns. Closing it would mean moving the route out of the
+  `(chat)` layout, and it buys nothing: the path is in this repo and in `.env.example`. The API
+  routes do return a true typed 404.
+- **Two of the four SLOs are per-instance.** Nothing durable records an HTTP response or a Polar
+  usage ingest, and adding a row per request to measure the rate at which requests fail is a poor
+  trade. The API 5xx rate and the ingest failure rate are counted in a one-hour ring in process
+  memory, so on a fleet they describe whichever instance served the dashboard and they reset on a
+  cold start. Enough to notice an outage; wrong for reporting an uptime figure to anyone. The page
+  says so where it shows them, and the API reports it as `scope: "instance"`. The `globalThis`
+  registry makes them consistent _within_ a process, which is as far as in-memory counting goes.
+- **The anomaly scan runs when someone looks.** There is no scheduler in this app, so
+  `cost.anomaly_detected` is emitted from the read path. It is a dashboard, not a monitor; the log
+  line is what a log-based alert rule matches on until a cron exists.
+- **The circuit breaker is per instance.** A shared breaker would trip once for the fleet instead
+  of once per instance, at the cost of a Postgres round trip on the hot path of every provider
+  call, to guard a condition that resolves in thirty seconds. A fleet of four may make up to four
+  times `failureThreshold` doomed calls before all of them stop trying. Bounded, small, and much
+  cheaper than the alternative.
+- **Costs are list prices, not an invoice.** Provider discounts, cached-input rates, and batch
+  pricing are not modelled; Polar remains the billing record. A bucket containing a model that has
+  left the registry reports its cost as `null` rather than as the sum of the priced half — a number
+  quietly missing a model is worse than no number.
+- **LangSmith is off and should stay off by default.** Turning it on sends prompts, tool calls, and
+  responses to a third party. `LANGSMITH_TRACING=true` without a key now fails at boot rather than
+  silently sending nothing.
 
 ### Phase H status
 
-> **`WIP`** — item 5 shipped early during the billing incident (`GET /api/health?deep=1`, plus
-> `pnpm polar:doctor`). Items 1–4, 6, and 7 are not started.
+> **`COMPLETED`** — All seven items shipped and every exit criterion verified: the trace tree from
+> a real chat turn captured off a live OTLP receiver, the rest against the dev database via
+> `pnpm phase-h:verify`, and the dashboard and refusal paths exercised in the browser. Two defects
+> found during that browser pass (duplicated metrics state, a page 404 that was a 200) are fixed
+> and re-tested; the residual status-code gap is recorded above rather than papered over.
 
 ---
 
