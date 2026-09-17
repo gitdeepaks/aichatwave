@@ -144,6 +144,20 @@ export const chatStream = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     /** Bumped on every flush, so a stalled stream is distinguishable from a slow one. */
     heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).defaultNow().notNull(),
+    /**
+     * When the first visible token reached the client.
+     *
+     * Persisted rather than counted in memory because time-to-first-token is
+     * an SLO, and an SLO computed per process is a different number on every
+     * instance and resets on every cold start. `first_token_at - created_at`
+     * is the figure `server/observability/slo-service.ts` takes a p95 of, and
+     * it is correct across the whole fleet because the row is shared.
+     *
+     * Null for a turn that never produced a token — it failed, or the user
+     * stopped it first — which is exactly the set the percentile must exclude
+     * rather than score as instant.
+     */
+    firstTokenAt: timestamp("first_token_at", { withTimezone: true }),
     settledAt: timestamp("settled_at", { withTimezone: true }),
   },
   (table) => [

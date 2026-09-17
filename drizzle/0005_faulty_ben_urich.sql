@@ -1,0 +1,1 @@
+ALTER TABLE "chat_stream" ADD COLUMN "first_token_at" timestamp with time zone;
