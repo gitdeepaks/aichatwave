@@ -35,6 +35,10 @@ export default [
       "next-env.d.ts",
       // The four reachable AI Elements files remain generated CLI output.
       "components/ai-elements/**",
+      // k6 scripts run in k6's own JavaScript runtime, not Node: no bundler,
+      // no module resolution this config knows about, and globals (`__ENV`,
+      // `exec`) that only exist there.
+      "tests/load/**",
     ],
   },
 

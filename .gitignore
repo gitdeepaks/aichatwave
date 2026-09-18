@@ -49,3 +49,6 @@ logs
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Test coverage output
+coverage/

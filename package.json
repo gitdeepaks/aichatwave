@@ -10,6 +10,7 @@
     "build": "cross-env NODE_ENV=production next build",
     "bundle:analyze": "next experimental-analyze --output",
     "bundle:check": "node --import tsx scripts/check-bundle-budget.ts",
+    "coverage:check": "node --import tsx scripts/check-coverage.ts",
     "db:migrate": "pnpm migration:migrate",
     "db:reset": "node --env-file-if-exists=.env --import tsx scripts/db-reset.ts",
     "db:setup:langgraph": "node --env-file-if-exists=.env --import tsx scripts/db-setup-langgraph.ts",
@@ -17,6 +18,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
+    "load:chat": "k6 run tests/load/chat-streams.js",
     "migration:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "migration:migrate": "drizzle-kit migrate --config=drizzle.config.ts && pnpm db:setup:langgraph",
     "phase-f:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-phase-f.ts",
@@ -24,7 +26,9 @@
     "phase-h:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-phase-h.ts",
     "polar:doctor": "node --env-file-if-exists=.env --import tsx scripts/polar-doctor.ts",
     "start": "next start",
-    "test": "node --import tsx --test tests/**/*.test.{ts,tsx}",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test:coverage": "node -e \"require('node:fs').mkdirSync('coverage',{recursive:true})\" && cross-env TEST_REQUIRE_DATABASE=1 node --import tsx --test --experimental-test-coverage --test-coverage-include=\"server/**\" --test-coverage-include=\"lib/**\" --test-reporter=dot --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"tests/**/*.test.ts\" && pnpm coverage:check",
+    "test:integration": "cross-env TEST_REQUIRE_DATABASE=1 node --import tsx --test \"tests/integration/**/*.test.ts\" \"tests/service/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
