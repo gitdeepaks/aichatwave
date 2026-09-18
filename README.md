@@ -212,7 +212,43 @@ pnpm format              # Format files with Prettier
 pnpm format:check        # Check formatting
 pnpm migration:generate  # Generate Drizzle migrations
 pnpm migration:migrate   # Apply Drizzle migrations
+pnpm test                # Every test; the database-backed ones skip if there is no Postgres
+pnpm test:integration    # Route-handler and service suites only, and fail rather than skip
+pnpm test:coverage       # Everything, plus the per-area coverage gate CI enforces
+pnpm load:chat           # k6 scenario for the rate and concurrency limits (needs a running app)
 ```
+
+## Tests
+
+Most of the suite is pure and runs anywhere. The route-handler and service suites need a Postgres,
+which they use properly: each test file creates its own throwaway database, applies this
+repository's real `drizzle/*.sql` migrations to it, and drops it afterwards. Only four edges are
+replaced — Clerk, Polar, `waitUntil`, and OpenAI embeddings — so the route handlers, services,
+repositories, error envelope and rate limiter under test are the real ones.
+
+```bash
+docker compose up -d db   # pgvector/pgvector:pg16 on :5432, as CI uses
+pnpm test
+```
+
+Without a database those suites skip themselves and say why; `pnpm test` still passes.
+
+The defaults above need no configuration. Three shell variables change them, and they are shell
+variables on purpose — the test scripts do not load `.env`, so setting any of them there does
+nothing:
+
+| Variable                | Effect                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `TEST_DATABASE_URL`     | A different Postgres to create the throwaway databases on. Never point it at one you care about.     |
+| `TEST_REQUIRE_DATABASE` | `1` makes a missing database a failure instead of a skip. `pnpm test:integration` sets it.           |
+| `TEST_LOG`              | `1` echoes the structured log lines the tests capture, for a failure its assertion does not explain. |
+
+```bash
+TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres pnpm test
+```
+
+The memory suites need the `vector` extension, so use the `pgvector` image rather than plain
+`postgres`.
 
 ## Important Paths
 

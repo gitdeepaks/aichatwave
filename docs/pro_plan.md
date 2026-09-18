@@ -82,10 +82,10 @@ useful instead of becoming a historical curiosity. "Now" verified 2026-09-10.
 | ------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
 | `pnpm typecheck`                                  | ✅ clean                                             | ✅ clean                                     |
 | `pnpm lint`                                       | ✅ 0 errors, 5 warnings                              | ✅ 0 errors, 5 warnings                      |
-| `pnpm test`                                       | 29 tests                                             | **149 tests**                                |
+| `pnpm test`                                       | 29 tests                                             | **398 tests**                                |
 | Unreachable LOC in `components/ai-elements`       | 9,609 (44 of 48 files) — 42% of the codebase         | **0 — deleted in Phase E**                   |
 | Route handlers                                    | 2                                                    | **10**                                       |
-| Integration / E2E tests                           | 0                                                    | 0 — Phase I                                  |
+| Integration / E2E tests                           | 0                                                    | **93 integration** — E2E still Phase I       |
 | CI pipeline                                       | none                                                 | ✅ `.github/workflows/ci.yml` + gitleaks     |
 | Auth middleware                                   | absent                                               | `proxy.ts` (bare `clerkMiddleware`)          |
 | `instrumentation.ts`                              | absent                                               | ✅ `register()` + `onRequestError` (Phase H) |
@@ -1732,32 +1732,150 @@ that actually exercise them.
 
 ### Work
 
-1. **A Clerk session fixture** (`clerk-testing` skill) — the blocker for carried-forward item 1, and
-   the prerequisite for everything else in this phase.
-2. **Integration tests for route handlers** against an ephemeral Postgres (Testcontainers or a CI
-   service container): anonymous → 401, foreign thread → 403, missing thread → 404, Pro model without
-   a subscription → 403, malformed body → 400 with issues, over quota → 429. Phase A verified 401 /
-   400 / 200 by hand; the ownership paths have never been tested through a real authenticated call.
-3. **Service-layer tests** with a real DB — `ensureThreadAccess`, `getThreadHistory`, `listMemories`,
-   subscription checks against a mocked Polar.
-4. **Contract tests** — every tool's Zod schema round-trips through the transport shape the renderer
-   parses (locks the Phase C contract).
-5. **E2E with Playwright** — sign in, send a message, see it stream, see a tool card render, stop a
-   stream, switch threads, hit the upgrade flow. Run against a seeded DB with recorded provider
-   fixtures so it is deterministic and free.
-6. **Coverage gates in CI** — thresholds on `server/` and `lib/` specifically, not a global average
-   that dead UI code can dilute. (Cleaner after Phase E deletes that code.)
-7. **Load test** — a k6/Artillery scenario for concurrent streams, asserting the Phase D limits.
+1. ✅ **A test session fixture.** `tests/helpers/environment.ts` replaces `@clerk/nextjs/server`
+   for the file under test, so `signInAs(userId)` / `signOut()` decide what `auth()` reports and
+   `server/auth/session.ts` — the module that turns "no user" into a typed 401 — stays under test
+   rather than being bypassed. Not the `clerk-testing` package, which is a browser fixture for
+   Playwright and Cypress; that becomes relevant when item 5 lands.
+2. ✅ **Integration tests for route handlers** against an ephemeral Postgres, one throwaway
+   database per test file, built from this repository's own `drizzle/*.sql`. Six suites over
+   threads, messages and search, export, chat, memories, billing and admin: anonymous → 401,
+   foreign thread → 403, missing thread → 404, Pro model without a subscription → 403, malformed
+   body → 400 with issues, over quota → 429, duplicate id → 409, unconfigured provider → 503,
+   revoked billing credential → 503, rejected Polar request → 502.
+3. ✅ **Service-layer tests** with a real DB — `ensureThreadAccess`, `requireOwnedThread`,
+   `readThreadWindow`, `listThreadMessages`, `listMemories` and the extraction path, the quota's
+   reserve/refund/period arithmetic, the three Phase D limits, and `resolvePlan`'s warm / stale /
+   cold branches against a stubbed Polar that counts its calls.
+4. ✅ **Contract tests** — every tool's result through all four transport envelopes and both name
+   spellings, then through the persisted `parts` schema and `convertMessageDtoToUI` into the shape
+   the renderer parses. A tool added to `TOOL_NAMES` without a sample fails the suite.
+5. ⬜ **E2E with Playwright** — deferred. See the status note below.
+6. ✅ **Coverage gates in CI** — `scripts/check-coverage.ts` enforces line, branch and function
+   thresholds on `server/` and `lib/` _separately_, so neither area can be paid for by the other,
+   and names the least-covered files when one fails.
+7. ✅ **Load test** — `tests/load/chat-streams.js`, a k6 scenario that opens
+   `concurrentStreams + 1` chat requests at the same instant and bursts past the per-minute window,
+   asserting every refusal is a 429 carrying a `Retry-After` and the typed envelope.
 
 ### Exit criteria
 
-- [ ] Every `AppError` code has a test that produces it through a real route call.
-- [ ] E2E suite green in CI on every PR.
-- [ ] Coverage gate enforced for `server/` and `lib/`.
+- [x] Every `AppError` code has a test that produces it through a real route call.
+- [ ] E2E suite green in CI on every PR. — deferred with item 5.
+- [x] Coverage gate enforced for `server/` and `lib/`.
+
+### What landed
+
+**A harness, in `tests/helpers/`.** `module-stub.ts` seeds `require.cache` before the subject is
+loaded — the test runner transpiles to CommonJS, so that _is_ the module registry, and it needs no
+loader hook, no experimental flag, and no test-only seam in production code. `database.ts` creates
+and migrates a throwaway database per file and skips the file with a reason when no Postgres is
+reachable. `http.ts` calls the real exported route handler the way Next calls it, with the headers
+`assertSameOrigin` requires. `seed.ts` arranges state in raw SQL rather than through the services
+under test. Only four edges are replaced: Clerk, Polar, `waitUntil`, and OpenAI embeddings.
+
+**123 tests added**, 275 → 398. Ninety-three of them need a database; the rest run anywhere.
+
+**`INVALID_CHAT_REQUEST` deleted.** The first exit criterion, written as
+`tests/integration/app-error-codes.test.ts`, found a code with a status, a place in the union and a
+unit test constructing it — and no line of production code that could throw it. The gate now
+compares the codes it observed against `APP_ERROR_STATUS` and fails on either side of the
+difference, so the next unreachable one cannot be added quietly.
+
+**A second database driver.** `db/index.ts` picks `pg` over plain TCP for any host that is not
+`*.neon.tech`, and the Neon serverless driver otherwise. Neon's `Pool` speaks only to Neon's
+WebSocket endpoint, so without this the `docker-compose.yaml` in this repository and the CI service
+container were both unreachable. Production is unchanged, the exported `Database` type is
+unchanged, and `closeDatabase()` is added for scripts and tests — a short-lived process with an open
+pool does not exit.
+
+**CI** gains a `pgvector/pgvector:pg16` service container and runs `pnpm test:coverage`, which is
+the whole suite plus the gate. `TEST_REQUIRE_DATABASE=1` turns the local skip into a failure there:
+a job that silently skipped its integration tests would be worse than not having them.
+
+### Decisions
+
+**`require.cache` over `mock.module`** (owner, 2026-09-18). Node's module mocking is experimental
+and, under `tsx`'s CommonJS output, does not intercept a local TypeScript module at all. Seeding
+the cache is smaller, needs no flag, and works for exactly the four third-party edges that need
+replacing. Its one rule — stub before the subject is imported, which means reaching the subject
+through `await import(...)` inside a test — is enforced by each file's structure and stated where
+it matters.
+
+**A database per file, not a schema** (owner, 2026-09-18). A schema would need no privileges and
+cost nothing, but Drizzle writes `"public"."…"` into every generated foreign key and enum, so
+applying the migrations anywhere else would mean rewriting the SQL under test — which is the one
+thing these tests exist to check.
+
+**Per-area coverage thresholds, set as a ratchet** (owner, 2026-09-18). `server/` is held to
+78/80/72 and `lib/` to 94/88/87, each a couple of points under where it measures today. They are
+different numbers because they are different code: `lib/` is nearly all pure functions and anything
+under ~95% there means something is untested, while `server/` reaches providers and the OTel SDK
+and holds branches a test cannot honestly stage. Node's own `--test-coverage-lines` family knows
+only one global figure, which is the average this phase explicitly did not want.
+
+**No happy-path chat test.** Every chat test here is a request that must be _refused_, and refused
+before the model is reached. A 200 would mean either a provider call on every CI run or a stubbed
+agent, and a stubbed agent tests the stub. The streaming path belongs to item 5.
+
+### Verified
+
+`format:check`, `lint`, `typecheck`, `build`, and the full suite against a real Postgres:
+**404 tests, 0 failures**, coverage `server` 80.76 / 83.36 / 75.87 and `lib` 96.74 / 90.07 / 90.04,
+all above their gates. The three run modes were each confirmed: with a database, 93 integration and
+service tests pass; without one, `pnpm test` skips those 93 with a reason and passes the other 305;
+without one, `pnpm test:integration` fails all 93 rather than reporting green.
+
+The k6 scenario is written but **not executed** — it needs a running app and a real signed-in
+session cookie, and it sends chat requests that cost provider tokens.
+
+### Found by the browser pass
+
+A manual pass over the running app found a defect none of this suite could have caught, and it is
+the best argument for finishing item 5: **no tool result had ever been persisted.** The card
+rendered while the answer streamed and was gone on reload — in every thread in the database, not as
+a regression.
+
+Two causes, both in `server/chat/turn-recorder.ts`:
+
+1. **The wrong chunk names.** `@ai-sdk/langchain` opens a call with `tool-input-start` — the only
+   streaming chunk that carries `toolName` — and never sends `tool-input-available`. The recorder
+   handled only the latter, so the call was never opened and `tool-output-available` found nothing
+   to resolve against and returned. `tests/turn-recorder.test.ts` fed it `tool-input-available`
+   too: the code and its test agreed with each other and both disagreed with the adapter.
+2. **A value Zod would not take.** Server-side the output chunk carries the live LangChain
+   `ToolMessage`, not the envelope the browser receives, and `z.json()` rejects a class instance —
+   so the recorder stored `null` for a call it had just marked `output-available`. `toJsonValue` in
+   `lib/json.ts` now normalizes through `JSON.stringify`, which honours `toJSON()` and therefore
+   persists exactly what the client was sent.
+
+Both are fixed, covered by six new tests built from the chunk sequence captured off a real turn, and
+re-verified in the browser: the card now renders from the database on a fresh load.
+
+### Known limitations
+
+- **Nothing here exercises a stream.** The gates are covered; the four wrappers around the response
+  body, the reconnect path, and the turn commit are not. That is item 5's job, and the defect above
+  is what that gap costs — it is why the phase is not closed.
+- **Stopping a stream loses the whole turn.** Found in the same pass and _not_ fixed: the thread row
+  is created and no messages are written, so the question and the generated text are both lost. It
+  contradicts this module's own stated contract and is recorded here rather than papered over.
+- **The session fixture is not Clerk.** It replaces `auth()`, so what is tested is this app's
+  handling of a session, not Clerk's verification of one. Token expiry, `authorizedParties`, and the
+  proxy's `clerkMiddleware` are unreached by these tests and remain E2E territory.
+- **Coverage counts what the suite reaches, not what it checks.** The thresholds are a ratchet
+  against regression. They cannot tell a test that asserts something from one that merely runs.
+- **Two suites need pgvector.** The memory tests create the LangGraph vector store, so a
+  `TEST_DATABASE_URL` pointing at a Postgres without the extension fails them rather than skipping.
+  Both the CI service container and `docker-compose.yaml` use the `pgvector` image.
 
 ### Phase I status
 
-> **`NOT DONE`** — Not started.
+> **`IN PROGRESS`** — Six of seven items shipped and two of three exit criteria met. Every
+> `AppError` code is now produced by a real route call against a real database, and the coverage
+> gate is enforced per area in CI. Item 5 (Playwright E2E) is deliberately deferred: it needs a
+> Clerk test instance and CI secrets that do not exist yet, and shipping specs that skip in CI
+> would satisfy the checklist without satisfying the criterion. The phase closes when they run.
 
 ---
 
