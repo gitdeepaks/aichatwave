@@ -1,27 +1,47 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  APP_ERROR_STATUS,
   AppError,
   appErrorBody,
   appErrorResponse,
   isAppError,
   toAppError,
+  type AppErrorCode,
 } from "@/server/lib/app-error";
 
+/**
+ * Restated rather than derived, so a change to the table is a deliberate edit
+ * here too — this is the wire contract `lib/api/chat-error.ts` and every client
+ * is written against.
+ */
+const EXPECTED_STATUS: { code: AppErrorCode; status: number }[] = [
+  { code: "INVALID_JSON", status: 400 },
+  { code: "INVALID_REQUEST", status: 400 },
+  { code: "INVALID_CURSOR", status: 400 },
+  { code: "UNAUTHORIZED", status: 401 },
+  { code: "FORBIDDEN", status: 403 },
+  { code: "MODEL_ACCESS_DENIED", status: 403 },
+  { code: "NOT_FOUND", status: 404 },
+  { code: "CONFLICT", status: 409 },
+  { code: "RATE_LIMITED", status: 429 },
+  { code: "QUOTA_EXCEEDED", status: 429 },
+  { code: "INTERNAL_ERROR", status: 500 },
+  { code: "UPSTREAM_ERROR", status: 502 },
+  { code: "SERVICE_UNAVAILABLE", status: 503 },
+];
+
 test("maps every error code to its HTTP status", () => {
-  assert.equal(new AppError("INVALID_JSON", "x").status, 400);
-  assert.equal(new AppError("INVALID_REQUEST", "x").status, 400);
-  assert.equal(new AppError("INVALID_CHAT_REQUEST", "x").status, 400);
-  assert.equal(new AppError("INVALID_CURSOR", "x").status, 400);
-  assert.equal(new AppError("UNAUTHORIZED", "x").status, 401);
-  assert.equal(new AppError("FORBIDDEN", "x").status, 403);
-  assert.equal(new AppError("MODEL_ACCESS_DENIED", "x").status, 403);
-  assert.equal(new AppError("NOT_FOUND", "x").status, 404);
-  assert.equal(new AppError("CONFLICT", "x").status, 409);
-  assert.equal(new AppError("RATE_LIMITED", "x").status, 429);
-  assert.equal(new AppError("INTERNAL_ERROR", "x").status, 500);
-  assert.equal(new AppError("UPSTREAM_ERROR", "x").status, 502);
-  assert.equal(new AppError("SERVICE_UNAVAILABLE", "x").status, 503);
+  // A hand-written list silently stops covering a code that is added later;
+  // this is what stops that.
+  assert.deepEqual(
+    EXPECTED_STATUS.map((entry) => entry.code).sort(),
+    Object.keys(APP_ERROR_STATUS).sort(),
+  );
+
+  for (const { code, status } of EXPECTED_STATUS) {
+    assert.equal(new AppError(code, "x").status, status, code);
+  }
 });
 
 test("toAppError passes AppError through and wraps unknown values", () => {
@@ -50,7 +70,7 @@ test("appErrorBody includes requestId and only includes issues when present", ()
   });
 
   const withIssues = appErrorBody(
-    new AppError("INVALID_CHAT_REQUEST", "Invalid chat request.", {
+    new AppError("INVALID_REQUEST", "Invalid chat request.", {
       issues: [{ path: "threadId", message: "Required" }],
     }),
     "req-2",
