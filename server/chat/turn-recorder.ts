@@ -18,7 +18,7 @@
  */
 
 import type { UIMessageChunk } from "ai";
-import { jsonValueSchema } from "@/lib/json";
+import { parseJsonText, toJsonValue } from "@/lib/json";
 import type { MessageParts, ToolPart } from "@/lib/ai/message-parts";
 
 /**
@@ -35,6 +35,14 @@ export type TurnAccumulator = {
   readonly reasoning: Map<string, string>;
   /** Tool call id → part, resolved in place as the call progresses. */
   readonly tools: Map<string, ToolPart>;
+  /**
+   * Tool call id → the call's arguments as raw JSON text.
+   *
+   * A streaming provider sends the arguments as `tool-input-delta` fragments
+   * rather than as one parsed object, so they are concatenated here and parsed
+   * once the turn is folded into parts.
+   */
+  readonly toolInput: Map<string, string>;
   /** Order in which blocks were opened, so parts come out as they were shown. */
   readonly order: Array<{ kind: "text" | "reasoning" | "tool"; id: string }>;
   errorText: string | null;
@@ -45,6 +53,7 @@ export function createTurnAccumulator(): TurnAccumulator {
     text: new Map(),
     reasoning: new Map(),
     tools: new Map(),
+    toolInput: new Map(),
     order: [],
     errorText: null,
   };
@@ -93,6 +102,38 @@ export function recordChunk(accumulator: TurnAccumulator, chunk: UIMessageChunk)
       );
       return;
     }
+    /**
+     * The chunk that opens a tool call — and, on the streaming path, the only
+     * one that carries `toolName`.
+     *
+     * Missing this case is what made every tool result vanish on reload. The
+     * LangChain adapter this app streams through emits `tool-input-start`
+     * followed by `tool-output-available`, and never `tool-input-available`,
+     * so the call was never opened here and the output below had nothing to
+     * resolve against. The card still rendered live, because the AI SDK builds
+     * its own client-side state from these same chunks — so the only visible
+     * symptom was history that had lost its tool cards.
+     */
+    case "tool-input-start": {
+      remember(accumulator, "tool", chunk.toolCallId);
+      accumulator.tools.set(chunk.toolCallId, {
+        type: "tool",
+        toolCallId: chunk.toolCallId,
+        toolName: chunk.toolName,
+        state: "input-streaming",
+        input: null,
+        output: null,
+        errorText: null,
+      });
+      return;
+    }
+    case "tool-input-delta": {
+      accumulator.toolInput.set(
+        chunk.toolCallId,
+        (accumulator.toolInput.get(chunk.toolCallId) ?? "") + chunk.inputTextDelta,
+      );
+      return;
+    }
     case "tool-input-available": {
       remember(accumulator, "tool", chunk.toolCallId);
       accumulator.tools.set(chunk.toolCallId, {
@@ -100,7 +141,7 @@ export function recordChunk(accumulator: TurnAccumulator, chunk: UIMessageChunk)
         toolCallId: chunk.toolCallId,
         toolName: chunk.toolName,
         state: "input-available",
-        input: jsonValueSchema.catch(null).parse(chunk.input),
+        input: toJsonValue(chunk.input),
         output: null,
         errorText: null,
       });
@@ -113,19 +154,25 @@ export function recordChunk(accumulator: TurnAccumulator, chunk: UIMessageChunk)
         toolCallId: chunk.toolCallId,
         toolName: chunk.toolName,
         state: "output-error",
-        input: jsonValueSchema.catch(null).parse(chunk.input),
+        input: toJsonValue(chunk.input),
         output: null,
         errorText: chunk.errorText,
       });
       return;
     }
+    /**
+     * Output chunks carry only the call id — no `toolName` — so there is
+     * nothing to build a part out of if the call was never opened. Skipping is
+     * the honest answer: a tool part with no name fails `toolPartSchema` and
+     * could not be rendered anyway.
+     */
     case "tool-output-available": {
       const existing = accumulator.tools.get(chunk.toolCallId);
       if (!existing) return;
       accumulator.tools.set(chunk.toolCallId, {
         ...existing,
         state: "output-available",
-        output: jsonValueSchema.catch(null).parse(chunk.output),
+        output: toJsonValue(chunk.output),
         errorText: null,
       });
       return;
@@ -155,9 +202,9 @@ export function recordChunk(accumulator: TurnAccumulator, chunk: UIMessageChunk)
  *
  * Empty text and reasoning blocks are dropped — a stream that opened a block
  * and was stopped before a token arrived should not persist an empty bubble —
- * but a tool call that never resolved is kept at `input-available`, because
- * "the model asked for this and we stopped it" is a true and useful thing for
- * the history to say.
+ * but a tool call that never resolved is kept, at whichever input state it
+ * reached, because "the model asked for this and we stopped it" is a true and
+ * useful thing for the history to say.
  */
 export function toMessageParts(accumulator: TurnAccumulator): MessageParts {
   const parts: MessageParts = [];
@@ -174,10 +221,28 @@ export function toMessageParts(accumulator: TurnAccumulator): MessageParts {
       continue;
     }
     const tool = accumulator.tools.get(entry.id);
-    if (tool) parts.push(tool);
+    if (tool) parts.push(withStreamedInput(accumulator, tool));
   }
 
   return parts;
+}
+
+/**
+ * Fills in arguments that arrived as `tool-input-delta` fragments.
+ *
+ * Only when the part has no input of its own: a `tool-input-available` chunk
+ * carries the parsed arguments directly and is the better source. Unparseable
+ * fragments are left alone rather than guessed at — a half-streamed argument
+ * list is not worth a wrong value in the history.
+ */
+function withStreamedInput(accumulator: TurnAccumulator, tool: ToolPart): ToolPart {
+  if (tool.input !== null) return tool;
+
+  const raw = accumulator.toolInput.get(tool.toolCallId);
+  if (raw === undefined || raw.trim().length === 0) return tool;
+
+  const parsed = parseJsonText(raw);
+  return parsed === null ? tool : { ...tool, input: parsed };
 }
 
 /** Plain text of the turn so far, for the title generator and for previews. */

@@ -28,3 +28,29 @@ export function parseJsonText(text: string): JsonValue | null {
     return null;
   }
 }
+
+/**
+ * Normalizes any value into `JsonValue`, the way the wire would.
+ *
+ * `jsonValueSchema` rejects anything that is not already plain JSON — a class
+ * instance with methods, a `Date`, a `Map` — but plenty of those serialize
+ * perfectly well, because `JSON.stringify` honours `toJSON()`. Round-tripping
+ * through it is therefore not a workaround: what comes back is exactly what a
+ * client receiving this value over HTTP would have got.
+ *
+ * That equivalence is the point. A LangChain `ToolMessage` reaches the turn
+ * recorder as a live object and reaches the browser as its serialized envelope;
+ * persisting the serialized form is what makes the reloaded conversation and
+ * the streamed one the same thing.
+ *
+ * Returns `null` for values JSON cannot represent at all — a cycle, a bare
+ * `undefined`, a function.
+ */
+export function toJsonValue(value: unknown): JsonValue | null {
+  try {
+    const text = JSON.stringify(value);
+    return text === undefined ? null : parseJsonText(text);
+  } catch {
+    return null;
+  }
+}
