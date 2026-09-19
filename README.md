@@ -2,6 +2,16 @@
 
 AIChatWave is a full-stack AI chat application built with Next.js, React, LangGraph, and PostgreSQL. It provides streaming multi-model chat, long-term user memory, tool-powered rich responses, authentication, subscriptions, and usage tracking.
 
+## Documentation
+
+| Document                             | What it covers                                                 |
+| ------------------------------------ | -------------------------------------------------------------- |
+| [ARCHITECTURE.md](ARCHITECTURE.md)   | The pieces, the boundaries between them, and the rules         |
+| [CONTRIBUTING.md](CONTRIBUTING.md)   | Clone to running app, then the constraints the code is held to |
+| [docs/adr/](docs/adr/)               | Why the contested decisions went the way they did              |
+| [docs/runbook.md](docs/runbook.md)   | On-call: symptoms, first checks, known-broken                  |
+| [docs/pro_plan.md](docs/pro_plan.md) | The phased hardening plan and the honest state of it           |
+
 ## Features
 
 - Streaming AI chat powered by `@ai-sdk/react`, the AI SDK transport layer, and LangChain/LangGraph.
@@ -16,7 +26,10 @@ AIChatWave is a full-stack AI chat application built with Next.js, React, LangGr
 - Social-only Clerk authentication (Google, GitHub, LinkedIn) — no passwords are ever handled.
 - Polar integration for checkout, customer portal, subscriptions, usage meters, and token usage events.
 - Profile page with plan status, billing management, and monthly token usage overview.
-- Memory Center page for viewing saved long-term memories.
+- Memory Center page for viewing saved long-term memories, with the consent switch that governs them.
+- Opt-in long-term memory: nothing is stored until the user says so, enforced on the server.
+- Public landing and pricing pages, indexable, with prices read from the Polar product checkout charges.
+- Command palette (⌘K) for thread switching, model switching, navigation and message search.
 - Responsive chat workspace with a collapsible sidebar, thread list, model selector, and upgrade CTA.
 - Speech input UI support through the prompt input controls.
 - Markdown-focused assistant message rendering with copy and retry actions.
@@ -99,7 +112,7 @@ Key pieces:
 - `proxy.ts` — `clerkMiddleware()` with **no** route matching. Clerk deprecates
   `createRouteMatcher()` gating because middleware auth can be bypassed (Server Functions are
   invoked by id, not path). Authorization lives on the resources instead.
-- `app/(chat)/layout.tsx` — `await auth.protect()` guards every page in the chat segment.
+- `app/app/layout.tsx` — `await auth.protect()` guards every page under `/app`.
 - `server/lib/route-handler.ts` — every API route requires a session unless it opts out through
   `createPublicRouteHandler`.
 - `server/auth/user-service.ts` — mirrors Clerk identities into the local `user` table.
@@ -199,7 +212,11 @@ Start the development server:
 pnpm dev
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` — that is the public landing page. The workspace is at `/app` and
+requires a session.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the complete version of this, including the Clerk dashboard
+setup and which environment variables you can leave out.
 
 ## Scripts
 
@@ -269,9 +286,12 @@ The memory suites need the `vector` extension, so use the `pgvector` image rathe
 - `components/chat/`: chat shell, composer, and message list.
 - `components/custom/message-renderer.tsx`: message and tool result rendering.
 - `components/auth/auth-screen-shell.tsx`: branded frame around Clerk's auth widgets.
-- `app/(chat)/memories/page.tsx`: Memory Center.
-- `app/(chat)/profile/page.tsx`: profile, subscription, billing, and usage dashboard.
+- `app/app/memories/page.tsx`: Memory Center.
+- `app/app/profile/page.tsx`: profile, subscription, billing, and usage dashboard.
 - `db/schema`: Drizzle schemas.
+- `app/(marketing)/`: the public landing page and `/pricing`.
+- `lib/routes.ts`: every in-app URL, and the source `robots.ts` and `sitemap.ts` derive from.
+- `components/command-palette/command-palette.tsx`: ⌘K — threads, models, search, navigation.
 - `docs/pro_plan.md`: the phased production-hardening plan.
 
 ## Current Project Notes

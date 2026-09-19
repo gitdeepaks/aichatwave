@@ -57,8 +57,8 @@ this table.
 | **F — Conversation data**           | **`COMPLETED`** | read switch, search, export, account deletion; verified on dev                     |
 | **G — Chat completeness**           | **`COMPLETED`** | stop, resumable streams, attachments, attribution; verified                        |
 | **H — Observability**               | **`COMPLETED`** | OTel traces, incident reporting, LangSmith, retries + fallback, cost/SLO dashboard |
-| **I — Test depth**                  | `NOT DONE`      | needs a Clerk session fixture for authenticated routes                             |
-| **J — Product surface**             | `NOT DONE`      | no public landing or pricing page yet                                              |
+| **I — Test depth**                  | `IN PROGRESS`   | 6 of 7 items shipped; Playwright E2E deferred on CI secrets                        |
+| **J — Product surface**             | `IN PROGRESS`   | 8 of 8 items and 4 of 4 criteria; neither audit runs in CI yet                     |
 
 Not phases, but recorded below because they shaped the code:
 
@@ -1886,42 +1886,343 @@ re-verified in the browser: the card now renders from the database on a fresh lo
 
 ### Work
 
-1. **Public landing + pricing.** `/` currently sits inside `(chat)` behind `auth.protect()` — there
-   is no marketing surface at all, and no way to see pricing before signing up. Add a public landing,
-   a pricing page driven by `MODEL_REGISTRY` tiers, and move the app to `/app`.
-2. **SEO** — `robots.ts`, `sitemap.ts`, per-route metadata, JSON-LD. (Metadata/OG are already solid
-   in `app/layout.tsx`; the routes to index simply do not exist yet. Note that OG URLs are currently
-   wrong in production — see Deployment state item 1.)
-3. **Resolve the theme contradiction.** `app/layout.tsx` hardcodes `className="dark"` on `<html>`
-   while `ThemeProvider` is configured with `enableSystem`, so the system setting can never win.
-   Either ship a real light theme (tokenized, both themes audited for contrast) or drop
-   `enableSystem` and commit to dark. Decide, then make the code say so. **Careful:** A3 established
-   that `next-themes` rewrites the `<html>` className and strips font variables; keep them on
-   `<body>` alongside `font-sans`.
-4. **Accessibility pass** — fix the two `jsx-a11y/role-has-required-aria-props` warnings, add
-   `aria-live` announcements for streaming responses, full keyboard navigation, visible focus rings,
-   and reduced-motion support across the glassmorphism animations. (A3 already handles
-   `prefers-reduced-motion` on the auth screens.)
-5. **Onboarding** — first-run tour, model-picker explanation, memory explainer with a consent moment
-   (the app stores durable personal facts and never asks).
-6. **Command palette** (`cmdk` is already a dependency) — thread switching, model switching, new
-   chat, search (needs Phase F item 3).
-7. **Clerk visual integration** (carried-forward item 6) — revisit if `@clerk/ui` v2 applies
-   `appearance.elements`, or accept the CSS-scoped approach as final.
-8. **Docs** — `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/adr/` for the real decisions (LangGraph
-   over raw AI SDK; Polar over Stripe; Clerk over Better Auth; social-only auth; checkpoints vs. an
-   owned message table), and `docs/runbook.md` for on-call.
+1. **Public landing + pricing.** ✅ `/` and `/pricing` in an `app/(marketing)/` route group; the
+   workspace moved to `/app`. Pricing is derived — limits from `PLAN_LIMITS`, models and list prices
+   from `MODEL_REGISTRY`, and the Pro price read from the Polar product checkout actually charges.
+2. **SEO** — ✅ `robots.ts`, `sitemap.ts`, per-route metadata with a title template and canonicals,
+   and JSON-LD (`Organization`, `WebSite`, `SoftwareApplication` with offers, `FAQPage`,
+   `BreadcrumbList`). OG URLs still resolve through `appUrl()`, so Deployment state item 1 remains
+   the fix for them.
+3. **Resolve the theme contradiction.** ✅ Resolved in favour of dark, and the code now says so.
+   ADR-0005.
+4. **Accessibility pass** — ✅ skip links, a real focus ring, a global reduced-motion rule, a
+   redesigned streaming announcement, and two landmark defects fixed. The lint warnings the item
+   named no longer exist. **Not yet verified with axe-core.**
+5. **Onboarding** — ✅ three-step first-run dialog, gated on the consent state rather than a local
+   flag, ending in the memory question. ADR-0008.
+6. **Command palette** — ✅ replaces the search-only ⌘K dialog: threads, models, navigation and
+   message search in one surface.
+7. **Clerk visual integration** — ✅ closed, and improved. There is no `@clerk/ui` v2 to revisit —
+   latest published is 1.33.1 — so the CSS-scoped approach is accepted as final. A browser pass then
+   turned up Clerk's own `structural_css_pin_clerk_ui` warning and its mitigation, now applied:
+   `<ClerkProvider ui={ui}>` pins the component DOM the `.auth-clerk` selectors target. ADR-0009.
+8. **Docs** — ✅ `ARCHITECTURE.md`, `CONTRIBUTING.md`, `docs/runbook.md`, and nine ADRs.
 
 ### Exit criteria
 
-- [ ] Public landing and pricing are indexable and pass Lighthouse SEO.
-- [ ] Theme behavior matches its configuration.
-- [ ] axe-core reports zero violations on every route.
-- [ ] A new contributor can go from clone to running app using only the docs.
+- [x] Public landing and pricing are indexable and pass Lighthouse SEO. **SEO 100 on both**, against
+      a production build. Details below.
+- [x] Theme behavior matches its configuration.
+- [x] axe-core reports zero violations on every route. Every route, public and authenticated, was
+      audited and every one now reports **0 violations**. Eight violations were found and fixed to
+      get there.
+- [x] A new contributor can go from clone to running app using only the docs.
+
+### What shipped
+
+**The workspace moved to `/app`, and the root became a product.** `/` was chat behind
+`auth.protect()`, so a stranger got a redirect and there was nothing to index. The landing page and
+`/pricing` now occupy the root in an `app/(marketing)/` group; the workspace is `app/app/`, entirely
+`noindex`. Old URLs 308 to their new homes — `/chat/:path*`, `/memories`, `/profile`, `/success`,
+`/admin/:path*` — because a thread link is the thing people actually share. `/` is deliberately not
+redirected: it did not move, it changed meaning.
+
+Every in-app URL now lives in `lib/routes.ts`, and both `robots.ts` and `sitemap.ts` derive from it.
+That is not tidiness: a broken internal link fails no build, no typecheck and no test, and the move
+touched a dozen literals. `tests/routes.test.ts` asserts the property that matters — every
+workspace route is covered by a `Disallow` prefix.
+
+**The pricing page cannot lie about a limit.** Everything countable is derived:
+`PLAN_LIMITS.free.monthlyMessages` becomes "150 messages a month", `modelIdsInTier` becomes the
+model list. The one number this app does not own — the price — is read from Polar's product by
+`server/billing/pricing-service.ts`, cached an hour in process, and renders as "See price at
+checkout" when Polar cannot be reached. A hardcoded price is a promise the billing system never
+agreed to, and this project has already had one Polar credential die in production.
+
+**The model registry absorbed a second catalogue.** `components/model-selector.tsx` carried its own
+array of model ids, display names, vendor labels, logo slugs and `isProOnly` booleans. The booleans
+restated `MODEL_REGISTRY[id].tier`, so moving a model between tiers would have changed what the
+server enforced and not what the picker showed. Display metadata moved into the registry, and the
+picker now locks rows with `isModelAccessible` — the same function the chat route calls.
+
+**Memory is opt-in, enforced on the server.** `user.memory_consent` is a nullable two-value enum, so
+`undecided` is distinct from `declined` and only `granted` permits anything. Gated at the write, not
+in the dialog: `chat-service` reads consent before the memory lookup and skips both injection and
+extraction, and `extractAndStoreMemories` checks again because it is the function that writes.
+Declining does not delete what is already stored — that is the Memory Center's job, and destroying
+data the user never asked to lose is the worse failure.
+
+**The command palette replaced a search box.** ⌘K opened a dialog that could only search message
+text; new chat, thread switching and model switching each needed the mouse. All four are in one
+surface now, with server-filtered groups exempt from cmdk's own filter (it drops rows the server
+returned because the match was in a message body rather than in the title).
+
+**Accessibility, four things.** A skip link on both shells. One real focus ring — `* {
+outline-ring/50 }` was setting the colour of an outline nothing was asking the browser to draw. A
+global `prefers-reduced-motion` rule at near-zero rather than `none`, because a 0s animation never
+fires `animationend` and Radix and sonner unmount on it. And two landmark fixes: `ChatShell`
+rendered a `<main>` inside the layout's `<main>`, and the transcript is no longer a live region.
+
+That last one is the substantive change. The message list carried `aria-live="polite"` with
+`aria-relevant="additions text"` directly on the scroll container — the intuitive thing to do, and
+close to unusable: a streaming answer mutates its text node dozens of times a second, so a screen
+reader either queues hundreds of utterances or restarts the sentence continuously. The transcript
+keeps `role="log"` and announces nothing; `ChatAnnouncer` says one short sentence per state change
+("Generating a response", "Response complete. 412 words."), from a pure function with its own tests.
+
+### Decisions
+
+**Dark, and no light theme** (owner, 2026-09-19). ADR-0005. The contradiction the item named was
+real but already half-dead: `ThemeProvider` had been reduced to `<div className="contents">` and
+`enableSystem` was gone with it, leaving a hardcoded `class="dark"`, an unreachable light palette
+under `:root`, and a provider implying a preference was honoured. Resolved toward dark because a
+light theme here is not a token swap — some sixty `white/[0.0x]` and `zinc-950/55` literals across
+the shells are written for a dark canvas and none read from a token. Tokens declared once under
+`:root, .dark`, `color-scheme: dark` added (the app had never declared it, which is why scrolling
+past a thread flashed white), and the provider deleted.
+
+**Consent as a three-state enum, not a boolean** (owner, 2026-09-19). ADR-0008. A boolean has to
+default to something and both defaults are wrong: `false` hides the feature, `true` stores personal
+facts without asking. Null-as-undecided is what lets the product ask exactly once.
+
+**The Pro price comes from Polar, not from a constant** (owner, 2026-09-19). It costs an upstream
+call and a failure mode, both handled. The alternative is a public page quoting a number the
+checkout may not charge.
+
+**Clerk's `appearance.elements` is not revisited** (owner, 2026-09-19). ADR-0009. The item said
+"revisit if `@clerk/ui` v2 applies it". `npm view @clerk/ui versions` returns no 2.x at all — latest
+published is 1.33.1, 1.34 is canary. The condition cannot be met, so the item closes on the second
+branch: the `.auth-clerk` CSS is final.
+
+### Found along the way
+
+**Statically prerendered pages ship no CSP nonce, so none of their JavaScript runs.** `script-src`
+carries a per-request nonce with `'strict-dynamic'`, which makes `'self'` inert — only a nonce
+authorizes a script — and a page built before any request exists has no nonce to stamp. Verified
+against the previous build output: `.next/server/app/_not-found.html` contains five
+`<script src="/_next/static/chunks/…">` tags and not one `nonce` attribute. That page has therefore
+never hydrated in production. It went unnoticed because it is a heading and a link.
+
+Both marketing pages and `not-found.tsx` now call `connection()`. The build output confirms it: `/`,
+`/pricing` and every workspace route are `ƒ`, and the only remaining `○` entries are `robots.txt`
+and `sitemap.xml`, which are text.
+
+**The chat store's default model disagreed with the server's.** `useChatStore` opened on
+`gpt-5-mini` while `DEFAULT_MODEL_ID` is `gpt-5-nano`, so a request that omitted the model and one
+that sent the store's default resolved to different models — and the per-message cost shown was for
+whichever the client happened to name. Now reads `DEFAULT_MODEL_ID`.
+
+**A nav item that went somewhere else.** The sidebar's "Images" entry pointed at the same href as
+"New chat" with `match: () => false`, so it could never look selected and never led anywhere of its
+own. Removed rather than carried as a decoy.
+
+**Clerk was warning about this codebase and nobody had looked.** The console on any page carried
+`Clerk: Structural CSS detected that may break on updates`, listing 33 of the `.auth-clerk`
+selectors and naming the fix: `<ClerkProvider ui={ui}>`, which pins the component DOM to the
+`@clerk/ui` version in `package.json`. That is precisely the standing risk of the CSS approach —
+a Clerk deploy renaming a `cl-*` class breaks the auth screen silently — and the mitigation was one
+line, against a dependency already installed. Applied and verified: the screen renders identically
+and the warning is gone. The risk now fires on a dependency upgrade, in a diff someone reviews,
+rather than on a Tuesday.
+
+It costs **76,726 bytes of uncompressed first-load JS on every route** (83,060 on the workspace),
+measured by building with and without the prop — including on `/` and `/pricing`, which render no
+Clerk component, because there is one provider and it is in the root layout. Taken deliberately
+(owner, 2026-09-19) on the grounds that an auth screen quietly reverting to a stranger's default
+styling would not be noticed for weeks. ADR-0009 carries the figure.
+
+**The bundle budget had stopped checking anything.** `scripts/check-bundle-budget.ts` keys on route
+names, and five of its nine keys named routes that no longer exist after the move. It reports a
+missing route as a failure rather than a skip, which is the reason this was caught rather than
+passing silently — the one place in this repository where that choice has already paid for itself.
+Re-keyed to the new routes, `/pricing` added, and every ceiling re-derived from a measured build.
+
+**Two stale references.** `app/api/chat/Untitled`, a zero-byte file, is deleted.
+`docs/system_design.md` and the roadmap table's Phase I row are corrected — the table claimed
+`NOT DONE` while the phase's own status block said `IN PROGRESS`, which the table's own rule
+forbids.
+
+### Verified
+
+`format:check`, `lint` (0 errors, 0 warnings), `typecheck`, `build` and `bundle:check` (11 routes,
+all passing) all exit 0. **453 tests, 0 failures**, 101 skipped for want of a local Postgres — up
+from 404 tests, with 49 added across
+`tests/routes.test.ts`, `tests/marketing-plans.test.ts`, `tests/json-ld.test.ts`,
+`tests/chat-announcement.test.ts`, `tests/pricing-service.test.ts` and
+`tests/service/memory-consent.test.ts`.
+
+The build's route table was read, not assumed: `/` and `/pricing` are dynamic, and every route under
+`/app` is too. The only remaining static entries are `robots.txt` and `sitemap.xml`, which are text
+and carry no scripts.
+
+**A browser pass over the running production build**, against the real Neon database and the real
+Polar sandbox:
+
+- `/` and `/pricing` render, with the correct title, canonical, OG tags and one JSON-LD graph each.
+- The Pro price on `/pricing` is **₹560 / month**, read live from Polar — which also exercised the
+  non-USD path through `formatPlanPrice` that the unit tests only assert in EUR.
+- Every derived figure is right: 150 / 5,000 messages, 2 models across 1 provider against 4 across
+  3, 1 / 3 concurrent streams, 10 / 60 requests a minute.
+- 29 of 33 script tags carry the nonce; the four that do not are the two Next inserts at runtime
+  (covered by `'strict-dynamic'`), Clerk's CDN bundle, and the JSON-LD block, which is data.
+  `window.Clerk` is defined, so the page hydrated. **Zero console errors and zero CSP violations.**
+- `getComputedStyle(document.documentElement).colorScheme` is `dark`.
+- The command palette opens on ⌘K and returns both groups: thread titles matched client-side, and
+  full-text message hits from `/api/threads/search`.
+- The auth screen renders identically with the `ui` pin in place.
+- `readMemoryConsent` against the migrated Neon database returns `undecided` for the one existing
+  account — so a pre-existing user is **not** silently opted in, which is the whole point.
+
+Migration `0006_stiff_nighthawk.sql` was applied to that database with the owner's authorization. It
+is additive — one enum type and two nullable columns — so it carries no destructive-migration
+exemption.
+
+### The measurement pass
+
+Phase J shipped, then was measured. Lighthouse against a production build and axe-core against every
+route found **eight defects**, three of them pre-existing and one of them a total outage waiting for
+a typo. Recorded in full because the list is the argument for measuring rather than reasoning.
+
+#### Lighthouse (desktop preset, production build)
+
+| Route      | Perf | A11y | Best practices | SEO |
+| ---------- | ---- | ---- | -------------- | --- |
+| `/`        | 97   | 100  | 78             | 100 |
+| `/pricing` | 98   | 100  | 78             | 100 |
+| `/sign-in` | 97   | 100  | 78             | 66  |
+
+`/sign-in` scores 66 on SEO **because it is `noindex`** — `is-crawlable` is the only deduction, and
+it is the intended state. Best practices is held at 78 on every route by two audits, both the same
+cause: `third-party-cookies` and `inspector-issues` are Clerk's Cloudflare cookies on
+`*.clerk.accounts.dev`. A Clerk **production** instance on a custom domain makes those first-party
+and both audits pass, so this number is a proxy for Deployment state item 3, not for anything in
+this repository. The remaining performance deductions are the dev-instance handshake redirect and
+`Cache-Control: no-store`, which is what dynamic rendering means and dynamic rendering is what the
+nonce CSP requires.
+
+#### axe-core, every route
+
+Run in-browser against a real signed-in session, because Lighthouse cannot reach anything behind
+`auth.protect()`. `/`, `/pricing` and `/sign-in` are covered by Lighthouse's accessibility category,
+which _is_ axe-core; `/app`, `/app/memories` and `/app/profile` were audited directly, as was the
+command palette while open.
+
+| Violation                | Impact       | Where                           | Cause                                                 |
+| ------------------------ | ------------ | ------------------------------- | ----------------------------------------------------- |
+| `color-contrast`         | serious      | `/`, `/pricing`, `/sign-in`     | 11 nodes at `zinc-500/600/700` on `#08080a`           |
+| `aria-required-children` | **critical** | command palette                 | non-option nodes inside cmdk's listbox                |
+| `list`                   | serious      | sidebar                         | `<div>` and `<button>` as direct children of a `<ul>` |
+| `aria-progressbar-name`  | serious      | `/app/profile`                  | the quota bar had no accessible name                  |
+| `region`                 | moderate     | `/app`                          | shadcn's `Sidebar` is divs; nothing was in a landmark |
+| `page-has-heading-one`   | moderate     | `/app/memories`, `/app/profile` | outline started at `h2`                               |
+
+All fixed; all six routes now report **0 violations**.
+
+The contrast one is the instructive failure. `zinc-600` on near-black reads as "quiet" on a good
+display and measures **2.6:1** — under half the 4.5:1 WCAG AA asks for text this small. The floor is
+now documented with the measured scale in the header of
+`components/marketing/marketing-shell.tsx`: nothing below `zinc-400`.
+
+The `aria-required-children` one was rated _critical_ and is the kind of thing that only shows up
+with the component open: a spinner and an empty-state sentence were rendered inside a
+`role="group"` within a `role="listbox"`, where ARIA permits only options. They moved below the
+list, where they are ordinary text.
+
+#### Found by Lighthouse, not by axe
+
+**The CSP was blocking Clerk's own scripts, on every page load, in production.** `errors-in-console`
+and `inspector-issues` both failed and named them: `clerk.browser.js` and `ui.browser.js` were
+rendered into the SSR HTML with no nonce, and `script-src` carries `'strict-dynamic'`, which makes
+`'self'` inert. The browser refused both, Clerk's local runtime then re-injected them dynamically
+where `'strict-dynamic'` _does_ admit them, and everything worked — by paying two blocked requests
+and a retry per page load and putting a security error in every user's console. It went unnoticed
+for exactly that reason. `<ClerkProvider dynamic>` switches Clerk to the path that reads `X-Nonce`
+from the request headers — the header `proxy.ts` already set — and stamps it on the tags. Performance
+rose from 89 to 97 on the landing page.
+
+**The brand logo was a 59 KB PNG painted into 24 CSS pixels**, with `unoptimized` set and no reason
+recorded, on the marketing header, both auth screens and the sidebar. Sized to the rendered box and
+optimization re-enabled: Next serves a **352-byte** WebP. 168× smaller, on every route.
+
+**The root layout's canonical leaked to every route that did not override it** — both auth screens
+and all seven pages under `/app` shipped `<link rel="canonical" href="https://…/">`, each telling a
+crawler the real version of itself was the homepage. Pointless on a `noindex` page and wrong on any
+page. A canonical now appears only on the two routes that want to be indexed.
+
+#### The one that would have taken the site down
+
+**A one-character typo in `NEXT_PUBLIC_APP_URL` rejected every session.**
+
+`http:localhost:3000` — one `/` short — passes `z.url()`, because the WHATWG parser reads it as
+`http://localhost:3000/`. Every consumer therefore behaved correctly except one:
+`resolveAuthorizedParties` passed it through **verbatim**, on the documented assumption that the
+variable is "set deliberately by an operator" and therefore well-formed. Clerk compares that list
+against the browser's `azp` claim, which is the _parsed_ origin `http://localhost:3000`. They are
+not equal, so Clerk rejected every token: server-side `auth()` saw no user while the browser held a
+perfectly valid session, every protected route bounced to sign-in, and sign-in bounced back.
+
+Observed, not hypothesised — it is what blocked the authenticated half of the browser pass.
+
+It is precisely the "confidently wrong list" that module's own header warns about, arriving through
+a route the header did not anticipate. Both `resolveAuthorizedParties` and `appUrl()` now normalize
+through `URL` — `.origin` for the first, because `azp` is an origin; `.href` for the second, because
+a deployment under a base path is a configuration `appUrl()` has always allowed. Five regression
+tests cover it.
+
+The same gap had a quieter second symptom: `robots.txt` served `Host: http:localhost:3000`, which is
+not a host any crawler accepts.
+
+#### Two verification caveats worth recording
+
+**Turbopack served a stale CSS chunk.** A CSS-only edit was absent from the built output after a
+rebuild — the source said `.skip-link:focus`, `.next/static/chunks/*.css` still said
+`:focus-visible`. Only caught by reading the served CSS in the browser. Every build after this point
+was preceded by `rm -rf .next`, and any CSS change should be verified in the output rather than
+assumed.
+
+**The skip link was verified by screenshot, not by measurement.** Several `getBoundingClientRect`
+readings were confounded by the Chrome window not being foreground — `:focus` does not match when
+the document is not focused — and by reading mid-transition. The reveal is confirmed visually, with
+its focus ring.
+
+### Known limitations
+
+- **Neither audit is automated.** axe-core and Lighthouse were both run by hand against a local
+  production build, and nothing in CI will catch the next regression. That is the remaining gap:
+  axe-core needs to run against the authenticated routes, which needs a signed-in session, which is
+  the same Clerk test instance Phase I item 5 is waiting on. Doing them together is the obvious
+  move. Until then the numbers in this document are a snapshot, not a gate.
+- **Lighthouse ran against `localhost`, not the deployment.** Best practices is held at 78 by
+  Clerk's development-instance cookies, and the performance figures include a dev-instance handshake
+  redirect. Both should improve on a production Clerk instance; neither has been measured there. The
+  SEO score also depends on `NEXT_PUBLIC_APP_URL` being set correctly in production — see Deployment
+  state item 1, and note what a typo in it now costs.
+- **The public pages are server-rendered on every visit.** That is forced by the nonce CSP, not
+  chosen. Two simple pages with no per-user content pay a render each; the alternative is a landing
+  page whose JavaScript does not run. If this ever matters, the CSP is what to revisit, not the
+  pages.
+- **The consent tests skip without a Postgres**, like the other 101. The machine this was written on
+  has neither Docker nor a local Postgres, and the harness creates and drops throwaway databases,
+  which is not something to point at the Neon branch. CI's `pgvector` service container is where
+  they execute. The consent _service_ was exercised against Neon read-only instead, as above.
+- **One authenticated surface is still unaudited by axe:** a thread page with a live conversation
+  (`/app/chat/[thread_id]`). The empty workspace, Memory Center, profile and the command palette
+  were all covered. A thread page renders the transcript, the announcer and the tool cards, which is
+  the densest markup in the product.
+- **Memories written before consent existed** belong to accounts that are now `undecided`, so they
+  are stored, visible, deletable, and unused. Deliberate, and argued in ADR-0008.
+- **No `generateMetadata` on the marketing pages reads live data**, so a price change is not
+  reflected in OG text. The visible price is current; the social card does not quote one.
 
 ### Phase J status
 
-> **`NOT DONE`** — Not started.
+> **`IN PROGRESS`** — All eight work items shipped and **all four exit criteria met**: SEO 100 on
+> both public routes, axe-core clean on all six routes audited, theme resolved, docs complete.
+>
+> It is not `COMPLETED` for one reason: **neither audit runs in CI.** Both were run by hand, and a
+> phase whose exit criteria can regress on the next commit without anything noticing has not really
+> closed them. Automating axe needs a signed-in session, which needs the Clerk test instance Phase I
+> item 5 is also waiting on. The two should close together.
 
 ---
 

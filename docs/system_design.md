@@ -45,7 +45,7 @@ graph TB
 
     subgraph App["AIChatWave — single Next.js 16 deployment (Vercel)"]
         MW["proxy.ts<br/>Clerk middleware + CSP nonce + security headers"]
-        RSC["Server Components<br/>(chat), memories, profile"]
+        RSC["Server Components<br/>/app, memories, profile"]
         API["Route handlers<br/>/api/*"]
         SVC["Service layer<br/>server/**"]
         GRAPH["LangGraph agent"]
@@ -101,19 +101,22 @@ graph TB
 
 ```
 app/                      routes only — no business logic
-  (chat)/                 authenticated shell: layout calls auth.protect()
+  (marketing)/            public, indexed: landing and /pricing
+  app/                    authenticated shell: layout calls auth.protect()
     page.tsx              new conversation
     chat/[thread_id]/     existing conversation (server-loads history)
-    memories/             Memory Center
+    memories/             Memory Center + the memory consent switch
     profile/              plan, usage meter, billing portal
+    admin/operations/     cost and SLO dashboard (ADMIN_USER_IDS only)
   api/
     chat/                 POST — the streaming turn
     threads/              CRUD + keyset-paginated messages
-    memories/             list + delete
+    memories/             list + delete, and consent
     billing/              checkout, portal
     webhooks/{clerk,polar} signature-verified, session-free
     health/               liveness + optional deep readiness
   sign-in/, sign-up/      branded Clerk screens
+  robots.ts, sitemap.ts   derived from lib/routes.ts
 
 server/                   the service layer — the only code that touches DB or graph
   lib/                    route-handler factory, AppError, logger, request-id
@@ -473,7 +476,7 @@ This app holds no provider client secrets.
 ```mermaid
 flowchart LR
     subgraph Enforcement["Authorization, enforced per resource"]
-        P["Pages / layouts<br/>auth.protect() in app/(chat)/layout.tsx"]
+        P["Pages / layouts<br/>auth.protect() in app/app/layout.tsx"]
         A["API routes<br/>requireSessionUserId() in the handler factory"]
         SA["Server actions<br/>getSessionUserId() in lib/polar.ts"]
         D["Data access<br/>every repository query scoped by user_id"]
@@ -729,7 +732,7 @@ a _fact about the message_, not a command.
 
 ```mermaid
 flowchart TD
-    RSC["app/(chat)/chat/[thread_id]/page.tsx<br/>server component — loads history"]
+    RSC["app/app/chat/[thread_id]/page.tsx<br/>server component — loads history"]
     RSC -->|"StoredMessage[]"| CI["ChatInterfaceNew (client)"]
     CI --> SH["ChatShell"]
     SH -->|"convertLangChainToUI()"| MSG["ChatMessageList → MessageRenderer"]
