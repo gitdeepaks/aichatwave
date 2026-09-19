@@ -61,10 +61,38 @@ export type ModelPricing = {
   outputPerMillionUsd: number;
 };
 
+/**
+ * What a human is shown about a model, wherever it is named.
+ *
+ * Carried in the registry rather than in the component that renders it because
+ * there are now four such components — the model picker, the command palette,
+ * the pricing page and the onboarding explainer — and before this the picker
+ * held its own parallel array of names and slugs. Two catalogues in a codebase
+ * is one catalogue and one lie waiting to happen: the picker's copy still
+ * listed a model id the registry no longer served.
+ *
+ * `logoSlugs` are models.dev vendor slugs, which is what the AI Elements
+ * `ModelSelectorLogo` resolves an icon URL from. They are listed per model
+ * because they describe where the model can be *hosted* — Claude runs on
+ * Anthropic, Bedrock and Vertex — which is not the same question as which
+ * provider SDK this deployment calls.
+ */
+export type ModelPresentation = {
+  /** Human-facing model name, e.g. `GPT-5 mini`. */
+  name: string;
+  /** Human-facing vendor name, e.g. `OpenAI`. Groups the picker. */
+  vendor: string;
+  /** One sentence on when to reach for this model. Shown in the picker and on `/pricing`. */
+  blurb: string;
+  /** models.dev vendor slugs for the logo strip, first entry being the primary. */
+  logoSlugs: readonly [string, ...string[]];
+};
+
 type ModelFacts = {
   tier: ModelTier;
   modalities: ModelModalities;
   pricing: ModelPricing;
+  presentation: ModelPresentation;
 };
 
 export type ModelConfig = ModelFacts &
@@ -81,6 +109,12 @@ export const MODEL_REGISTRY = {
     modalities: { image: true, pdf: true },
     pricing: { inputPerMillionUsd: 0.25, outputPerMillionUsd: 2 },
     options: { reasoning: { effort: "low" } },
+    presentation: {
+      name: "GPT-5 mini",
+      vendor: "OpenAI",
+      blurb: "The balanced default. Reasons through multi-step work without the wait.",
+      logoSlugs: ["openai", "azure"],
+    },
   },
   "gpt-5-nano": {
     provider: "openai",
@@ -88,6 +122,12 @@ export const MODEL_REGISTRY = {
     modalities: { image: true, pdf: true },
     pricing: { inputPerMillionUsd: 0.05, outputPerMillionUsd: 0.4 },
     options: { reasoning: { effort: "low" } },
+    presentation: {
+      name: "GPT-5 nano",
+      vendor: "OpenAI",
+      blurb: "The fastest and cheapest. Best for short questions and quick edits.",
+      logoSlugs: ["openai", "azure"],
+    },
   },
   "gemini-3.1-pro": {
     provider: "google",
@@ -95,12 +135,24 @@ export const MODEL_REGISTRY = {
     modalities: { image: true, pdf: true },
     pricing: { inputPerMillionUsd: 1.25, outputPerMillionUsd: 10 },
     options: { temperature: 0 },
+    presentation: {
+      name: "Gemini 3.1 Pro",
+      vendor: "Google",
+      blurb: "Long-context reading. Strongest on large documents and mixed media.",
+      logoSlugs: ["google", "google-vertex"],
+    },
   },
   "claude-sonnet-4-20250514": {
     provider: "anthropic",
     tier: "subscription",
     modalities: { image: true, pdf: true },
     pricing: { inputPerMillionUsd: 3, outputPerMillionUsd: 15 },
+    presentation: {
+      name: "Claude Sonnet 4",
+      vendor: "Anthropic",
+      blurb: "Careful, literate answers. The one to pick for code review and prose.",
+      logoSlugs: ["anthropic", "amazon-bedrock", "google-vertex"],
+    },
   },
 } satisfies Record<ModelId, ModelConfig>;
 
@@ -205,6 +257,30 @@ export function modelAcceptsAttachmentKind(modelId: ModelId, kind: "image" | "pd
 
 export function getModelPricing(modelId: ModelId): ModelPricing {
   return MODEL_REGISTRY[modelId].pricing;
+}
+
+export function getModelPresentation(modelId: ModelId): ModelPresentation {
+  return MODEL_REGISTRY[modelId].presentation;
+}
+
+/** The model ids in a tier, in registry order. Drives the pricing page's two columns. */
+export function modelIdsInTier(tier: ModelTier): ModelId[] {
+  return MODEL_IDS.filter((modelId) => MODEL_REGISTRY[modelId].tier === tier);
+}
+
+/**
+ * Every vendor with at least one model in the registry, in registry order.
+ *
+ * Distinct from `registryProviders()`, which answers a configuration question
+ * in provider-SDK terms. This one is the marketing answer — "OpenAI, Google,
+ * Anthropic" — and is what the landing page lists.
+ */
+export function registryVendors(): string[] {
+  const seen = new Set<string>();
+  for (const modelId of MODEL_IDS) {
+    seen.add(MODEL_REGISTRY[modelId].presentation.vendor);
+  }
+  return [...seen];
 }
 
 /**
