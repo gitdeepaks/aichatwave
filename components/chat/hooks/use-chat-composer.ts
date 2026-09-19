@@ -17,6 +17,7 @@ import {
 import { modelAcceptsAttachmentKind } from "@/lib/ai/model-registry";
 import { attachmentsApi } from "@/lib/api/client";
 import { toFiles } from "@/lib/chat/attachment-files";
+import { chatRoute } from "@/lib/routes";
 
 export function useChatComposer({
   sendMessage,
@@ -146,7 +147,7 @@ export function useChatComposer({
         // — so the answer being written would have nothing to reconnect to.
         // The chat instance is keyed by this same id, so the navigation is
         // seamless: the stream continues into the very same instance.
-        router.push(`/chat/${threadId}`);
+        router.push(chatRoute(threadId));
         void queryClient.invalidateQueries({ queryKey: THREADS_QUERY_KEY });
       }
     },

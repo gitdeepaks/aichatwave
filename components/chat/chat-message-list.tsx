@@ -57,8 +57,18 @@ export function ChatMessageList({
         onScroll={onScroll}
         className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] [mask-image:linear-gradient(to_bottom,transparent_0,#000_18px,#000_calc(100%-18px),transparent_100%)]"
         role="log"
-        aria-live="polite"
-        aria-relevant="additions text"
+        aria-label="Conversation"
+        /*
+         * Off, deliberately. `role="log"` implies `aria-live="polite"`, and
+         * this container held `aria-relevant="additions text"` on top of it —
+         * so every token of a streaming answer mutated a live region and a
+         * screen reader either queued hundreds of utterances or restarted the
+         * sentence continuously. The transcript keeps the `log` role because
+         * that is what it structurally is and it is how a user navigates the
+         * conversation; the announcements moved to `ChatAnnouncer`, which says
+         * one short sentence per state change instead.
+         */
+        aria-live="off"
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-3 py-6 pb-[calc(var(--chat-composer-height,6rem)+1.5rem)] sm:px-5">
           {hasEarlierMessages ? (
