@@ -19,6 +19,7 @@ import {
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 import { subscriptionQueryKey } from "@/lib/query-keys";
+import { ROUTES } from "@/lib/routes";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -69,7 +70,7 @@ function SuccessContent() {
           </div>
         )}
 
-        <Link href="/" className="block w-full">
+        <Link href={ROUTES.app} className="block w-full">
           <Button className="h-13 w-full rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-[16px] font-semibold text-white shadow-lg shadow-orange-950/40 transition-[transform,box-shadow] hover:from-orange-400 hover:to-red-500 active:scale-[0.98]">
             Return to Chat
             <ArrowRight className="ml-2 size-5" />

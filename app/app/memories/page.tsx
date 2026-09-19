@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Database, Sparkles } from "lucide-react";
 import Records from "./records";
@@ -9,11 +10,16 @@ import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 import { cn } from "@/lib/utils";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ROUTES } from "@/lib/routes";
+import { MemoryConsentCard } from "@/components/memory/memory-consent-card";
+
+export const metadata: Metadata = { title: "Memory Center" };
 
 export default function UserMemoriesPanel() {
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-6 overflow-hidden p-4">
       <MemoryHeader />
+      <MemoryConsentCard />
       <Suspense fallback={<MemoryRecordsFallback />}>
         <MemoryRecords />
       </Suspense>
@@ -25,7 +31,7 @@ async function MemoryRecords() {
   const userId = await getSessionUserId();
 
   if (!userId) {
-    redirect("/sign-in");
+    redirect(ROUTES.signIn);
   }
 
   const memories = (await listMemories(userId)).map(toMemoryDto);
@@ -44,11 +50,14 @@ function MemoryHeader() {
           </div>
           <div className="flex items-center gap-2">
             <Database className="h-5 w-5 text-orange-300" />
-            <h2 className="text-xl font-semibold tracking-tight text-white">Memory Center</h2>
+            {/* `h1`, not `h2`. This is the page's own title — there is no
+                heading above it — and axe's `page-has-heading-one` flags a
+                document whose outline starts at level 2. */}
+            <h1 className="text-xl font-semibold tracking-tight text-white">Memory Center</h1>
           </div>
           <p className="mt-1 max-w-lg text-[15px] leading-relaxed text-zinc-400">
-            Facts and preferences the assistant keeps across chats — same glass look as your sign-in
-            experience.
+            Facts and preferences the assistant keeps across chats. You decide whether it keeps any,
+            and every one of them can be deleted individually.
           </p>
         </div>
       </CardContent>

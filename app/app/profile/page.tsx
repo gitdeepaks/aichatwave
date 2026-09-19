@@ -88,7 +88,10 @@ export default function ChatbotUserProfile() {
             </Avatar>
 
             <div className="space-y-1">
-              <h2 className="text-2xl font-semibold tracking-tight text-white">{user.name}</h2>
+              {/* `h1`: this is the page's title and nothing sits above it, so
+                  starting the outline at level 2 leaves the document without
+                  one (`page-has-heading-one`). */}
+              <h1 className="text-2xl font-semibold tracking-tight text-white">{user.name}</h1>
               <p className="text-sm text-zinc-400">{user.email}</p>
               <div className="flex items-center gap-3 pt-1">
                 <Badge
@@ -204,7 +207,17 @@ export default function ChatbotUserProfile() {
                 </div>
 
                 <div className="space-y-3">
-                  <Progress value={usagePercent(usageData)} className="h-3 rounded-xl" />
+                  {/* A `role="progressbar"` with no accessible name is announced
+                      as an unlabelled percentage and nothing else — axe rates
+                      it `serious`. `aria-valuetext` gives the same sentence a
+                      sighted user reads below the bar, rather than a bare
+                      number. */}
+                  <Progress
+                    value={usagePercent(usageData)}
+                    aria-label="Monthly token quota used"
+                    aria-valuetext={`${usagePercent(usageData).toFixed(1)}% of monthly quota used`}
+                    className="h-3 rounded-xl"
+                  />
                   <div className="flex justify-between text-sm">
                     <span className="text-zinc-400">
                       {usagePercent(usageData).toFixed(1)}% of monthly quota used

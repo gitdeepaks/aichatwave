@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Activity, AlertTriangle, DollarSign, Gauge } from "lucide-react";
@@ -17,6 +18,8 @@ import { getSessionUserId } from "@/server/auth/session";
 import { isAdmin } from "@/server/auth/admin";
 import { buildCostReport } from "@/server/observability/cost-service";
 import { buildSloReport } from "@/server/observability/slo-service";
+
+export const metadata: Metadata = { title: "Operations" };
 
 const COST_WINDOW_DAYS = 30;
 const SLO_WINDOW_MINUTES = 60;
