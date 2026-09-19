@@ -43,6 +43,13 @@
       "when": 1789662598695,
       "tag": "0005_faulty_ben_urich",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789811867723,
+      "tag": "0006_stiff_nighthawk",
+      "breakpoints": true
     }
   ]
 }
