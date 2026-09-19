@@ -94,11 +94,10 @@ export function AuthScreenShell({
                 <Image
                   src={BRAND_LOGO_SRC}
                   className="size-7 object-contain"
-                  width={512}
-                  height={285}
+                  width={28}
+                  height={28}
                   alt=""
                   priority
-                  unoptimized
                 />
               </div>
               <span className="text-[15px] font-semibold tracking-[-0.02em] text-white">
@@ -110,7 +109,7 @@ export function AuthScreenShell({
               <h1 className="max-w-[15ch] text-balance text-[3.25rem] font-semibold leading-[1.03] tracking-[-0.05em] text-white">
                 {headline}
               </h1>
-              <p className="max-w-[38ch] text-[17px] leading-8 text-zinc-400">{tagline}</p>
+              <p className="max-w-[38ch] text-[17px] leading-8 text-zinc-300">{tagline}</p>
             </div>
 
             {/* The rule is the list's spine; each marker is centred on it. */}
@@ -127,7 +126,7 @@ export function AuthScreenShell({
                   <p className="mt-2 text-[15px] font-medium leading-5 text-zinc-100">
                     {item.title}
                   </p>
-                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-zinc-500">
+                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-zinc-400">
                     {item.body}
                   </p>
                 </li>
@@ -149,11 +148,10 @@ export function AuthScreenShell({
                   <Image
                     src={BRAND_LOGO_SRC}
                     className="size-9 object-contain"
-                    width={512}
-                    height={285}
+                    width={36}
+                    height={36}
                     alt="AIChatWave"
                     priority
-                    unoptimized
                   />
                 </div>
 
@@ -171,7 +169,7 @@ export function AuthScreenShell({
                   {headline}
                 </h2>
 
-                <p className="text-balance text-[14px] leading-6 text-zinc-500">{panelHint}</p>
+                <p className="text-balance text-[14px] leading-6 text-zinc-400">{panelHint}</p>
               </div>
 
               {/* Clerk's widget. De-chromed and stretched by `.auth-clerk` rules;
@@ -183,13 +181,13 @@ export function AuthScreenShell({
                 rather than a third stacked hairline. */}
             <div className="mt-6 flex items-center gap-4" aria-hidden>
               <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-600">
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-400">
                 Encrypted session handoff
               </p>
               <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.08]" />
             </div>
 
-            <p className="mt-5 text-center text-[13px] leading-6 text-zinc-600 lg:hidden">
+            <p className="mt-5 text-center text-[13px] leading-6 text-zinc-400 lg:hidden">
               Threads, long-term memory, and tool-powered answers.
             </p>
           </section>
