@@ -1,10 +1,7 @@
 import { db, closeDatabase } from "@/db";
 import { sql } from "drizzle-orm";
 
-const THREADS = [
-  "18fc8451-814e-481e-bba5-6321719c44db",
-  "fb2ad388-5899-43ab-bd94-db1fdbde1af7",
-];
+const THREADS = ["18fc8451-814e-481e-bba5-6321719c44db", "fb2ad388-5899-43ab-bd94-db1fdbde1af7"];
 
 async function main(): Promise<void> {
   const streams = await db.execute(sql`
