@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { ErrorSurface } from "@/components/error/error-surface";
+import { ROUTES } from "@/lib/routes";
 
 /**
  * Route-level error boundary. Catches render and data errors below the root
@@ -31,8 +32,8 @@ export default function AppError({
       description="This page hit an unexpected error. Trying again often works — the failure was recorded either way."
       digest={error.digest}
       onRetry={reset}
-      href="/"
-      hrefLabel="Back to chat"
+      href={ROUTES.home}
+      hrefLabel="Back to home"
     />
   );
 }

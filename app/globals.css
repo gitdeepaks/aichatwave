@@ -48,43 +48,40 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+/* ───────────────────────────────────────────────────────────────────────────
+   One theme: dark.
 
+   Decision (Phase J, owner, 2026-09-19). The app previously hardcoded
+   `class="dark"` on <html> while a provider advertised system-preference
+   support, so the system setting could never win and the code contradicted
+   itself. It is resolved in favour of dark rather than by shipping a light
+   theme, because "light theme" here is not a token swap: the glass shells, the
+   ember atmosphere, `bg-zinc-950` on <body>, and some sixty `white/…` and
+   `zinc-…` literals across the components are all written for a dark canvas.
+   A light mode means auditing every one of them for contrast, which is a
+   project, not a polish item. See `docs/adr/0005-dark-theme-only.md`.
+
+   So the tokens below are declared once, for both `:root` and `.dark`, and
+   there is no second palette to drift. `<html>` still carries `class="dark"`
+   so Tailwind's `dark:` variants — which resolve through
+   `@custom-variant dark (&:is(.dark *))` above — keep matching.
+
+   `color-scheme: dark` is the part a stylesheet cannot express: it is what
+   makes the browser's own surfaces — scrollbars, form controls, the overscroll
+   canvas, `<input type="date">` pickers — render dark. Without it a scroll
+   past the end of a thread flashes white.
+
+   To reintroduce light later: split this block back into `:root` (light) and
+   `.dark`, set `color-scheme: light dark`, and audit the literals above.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root,
 .dark {
-  /* Align with auth / app shell: deep zinc + warm accent-friendly neutrals */
+  color-scheme: dark;
+
+  --radius: 0.625rem;
+
+  /* Deep zinc base with warm, accent-friendly neutrals. */
   --background: oklch(0.13 0.006 75);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -147,6 +144,88 @@
   button:disabled {
     cursor: not-allowed;
   }
+
+  /* One visible focus ring for the whole app.
+
+     `* { outline-ring/50 }` above sets the *colour* of an outline nothing was
+     asking the browser to draw, so a keyboard user got whatever the UA default
+     happened to be — and on the glass surfaces that default is a thin dark
+     ring on a dark panel, i.e. invisible. This draws a real one, in the brand
+     accent, at a contrast that holds against both the zinc base and the
+     lighter glass cards.
+
+     `:focus-visible` and not `:focus`: a mouse click must not leave a ring
+     behind, which is the reason `outline: none` gets written in the first
+     place. Components that need a different ring (Clerk's social buttons,
+     the composer) still override it locally. */
+  :focus-visible {
+    outline: 2px solid rgb(251 146 60 / 0.85);
+    outline-offset: 2px;
+    border-radius: inherit;
+  }
+
+  /* Reduced motion, applied once at the root rather than per animation.
+
+     A3 handled it on the auth screens and the chat scroll controller handles
+     it in JS, but the glass surfaces added transitions and pulses in a dozen
+     components since, and each one was a place to forget. Near-zero rather
+     than `none` because a 0s animation never fires `animationend`, and a few
+     components (Radix dialogs, the sonner toasts) unmount on that event —
+     killing it outright leaves them mounted forever.
+
+     Scroll behaviour is included because a smooth programmatic scroll is
+     vestibular motion too, and it is the one the chat message list produces
+     most often. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* The skip link, visible only when focused.
+
+   Positioned rather than `sr-only` so that tabbing into the page reveals it in
+   place. It is the first focusable element in the document and the only way a
+   keyboard user reaches the composer without tabbing through the whole thread
+   list first. */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  transform: translateY(calc(-100% - 1rem));
+  border-radius: 0.75rem;
+  border: 1px solid rgb(253 186 116 / 0.35);
+  background: rgb(24 24 27);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(254 215 170);
+  box-shadow: 0 18px 44px -24px rgb(0 0 0 / 0.9);
+  transition: transform 160ms ease;
+}
+
+/* `:focus`, not `:focus-visible`.
+
+   `:focus-visible` is the right default everywhere else in this stylesheet —
+   it is what keeps a mouse click from leaving a ring behind. A skip link is
+   the exception, for two reasons. It is only ever reached by keyboard or by
+   assistive technology, so there is no mouse interaction to suppress; and
+   `:focus-visible` is a browser *heuristic* about how focus arrived, which
+   does not match a programmatic `.focus()` — the way a screen reader's
+   virtual cursor and a good deal of AT tooling move focus.
+
+   The whole point of this element is to become visible whenever it receives
+   focus, by whatever means, so it should not be gated on how the focus got
+   there. `:focus` says that; `:focus-visible` says something narrower. */
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -307,9 +386,14 @@
   padding-block: 0 0.25rem;
 }
 
+/* zinc-400, not the zinc-500 this started as. "Don't have an account?" is
+   14px body text on a near-black panel, and zinc-500 measures 4.1:1 against it
+   — under the 4.5:1 WCAG AA asks for text this size. Same floor as the
+   marketing pages; see the header of `components/marketing/marketing-shell.tsx`
+   for the measured scale. */
 .auth-clerk .cl-footerActionText {
   font-size: 0.875rem;
-  color: rgb(113 113 122);
+  color: rgb(159 159 169);
 }
 
 .auth-clerk .cl-footerActionLink {
