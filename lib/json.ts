@@ -16,6 +16,19 @@ export const jsonValueSchema = z.json();
 export type JsonValue = z.infer<typeof jsonValueSchema>;
 
 /**
+ * The object member of {@link JsonValue}.
+ *
+ * Extracted from the union rather than declared alongside it, so the two can
+ * never disagree about what a JSON object is: the extraction resolves to the
+ * union's own object member, and a change to `z.json()` changes this with it.
+ *
+ * Used where a payload is known to be a document rather than a bare scalar — a
+ * JSON-LD graph, for instance, where `"@context"` has to be a top-level key and
+ * a plain `string` would typecheck against `JsonValue` perfectly happily.
+ */
+export type JsonObject = Extract<JsonValue, { [key: string]: JsonValue }>;
+
+/**
  * Parses JSON text into a named type, or `null` when the text is not JSON.
  *
  * `JSON.parse` returns `any`; every caller in this repo goes through here so

@@ -81,3 +81,51 @@ test("preview deployments authorize their branch URL too", () => {
   assert.equal(parties.length, 2);
   assert.ok(parties.includes("https://aichatwave-git-feature.vercel.app"));
 });
+
+/**
+ * The regression that motivated normalizing through `URL`.
+ *
+ * `http:localhost:3000` is a one-character typo — a missing `/` — and it
+ * passes `z.url()` in `lib/env.ts` because the WHATWG parser accepts it. Every
+ * other consumer of the variable therefore behaves correctly, which is what
+ * made this so hard to see: the list went out verbatim, Clerk compared it
+ * against the browser's parsed `azp` of `http://localhost:3000`, and rejected
+ * every session. `auth()` saw no user while the browser held a valid one.
+ */
+test("a malformed but parseable app URL still yields the origin Clerk compares", () => {
+  assert.deepEqual(resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "http:localhost:3000" }), [
+    "http://localhost:3000",
+  ]);
+  assert.deepEqual(resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "https:www.aichatwave.in" }), [
+    "https://www.aichatwave.in",
+  ]);
+});
+
+test("a path on the configured URL is dropped, because azp is an origin", () => {
+  assert.deepEqual(
+    resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "https://www.aichatwave.in/app" }),
+    ["https://www.aichatwave.in"],
+  );
+});
+
+test("an unparseable value is dropped rather than listed", () => {
+  // The danger of keeping it is not that it matches something it should not —
+  // it is that it makes the list non-empty, and a non-empty list is enforcing.
+  assert.deepEqual(resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "not a url" }), []);
+});
+
+test("two spellings of one origin still collapse to a single entry", () => {
+  assert.deepEqual(
+    resolveAuthorizedParties({
+      NEXT_PUBLIC_APP_URL: "https://www.aichatwave.in/",
+      VERCEL_PROJECT_PRODUCTION_URL: "www.aichatwave.in",
+    }),
+    ["https://www.aichatwave.in"],
+  );
+});
+
+test("the default port is normalized away, as it is in an azp claim", () => {
+  assert.deepEqual(resolveAuthorizedParties({ NEXT_PUBLIC_APP_URL: "https://example.com:443" }), [
+    "https://example.com",
+  ]);
+});

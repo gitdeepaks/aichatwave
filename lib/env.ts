@@ -229,13 +229,36 @@ export function tracingConfig(): TracingConfig {
 /** LangChain reads `LANGSMITH_TRACING` itself; this is the same answer, for logging and for the health of the config. */
 export const langsmithEnabled = env.LANGSMITH_TRACING === "true";
 
+const LOCAL_APP_URL = "http://localhost:3000";
+
 /**
  * Absolute origin of this deployment. Polar checkout and portal redirects need
  * a fully-qualified URL, so this has to resolve on the server too.
+ *
+ * Normalized through `URL` rather than returned as configured, because the
+ * WHATWG parser accepts more than people mean to write and every consumer here
+ * parses at a different moment. `http:localhost:3000` — a real typo, one `/`
+ * short — parses as `http://localhost:3000/`, so `new URL(path, origin)`
+ * silently does the right thing and `metadataBase` does too. What does not is
+ * anything that emits the string verbatim: `robots.txt` served
+ * `Host: http:localhost:3000`, which is not a host any crawler will accept.
+ *
+ * `.href` and not `.origin`: a deployment served under a base path
+ * (`https://example.com/app`) is a configuration this function has always
+ * allowed, and `.origin` would silently drop the path.
  */
 export function appUrl(): string {
   const fromEnv = env.NEXT_PUBLIC_APP_URL ?? (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : null);
-  return trimTrailingSlash(fromEnv ?? "http://localhost:3000");
+  if (fromEnv === null) return LOCAL_APP_URL;
+
+  try {
+    return trimTrailingSlash(new URL(fromEnv).href);
+  } catch {
+    // Unreachable through the schema — `NEXT_PUBLIC_APP_URL` is `z.url()` and
+    // `VERCEL_URL` is prefixed above — but returning a string that is not a URL
+    // would put a broken origin into checkout redirects and canonical tags.
+    return LOCAL_APP_URL;
+  }
 }
 
 export const publicEnv = {

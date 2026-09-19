@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { create } from "zustand";
 import { z } from "zod";
 import { chatRequestSchema } from "@/app/api/chat/schema";
-import { MODEL_IDS, type ModelId } from "@/lib/ai/model-registry";
+import { DEFAULT_MODEL_ID, MODEL_IDS, type ModelId } from "@/lib/ai/model-registry";
 import type { AppUIMessage } from "@/lib/chat/ui-message";
 
 /**
@@ -31,8 +31,15 @@ export interface ChatStoreState {
   setSelectedModel: (modelId: ModelId) => void;
 }
 
+/**
+ * `DEFAULT_MODEL_ID` rather than a literal. The store used to open on
+ * `gpt-5-mini` while the server's fallback was `gpt-5-nano`, so a request that
+ * omitted the model and one that sent the store's default resolved to
+ * different models — and the cost shown in the UI was for whichever the client
+ * happened to name.
+ */
 export const useChatStore = create<ChatStoreState>((set) => ({
-  selectedModel: "gpt-5-mini",
+  selectedModel: DEFAULT_MODEL_ID,
   setSelectedModel: (modelId: ModelId) => set({ selectedModel: modelId }),
 }));
 
