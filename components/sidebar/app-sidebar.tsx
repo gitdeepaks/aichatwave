@@ -23,7 +23,11 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     >
       <MacosSidebarNav view={view} onViewChange={setView} />
 
-      <SidebarContent className="mt-1 min-h-0 gap-0 px-1">
+      <SidebarContent
+        role="navigation"
+        aria-label="Conversations"
+        className="mt-1 min-h-0 gap-0 px-1"
+      >
         {view === "active" ? (
           <>
             <ThreadsLists view="active" pinned label="Pinned" />
@@ -34,7 +38,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/[0.06] pt-1">
+      <SidebarFooter role="contentinfo" className="border-t border-white/[0.06] pt-1">
         <SidebarFooterComponent />
       </SidebarFooter>
       <SidebarRail className="after:bg-orange-400/30 hover:after:bg-orange-400/50" />

@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { threadsApi } from "@/lib/api/client";
 import type { ThreadDto, ThreadView } from "@/lib/api/contracts";
 import { THREADS_QUERY_KEY, threadsQueryKey } from "@/lib/query-keys";
+import { chatRoute, isChatRoute, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type ThreadsListProps = {
@@ -89,8 +90,8 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
     onSuccess: (_thread, variables) => {
       setRenamingId(null);
       void invalidateThreads();
-      if (variables.update.archived === true && pathname === `/chat/${variables.threadId}`) {
-        router.push("/");
+      if (variables.update.archived === true && isChatRoute(pathname, variables.threadId)) {
+        router.push(ROUTES.app);
       }
     },
     onError: (error: Error) => toast.error(error.message),
@@ -100,7 +101,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
     mutationFn: (threadId: string) => threadsApi.remove(threadId),
     onSuccess: (_result, threadId) => {
       void invalidateThreads();
-      if (pathname === `/chat/${threadId}`) router.push("/");
+      if (isChatRoute(pathname, threadId)) router.push(ROUTES.app);
       toast.success("Conversation deleted");
     },
     onError: (error: Error) => toast.error(error.message),
@@ -180,7 +181,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                       tooltip={thread.title}
                       className={listItemClass}
                     >
-                      <Link href={`/chat/${thread.id}`} className="block w-full min-w-0 pr-7">
+                      <Link href={chatRoute(thread.id)} className="block w-full min-w-0 pr-7">
                         <span className="block w-full truncate leading-5">{thread.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -254,22 +255,29 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                 );
               })}
 
+          {/* `<li>`, not `<div>`. `SidebarMenu` renders a `<ul>`, and a list may
+              only contain list items — axe flags a bare child as a `serious`
+              violation, and a screen reader announcing "list, 0 items" over
+              visible text is the reason it is serious. Same for the button
+              below. */}
           {!query.isLoading && threads.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-zinc-500">
+            <li className="px-3 py-2 text-xs text-zinc-500">
               {view === "archived" ? "No archived conversations." : "No conversations yet."}
-            </div>
+            </li>
           ) : null}
 
           {query.hasNextPage ? (
-            <button
-              type="button"
-              disabled={query.isFetchingNextPage}
-              onClick={() => void query.fetchNextPage()}
-              className="mx-2 mt-1 flex h-8 items-center justify-center gap-2 rounded-lg text-xs text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300 disabled:opacity-50"
-            >
-              {query.isFetchingNextPage && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
-              {query.isFetchingNextPage ? "Loading" : "Show older"}
-            </button>
+            <li>
+              <button
+                type="button"
+                disabled={query.isFetchingNextPage}
+                onClick={() => void query.fetchNextPage()}
+                className="mx-2 mt-1 flex h-8 items-center justify-center gap-2 rounded-lg text-xs text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300 disabled:opacity-50"
+              >
+                {query.isFetchingNextPage && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                {query.isFetchingNextPage ? "Loading" : "Show older"}
+              </button>
+            </li>
           ) : null}
         </SidebarMenu>
       )}

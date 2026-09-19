@@ -26,6 +26,7 @@ import { billingApi } from "@/lib/api/client";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
 import { isCustomerHaveSubscription } from "@/lib/polar";
 import { subscriptionQueryKey } from "@/lib/query-keys";
+import { ROUTES } from "@/lib/routes";
 import { Skeleton } from "../ui/skeleton";
 import Link from "next/link";
 
@@ -120,7 +121,7 @@ export function SidebarFooterComponent() {
               ) : null}
               <DropdownMenuGroup>
                 <DropdownMenuItem>
-                  <Link href="/profile" className="flex items-center gap-2">
+                  <Link href={ROUTES.profile} className="flex items-center gap-2">
                     <BadgeCheck />
                     Account
                   </Link>
@@ -129,13 +130,13 @@ export function SidebarFooterComponent() {
                   <CreditCard />
                   Billing
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void router.push("/profile")}>
+                <DropdownMenuItem onClick={() => void router.push(ROUTES.profile)}>
                   <Bell />
                   Notifications
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void signOut({ redirectUrl: "/sign-in" })}>
+              <DropdownMenuItem onClick={() => void signOut({ redirectUrl: ROUTES.home })}>
                 <LogOut />
                 Log out
               </DropdownMenuItem>

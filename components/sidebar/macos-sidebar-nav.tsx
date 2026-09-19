@@ -1,10 +1,9 @@
 "use client";
 
-import { Archive, Database, LayoutGrid, Plus, Search } from "lucide-react";
+import { Archive, Database, Plus, Search, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   SidebarGroup,
   SidebarHeader,
@@ -15,19 +14,41 @@ import {
 } from "@/components/ui/sidebar";
 import { BRAND_LOGO_SRC } from "@/lib/brand";
 import type { ThreadView } from "@/lib/api/contracts";
+import { ROUTES, type AppRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-import { ThreadSearchDialog } from "./thread-search-dialog";
+import { useCommandPaletteStore } from "@/store/command-palette-store";
 
+/**
+ * The fixed destinations above the thread list.
+ *
+ * `match` is a predicate rather than a prefix string because "new chat" is
+ * active only on the workspace root — `/app` is a prefix of every thread URL,
+ * so `startsWith` would light it up for the whole app.
+ *
+ * The "Images" entry that used to sit here pointed at the same href as "New
+ * chat" with `match: () => false`, i.e. a nav item that went somewhere else
+ * and could never look selected. There is no images surface to link to, so it
+ * is gone rather than carried as a decoy.
+ */
 const primaryNav = [
-  { title: "New chat", icon: Plus, href: "/", match: (path: string) => path === "/" },
-  { title: "Images", icon: LayoutGrid, href: "/", match: () => false },
+  {
+    title: "New chat",
+    icon: Plus,
+    href: ROUTES.app,
+    match: (path: string) => path === ROUTES.app,
+  },
   {
     title: "Memories",
     icon: Database,
-    href: "/memories",
-    match: (path: string) => path.startsWith("/memories"),
+    href: ROUTES.memories,
+    match: (path: string) => path.startsWith(ROUTES.memories),
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  title: string;
+  icon: LucideIcon;
+  href: AppRoute;
+  match: (path: string) => boolean;
+}>;
 
 const macosItemClass =
   "h-9 rounded-[10px] px-2.5 text-[13px] font-medium text-zinc-300 transition-colors duration-200 ease-out " +
@@ -44,33 +65,24 @@ export function MacosSidebarNav({
   onViewChange: (view: ThreadView) => void;
 }) {
   const pathname = usePathname() ?? "";
-  const [searchOpen, setSearchOpen] = useState(false);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setSearchOpen((current) => !current);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  // The palette owns the ⌘K binding and its own open state, so this button
+  // only has to ask for it. Two components listening for the same chord is how
+  // one of them ends up handling it twice.
+  const openPalette = useCommandPaletteStore((state) => state.open);
 
   return (
     <>
-      <SidebarHeader className="gap-3 px-2 pb-1 pt-3">
+      <SidebarHeader role="banner" className="gap-3 px-2 pb-1 pt-3">
         <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px] bg-gradient-to-br from-orange-500/30 to-red-600/15 ring-1 ring-white/10 shadow-[0_2px_12px_-4px_rgba(249,115,22,0.35)]">
               <Image
                 src={BRAND_LOGO_SRC}
                 alt="AIChatWave"
-                width={512}
-                height={285}
+                width={24}
+                height={24}
                 className="h-6 w-6 object-contain"
                 priority
-                unoptimized
               />
             </div>
             <span className="truncate text-[15px] font-semibold tracking-tight text-white group-data-[collapsible=icon]:hidden">
@@ -89,13 +101,19 @@ export function MacosSidebarNav({
         </div>
       </SidebarHeader>
 
-      <SidebarGroup className="p-0 px-1.5">
+      {/* A landmark, because otherwise none of this is in one. axe's `region`
+          rule wants every piece of content inside a landmark, and shadcn's
+          `Sidebar` is a stack of plain divs — so the brand header, the nav
+          items and the thread list all sat outside any region. `SidebarGroup`
+          spreads props onto its div, which is the seam that lets this be fixed
+          without editing vendored output. */}
+      <SidebarGroup role="navigation" aria-label="Primary" className="p-0 px-1.5">
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
             <SidebarMenuButton
               type="button"
               tooltip="Search"
-              onClick={() => setSearchOpen(true)}
+              onClick={openPalette}
               className={macosItemClass}
             >
               <Search className="h-4 w-4 shrink-0 text-zinc-500 transition-colors" />
@@ -155,7 +173,6 @@ export function MacosSidebarNav({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroup>
-      <ThreadSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );
 }
