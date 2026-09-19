@@ -10,6 +10,7 @@
 import { z } from "zod";
 import type { JsonValue } from "@/lib/json";
 import {
+  memoryConsentResponseSchema,
   memoryListResponseSchema,
   messageListResponseSchema,
   messageSearchResponseSchema,
@@ -18,7 +19,9 @@ import {
   attachmentDtoSchema,
   type AttachmentDto,
   type CreateThreadRequest,
+  type MemoryConsentResponse,
   type MemoryDto,
+  type UpdateMemoryConsentRequest,
   type MessageListResponse,
   type MessageSearchResponse,
   type ThreadDto,
@@ -62,7 +65,7 @@ export class ApiError extends Error {
 type RequestBody = { [field: string]: JsonValue | undefined };
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: RequestBody;
   signal?: AbortSignal;
 };
@@ -271,6 +274,15 @@ export const memoriesApi = {
 
   remove: (memoryId: string): Promise<void> =>
     request(`/api/memories/${memoryId}`, z.void(), { method: "DELETE" }),
+
+  readConsent: (signal?: AbortSignal): Promise<MemoryConsentResponse> =>
+    request(`/api/memories/consent`, memoryConsentResponseSchema, signal ? { signal } : {}),
+
+  setConsent: (decision: UpdateMemoryConsentRequest["decision"]): Promise<MemoryConsentResponse> =>
+    request(`/api/memories/consent`, memoryConsentResponseSchema, {
+      method: "PUT",
+      body: { decision },
+    }),
 };
 
 const accountDeletionResponseSchema = z.object({ status: z.literal("deleted") });

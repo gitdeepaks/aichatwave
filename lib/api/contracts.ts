@@ -112,6 +112,28 @@ export const memoryListResponseSchema = z.object({
 });
 export type MemoryListResponse = z.infer<typeof memoryListResponseSchema>;
 
+/**
+ * Long-term memory consent.
+ *
+ * `undecided` is a state the client must be able to see, not just a default it
+ * infers from a missing field: it is what tells the onboarding dialog to ask,
+ * and it is different from `declined`, which tells it not to ask again.
+ */
+export const memoryConsentStateSchema = z.enum(["undecided", "granted", "declined"]);
+export type MemoryConsentStateDto = z.infer<typeof memoryConsentStateSchema>;
+
+export const memoryConsentResponseSchema = z.object({
+  state: memoryConsentStateSchema,
+  decidedAt: isoDateTime.nullable(),
+});
+export type MemoryConsentResponse = z.infer<typeof memoryConsentResponseSchema>;
+
+/** Only a real decision may be submitted; `undecided` is a server state, not a choice. */
+export const updateMemoryConsentRequestSchema = z.object({
+  decision: z.enum(["granted", "declined"]),
+});
+export type UpdateMemoryConsentRequest = z.infer<typeof updateMemoryConsentRequestSchema>;
+
 export const healthCheckStateSchema = z.enum(["ok", "failing", "skipped"]);
 
 export const healthResponseSchema = z.object({

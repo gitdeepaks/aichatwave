@@ -11,6 +11,7 @@
 
 import { polarClient } from "@/lib/polar-client";
 import { appUrl, env, polarServer } from "@/lib/env";
+import { ROUTES } from "@/lib/routes";
 import { isPolarAuthFailure, polarErrorFacts } from "@/server/billing/polar-error";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
@@ -68,7 +69,7 @@ export async function createProCheckout(params: {
       // validation error, which would turn "we could not read the address" into
       // an unexplained failed checkout.
       ...(email.length > 0 ? { customerEmail: email } : {}),
-      successUrl: `${appUrl()}/success?checkout_id={CHECKOUT_ID}`,
+      successUrl: `${appUrl()}${ROUTES.checkoutSuccess}?checkout_id={CHECKOUT_ID}`,
     });
 
     log.info("billing.checkout_created", { userId: params.userId });

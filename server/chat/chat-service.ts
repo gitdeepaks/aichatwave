@@ -53,7 +53,12 @@ import type { ChatMessageMetadata } from "@/lib/chat/ui-message";
 import type { ChatStreamState } from "@/lib/chat/stream-state";
 import type { ModelId } from "@/lib/ai/model-registry";
 import { waitUntil } from "@vercel/functions";
-import { extractAndStoreMemories, getMemoriesPromptContent } from "@/server/memory/memory-service";
+import {
+  EMPTY_MEMORIES_CONTENT,
+  extractAndStoreMemories,
+  getMemoriesPromptContent,
+} from "@/server/memory/memory-service";
+import { memoryIsPermitted, readMemoryConsent } from "@/server/memory/memory-consent-service";
 import { assertAccountActive } from "@/server/account/account-deletion-service";
 
 /**
@@ -200,11 +205,21 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
 
     reservation = await assertWithinQuota({ userId, planId: resolution.planId, now, log });
 
+    // Consent is read before the memory lookup, not after, because it gates
+    // both halves of the feature: an ungranted account neither has its stored
+    // facts injected into the prompt nor has new ones extracted from this
+    // turn. Reading it here also means the two are decided from one snapshot,
+    // so a decision made mid-request cannot inject memories and then refuse to
+    // write them (or the reverse).
     const memoryStartedAt = performance.now();
-    const [memoriesContent, attachmentPayload] = await Promise.all([
-      getMemoriesPromptContent({ userId, query: messageContent }, log),
+    const [memoryConsent, attachmentPayload] = await Promise.all([
+      readMemoryConsent(userId),
       loadAttachmentBlocks({ records: attachments, userId, log }),
     ]);
+    const memoryAllowed = memoryIsPermitted(memoryConsent);
+    const memoriesContent = memoryAllowed
+      ? await getMemoriesPromptContent({ userId, query: messageContent }, log)
+      : EMPTY_MEMORIES_CONTENT;
     const memoryLookupMs = Math.round(performance.now() - memoryStartedAt);
 
     const turnId = createTurnId();
@@ -289,14 +304,16 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       },
     );
 
-    waitUntil(
-      extractAndStoreMemories({
-        userId,
-        messageContent,
-        existingMemoriesContent: memoriesContent,
-        log,
-      }),
-    );
+    if (memoryAllowed) {
+      waitUntil(
+        extractAndStoreMemories({
+          userId,
+          messageContent,
+          existingMemoriesContent: memoriesContent,
+          log,
+        }),
+      );
+    }
 
     log.info("chat.stream_started", {
       planId: resolution.planId,
@@ -309,6 +326,7 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       attachments: attachments.length,
       streamId,
       memoryLookupMs,
+      memoryConsent: memoryConsent.state,
       preStreamMs: Math.round(performance.now() - requestStartedAt),
       // Null when no tracing backend is configured. Present, it is the other
       // half of the exit criterion: a user quotes a request id, this line

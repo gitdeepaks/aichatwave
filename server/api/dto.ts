@@ -7,9 +7,16 @@
  * `lib/api/contracts`, so a contract change breaks these first.
  */
 
-import type { MemoryDto, MessageDto, MessageSearchResultDto, ThreadDto } from "@/lib/api/contracts";
+import type {
+  MemoryConsentResponse,
+  MemoryDto,
+  MessageDto,
+  MessageSearchResultDto,
+  ThreadDto,
+} from "@/lib/api/contracts";
 import type { MessageRecord, MessageSearchRecord } from "@/server/db/message-repository";
 import type { ThreadRecord } from "@/server/db/thread-repository";
+import type { MemoryConsent } from "@/server/memory/memory-consent-service";
 import type { MemoryRecord } from "@/server/memory/memory-service";
 
 export function toThreadDto(record: ThreadRecord): ThreadDto {
@@ -49,5 +56,12 @@ export function toMemoryDto(record: MemoryRecord): MemoryDto {
     id: record.id,
     content: record.content,
     createdAt: record.createdAt.toISOString(),
+  };
+}
+
+export function toMemoryConsentDto(consent: MemoryConsent): MemoryConsentResponse {
+  return {
+    state: consent.state,
+    decidedAt: consent.decidedAt?.toISOString() ?? null,
   };
 }

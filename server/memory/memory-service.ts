@@ -24,6 +24,7 @@ import { REMEMBER_MEMORY_PROMPT } from "@/server/chat/prompts";
 import { AppError } from "@/server/lib/app-error";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import { assertAccountActive } from "@/server/account/account-deletion-service";
+import { memoryIsPermitted, readMemoryConsent } from "@/server/memory/memory-consent-service";
 
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -49,7 +50,15 @@ export type MemoryRecord = {
   createdAt: Date;
 };
 
-const EMPTY_MEMORIES_CONTENT = "(empty)";
+/**
+ * What the system prompt is given when there is nothing to inject.
+ *
+ * Exported because the chat path needs the same literal for a second reason —
+ * a user who has not granted memory consent — and the prompt template treats
+ * this exact string as "no memories". Two spellings of "empty" would leave the
+ * model reading one of them as content.
+ */
+export const EMPTY_MEMORIES_CONTENT = "(empty)";
 const MEMORY_EXTRACTION_MODEL = "gpt-5-nano";
 const MIN_MESSAGE_LENGTH_FOR_MEMORY = 5;
 /** Upper bound for the Memory Center listing. */
@@ -194,6 +203,17 @@ export async function extractAndStoreMemories(params: {
 
   try {
     if (messageContent.trim().length < MIN_MESSAGE_LENGTH_FOR_MEMORY) return;
+
+    // Checked here as well as at the call site. The caller already knows the
+    // answer — it needed it to decide whether to inject memories into the
+    // prompt — so this read is redundant on the happy path. It is kept because
+    // this is the function that writes, this runs in `waitUntil` where a
+    // second query costs the user nothing, and a write path whose only guard
+    // is somebody else's `if` is one refactor away from being unguarded.
+    if (!memoryIsPermitted(await readMemoryConsent(userId))) {
+      log.info("memory.extract_skipped_no_consent", { userId });
+      return;
+    }
 
     const decision = await decideMemoriesToStore({
       messageContent,
