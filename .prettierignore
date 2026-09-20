@@ -18,3 +18,8 @@ public/site.webmanifest
 # two tools' idea of "ours" consistent.
 components/ui
 components/ai-elements
+
+# Lighthouse CI output.
+.lighthouseci
+playwright-report
+test-results

@@ -52,3 +52,13 @@ next-env.d.ts
 
 # Test coverage output
 coverage/
+
+# End-to-end output.
+#
+# `tests/e2e/.auth/` holds a real Clerk session — the cookies the setup project
+# saves so the specs do not sign in twenty times. It is a live credential for
+# the duration of the session, so it is ignored here and allowlisted nowhere.
+tests/e2e/.auth/
+/playwright-report/
+/test-results/
+/.lighthouseci/
