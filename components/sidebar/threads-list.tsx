@@ -146,11 +146,23 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
       ) : (
         <SidebarMenu className="gap-0.5">
           {query.isLoading
-            ? Array.from({ length: pinned ? 2 : 6 }).map((_, index) => (
-                <SidebarMenuItem key={index}>
-                  <SidebarMenuButton className={cn(listItemClass, "pointer-events-none")}>
+            ? /*
+                 A placeholder, not a control.
+
+                 These rows used to render `SidebarMenuButton`, which is a real
+                 `<button>` — six of them, each containing only a grey
+                 rectangle, so each had no accessible name. axe rates that a
+                 *critical* `button-name` violation, and it is right: a screen
+                 reader announced six anonymous buttons, and they sat in the
+                 tab order, where `pointer-events-none` does not reach. Marked
+                 `aria-hidden` as well, because "loading" is what the list is
+                 doing, not something to enumerate.
+               */
+              Array.from({ length: pinned ? 2 : 6 }).map((_, index) => (
+                <SidebarMenuItem key={index} aria-hidden>
+                  <div className={cn(listItemClass, "pointer-events-none")}>
                     <Skeleton className="h-4 w-full bg-white/[0.06]" />
-                  </SidebarMenuButton>
+                  </div>
                 </SidebarMenuItem>
               ))
             : threads.map((thread) => {

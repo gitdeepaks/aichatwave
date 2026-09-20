@@ -113,11 +113,12 @@ export function MacosSidebarNav({
             <SidebarMenuButton
               type="button"
               tooltip="Search"
+              aria-label="Search"
               onClick={openPalette}
               className={macosItemClass}
             >
               <Search className="h-4 w-4 shrink-0 text-zinc-500 transition-colors" />
-              <span className="group-data-[collapsible=icon]:hidden">Search</span>
+              <span className="group-data-[collapsible=icon]:sr-only">Search</span>
               <kbd className="ml-auto text-[10px] text-zinc-600 group-data-[collapsible=icon]:hidden">
                 ⌘K
               </kbd>
@@ -136,6 +137,7 @@ export function MacosSidebarNav({
                 >
                   <Link
                     href={item.href}
+                    aria-label={item.title}
                     onClick={() => onViewChange("active")}
                     className={cn(
                       "flex w-full items-center gap-2.5",
@@ -148,7 +150,7 @@ export function MacosSidebarNav({
                         isActive ? "text-orange-300" : "text-zinc-500",
                       )}
                     />
-                    <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                    <span className="group-data-[collapsible=icon]:sr-only">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -159,6 +161,7 @@ export function MacosSidebarNav({
               type="button"
               isActive={view === "archived"}
               tooltip="Archived"
+              aria-label="Archived"
               onClick={() => onViewChange(view === "archived" ? "active" : "archived")}
               className={macosItemClass}
             >
@@ -168,7 +171,7 @@ export function MacosSidebarNav({
                   view === "archived" ? "text-orange-300" : "text-zinc-500",
                 )}
               />
-              <span className="group-data-[collapsible=icon]:hidden">Archived</span>
+              <span className="group-data-[collapsible=icon]:sr-only">Archived</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
