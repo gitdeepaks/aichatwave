@@ -297,7 +297,24 @@ export function CommandPalette() {
 
             {recentThreads.length > 0 ? (
               <>
-                <CommandSeparator className="my-1 bg-white/[0.06]" />
+                {/* Presentational, not a `separator`.
+
+                    `CommandList` is a `role="listbox"`, and ARIA permits it
+                    only `option` and `group` children. cmdk's separator
+                    renders `role="separator"`, which axe rates a *critical*
+                    `aria-required-children` violation — the same class of
+                    defect the search-status block below was moved out of the
+                    list to avoid. The line is decoration between groups, so it
+                    says so and the listbox stays enumerable.
+
+                    Fixed here rather than in `components/ui/command.tsx`:
+                    that file is shadcn output and a regeneration would revert
+                    it. The props spread reaches the primitive either way. */}
+                <CommandSeparator
+                  className="my-1 bg-white/[0.06]"
+                  role="presentation"
+                  aria-hidden
+                />
                 <CommandGroup
                   heading={query.length === 0 ? "Recent conversations" : "Conversations"}
                 >
@@ -317,7 +334,11 @@ export function CommandPalette() {
 
             {matchingModels.length > 0 ? (
               <>
-                <CommandSeparator className="my-1 bg-white/[0.06]" />
+                <CommandSeparator
+                  className="my-1 bg-white/[0.06]"
+                  role="presentation"
+                  aria-hidden
+                />
                 <CommandGroup heading="Switch model">
                   {matchingModels.map((modelId) => {
                     const presentation = getModelPresentation(modelId);
@@ -341,7 +362,11 @@ export function CommandPalette() {
 
             {isSearching && messageResults.length > 0 ? (
               <>
-                <CommandSeparator className="my-1 bg-white/[0.06]" />
+                <CommandSeparator
+                  className="my-1 bg-white/[0.06]"
+                  role="presentation"
+                  aria-hidden
+                />
                 <CommandGroup heading="Messages">
                   {messageResults.map((result) => (
                     <PaletteRow
