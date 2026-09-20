@@ -202,6 +202,17 @@ export function ChatShell({
           aria-hidden
         />
         <ChatAnnouncer status={visibleStatus} messages={messages} />
+        {/*
+          A thread page had no heading at all.
+
+          The empty state carries the only `<h1>` in the workspace, so a page
+          with a transcript — the state a user is in for all but the first
+          moment of a conversation — failed `page-has-heading-one`, and a
+          screen-reader user pressing `1` landed nowhere. Visually hidden
+          because the design deliberately has no title bar; the conversation's
+          own title is already the document title, set by `generateMetadata`.
+        */}
+        <h1 className="sr-only">Conversation</h1>
         <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ChatMessageList
             messages={messages}

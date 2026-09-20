@@ -78,7 +78,7 @@ export default function ChatbotUserProfile() {
         <CardContent className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-5">
             <Avatar className="h-24 w-24 rounded-2xl">
-              <AvatarImage src={user?.image ?? ""} alt={user?.name ?? ""} />
+              <AvatarImage src={user?.image ?? ""} alt="" />
               <AvatarFallback className="rounded-2xl text-lg">
                 {user.name
                   .split(" ")

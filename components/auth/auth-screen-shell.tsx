@@ -85,10 +85,10 @@ export function AuthScreenShell({
         aria-hidden
       />
 
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-5 py-12 sm:px-8">
+      <main className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-5 py-12 sm:px-8">
         <div className="grid w-full items-center gap-14 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-20">
           {/* Left: the product argument. Hidden below lg so the panel stays centred. */}
-          <section className="auth-reveal hidden lg:flex lg:flex-col lg:gap-10">
+          <div className="auth-reveal hidden lg:flex lg:flex-col lg:gap-10">
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-orange-300/20 via-white/[0.06] to-red-500/10">
                 <Image
@@ -132,11 +132,11 @@ export function AuthScreenShell({
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
 
           {/* Right: the auth panel. `--auth-gutter` is the single horizontal
               rail every child of the card lines up on, Clerk's included. */}
-          <section className="auth-reveal auth-reveal-delayed mx-auto w-full max-w-[440px]">
+          <div className="auth-reveal auth-reveal-delayed mx-auto w-full max-w-[440px]">
             <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950/55 shadow-[0_40px_120px_-48px_rgba(0,0,0,1),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-zinc-950/40 sm:[--auth-gutter:2rem]">
               <div
                 className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/50 to-transparent"
@@ -190,9 +190,9 @@ export function AuthScreenShell({
             <p className="mt-5 text-center text-[13px] leading-6 text-zinc-400 lg:hidden">
               Threads, long-term memory, and tool-powered answers.
             </p>
-          </section>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
