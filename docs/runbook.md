@@ -265,6 +265,83 @@ fails until the first chat message if it is skipped.
 Migrations are forward-only. There is no down migration; recovery from a bad migration is a new
 migration.
 
+### Check a deployment's configuration
+
+```bash
+pnpm phase-k:verify              # this machine
+vercel env pull && pnpm phase-k:verify   # what production actually holds
+```
+
+Reads the environment the process is running in and reports every Phase K item: the app URL, the
+Clerk webhook secret, whether the Clerk key pair is coherent and which instance it names, whether
+the database carries every migration, and whether the E2E, accessibility and Lighthouse gates still
+exist in CI. Exits non-zero with the list of what is still open, so one deploy fixes all of it
+rather than one item per round trip.
+
+None of this is visible from the repository — the code is identical on a correct deployment and a
+broken one — which is why it is a script and not a review.
+
+### Backfill the missing Polar customers
+
+```bash
+pnpm polar:backfill --dry-run    # list what would be reconciled
+pnpm polar:backfill
+```
+
+It verifies its own work rather than trusting it: `ensurePolarCustomer` is deliberately non-fatal —
+a billing failure must never block a sign-in — so it swallows errors and returns `void`. The script
+asks Polar whether each user id now resolves by `external_id` and exits non-zero if any does not.
+
+Two failures are expected and neither is fixable from here:
+
+- **`@placeholder.invalid` addresses.** `.invalid` is a reserved TLD and Polar rejects it, so those
+  accounts are skipped with `billing.customer_skipped_placeholder_email`.
+- **A customer holding a stale external id** — one created before the Better Auth → Clerk
+  migration. `getExternal` misses it, `create` refuses the duplicate email, and **Polar will not let
+  an external id be changed** (`Customer external ID cannot be updated`).
+
+  `email` _is_ mutable, which is the way out: rename the legacy customer to a `+legacy` subaddress.
+  That frees the real address for a correctly-keyed customer and keeps the old one's subscriptions
+  and orders intact, which deleting it would not. Done once on 2026-09-20 for the owner's own
+  account — customer `844f0931…`, holding a Better Auth id and an active sandbox subscription the
+  app could not see, because the local mirror correctly refuses to attribute a subscription to a
+  user it does not have.
+
+  Note what that means: the legacy customer keeps the old subscription. The account is Free in the
+  app until it subscribes again under the new customer.
+
+Needed once, after `CLERK_WEBHOOK_SIGNING_SECRET` is set. Every account created while the webhook
+was answering 503 has a local `user` row and no Polar customer, because `ensurePolarCustomer` rides
+on the `user.created` branch of that webhook. Setting the secret fixes the next sign-up; this fixes
+the ones already made. Idempotent — it asks Polar for each customer by external id first — so it is
+safe to run again after a partial failure.
+
+### Running the E2E suite
+
+```bash
+pnpm test:e2e:install            # once: downloads Chromium
+pnpm build
+pnpm test:e2e
+```
+
+It drives a **production build** against a **real database** and a **real Clerk development
+instance**, because that is the only place the things it checks can go wrong. Needs
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` and `OPENAI_API_KEY` — real ones. Provider
+tokens are actually spent; the prompts are one-word answers on the cheapest model in the registry,
+so a full run costs a fraction of a cent.
+
+`@clerk/testing` refuses a production secret key, which is the guard you want: the suite creates
+threads and deletes one.
+
+**It does not test the sign-in form.** Under social-only auth (ADR-0006) there is no credential to
+type, and automating a third-party OAuth consent screen is the flakiest thing a suite can contain.
+The setup project mints a Clerk sign-in _ticket_ through the Backend API instead, which bypasses
+first-factor verification. So a regression in the social buttons themselves would not fail CI. That
+is the trade: every authenticated surface gets covered, and the one path into them does not.
+
+In CI the same suite runs in the `E2E, accessibility and Lighthouse` job, gated on repository
+secrets and hard-failing rather than skipping when they are absent.
+
 ---
 
 ## What is known-broken
@@ -283,4 +360,7 @@ Kept here so nobody spends an hour rediscovering it. The authoritative list is i
   cross-origin check. This is the single configuration change with the widest blast radius.
 - **Clerk is on test keys** (`pk_test_` / `sk_test_`) against a production domain.
 - **The database is a Neon development branch.**
-- **No E2E suite.** Phase I item 5, deferred.
+- **No E2E suite.** ~~Phase I item 5, deferred.~~ Shipped in Phase K — `pnpm test:e2e`.
+
+Run `pnpm phase-k:verify` against the environment in question rather than reading this list: it
+checks every configuration item above and prints what each one still costs.
