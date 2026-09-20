@@ -39,6 +39,17 @@ export async function ensurePolarCustomer(params: {
     // Not found — fall through and create.
   }
 
+  // `user-service.ts` falls back to `<id>@placeholder.invalid` so the foreign
+  // key holds when a provider returns no address. `.invalid` is a reserved TLD
+  // and Polar rejects it outright, so attempting this is a guaranteed error on
+  // every `user.created` for such an account. An address nobody can be billed
+  // at is not a billing identity; the customer is created later, if the
+  // account ever acquires a real one.
+  if (params.email.endsWith("@placeholder.invalid")) {
+    log.info("billing.customer_skipped_placeholder_email", { userId: params.userId });
+    return;
+  }
+
   try {
     await polarClient.customers.create({
       externalId: params.userId,
@@ -46,9 +57,58 @@ export async function ensurePolarCustomer(params: {
       name: params.name,
     });
     log.info("billing.customer_created", { userId: params.userId });
+    return;
   } catch (error) {
+    // A customer with this email may already exist without an external id —
+    // Polar creates one during checkout, and a checkout completed before this
+    // app ever called `create` leaves exactly that. `create` then fails
+    // forever with "A customer with this email address already exists", and
+    // `getExternal` keeps missing it, so the account is permanently
+    // unreconcilable. Adopting it is the fix; observed on a real account.
+    if (await adoptCustomerByEmail({ ...params, log })) return;
+
     // Non-fatal: a duplicate or transient failure must not block sign-in.
     log.error("billing.customer_create_failed", { userId: params.userId }, error);
+  }
+}
+
+/**
+ * Links an existing Polar customer to this user id.
+ *
+ * Only ever adopts a customer that has **no** external id. One already bound
+ * to a different user is someone else's billing identity, and quietly
+ * re-pointing it would move a subscription between accounts.
+ */
+async function adoptCustomerByEmail(params: {
+  userId: string;
+  email: string;
+  log: Logger;
+}): Promise<boolean> {
+  try {
+    const page = await polarClient.customers.list({ email: params.email, limit: 2 });
+    const existing = page.result.items[0];
+
+    if (existing === undefined) return false;
+    if (existing.externalId !== null && existing.externalId !== undefined) {
+      params.log.warn("billing.customer_external_id_conflict", {
+        userId: params.userId,
+        customerId: existing.id,
+      });
+      return false;
+    }
+
+    await polarClient.customers.update({
+      id: existing.id,
+      customerUpdate: { externalId: params.userId },
+    });
+    params.log.info("billing.customer_adopted", {
+      userId: params.userId,
+      customerId: existing.id,
+    });
+    return true;
+  } catch (error) {
+    params.log.error("billing.customer_adopt_failed", { userId: params.userId }, error);
+    return false;
   }
 }
 
