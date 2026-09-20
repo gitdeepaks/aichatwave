@@ -57,8 +57,8 @@ this table.
 | **F — Conversation data**           | **`COMPLETED`** | read switch, search, export, account deletion; verified on dev                     |
 | **G — Chat completeness**           | **`COMPLETED`** | stop, resumable streams, attachments, attribution; verified                        |
 | **H — Observability**               | **`COMPLETED`** | OTel traces, incident reporting, LangSmith, retries + fallback, cost/SLO dashboard |
-| **I — Test depth**                  | `IN PROGRESS`   | 6 of 7 items shipped; Playwright E2E deferred on CI secrets                        |
-| **J — Product surface**             | `IN PROGRESS`   | 8 of 8 items and 4 of 4 criteria; neither audit runs in CI yet                     |
+| **I — Test depth**                  | `IN PROGRESS`   | 7 of 7 items shipped; Playwright E2E landed in Phase K, authenticated half unrun   |
+| **J — Product surface**             | `IN PROGRESS`   | 8 of 8 items and 4 of 4 criteria; both audits now run in CI (Phase K)              |
 
 Not phases, but recorded below because they shaped the code:
 
@@ -2384,6 +2384,14 @@ because none of it is visible from the repository.
    still in force. Both need to change before real users depend on their data.
 
 Items 1 and 2 are configuration changes that can be made today and should not wait for a phase.
+
+**Update, 2026-09-20 (Phase K of `next_level.md`).** All four are now _checkable_ rather than
+merely written down: `pnpm phase-k:verify` reads the environment a process is actually running in
+and exits non-zero with the list of what is still open. Run it with production's environment pulled
+(`vercel env pull && pnpm phase-k:verify`) to judge the deployment rather than a laptop. Against
+this machine it reports **item 2 open** (no `CLERK_WEBHOOK_SIGNING_SECRET`) and **item 4 open** (no
+production database endpoint recorded). `pnpm polar:backfill` reconciles the Polar customers item 2
+has been silently failing to create; run it once the secret is set.
 
 ---
 
