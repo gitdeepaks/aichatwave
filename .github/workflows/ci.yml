@@ -172,3 +172,128 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 \
             git --config .gitleaks.toml --redact --verbose --exit-code 1 .
+
+  # End-to-end, accessibility and Lighthouse, against a production build.
+  #
+  # Separate from `verify` because it needs credentials that job deliberately
+  # does not have: a real Clerk *development* instance and a real provider key.
+  # `verify` runs on every fork with placeholder values and must keep doing so.
+  #
+  # This is what closes the gap Phase J recorded and could not fix — axe and
+  # Lighthouse were run by hand, so nothing caught the next regression — and it
+  # is why Phase I item 5 and Phase J item 4 had to land together: auditing an
+  # authenticated route needs a signed-in session, and the session is the part
+  # that was missing.
+  e2e:
+    name: E2E, accessibility and Lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # Forks cannot read repository secrets, so this job would fail for reasons
+    # a contributor cannot fix. It runs on pushes to this repository and on
+    # pull requests opened from it.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Real credentials, except for the database, which is the service container
+    # above. POLAR_SERVER is set here and not in `verify`: `pnpm start` runs
+    # under NODE_ENV=production, where the guard added after the billing
+    # incident requires it explicitly.
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      OPENAI_API_KEY: ${{ secrets.E2E_OPENAI_API_KEY }}
+      POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
+      POLAR_PRODUCT_ID: ${{ secrets.POLAR_PRODUCT_ID }}
+      POLAR_SERVER: sandbox
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      E2E_BASE_URL: http://127.0.0.1:3000
+      LHCI_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Fails loudly rather than skipping. A job that goes green because a
+      # secret was missing is the thing this phase exists to stop: Phase J's
+      # audits were "run by hand", which is indistinguishable from not run.
+      - name: Require credentials
+        run: |
+          missing=()
+          [ -n "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" ] || missing+=(E2E_CLERK_PUBLISHABLE_KEY)
+          [ -n "$CLERK_SECRET_KEY" ] || missing+=(E2E_CLERK_SECRET_KEY)
+          [ -n "$OPENAI_API_KEY" ] || missing+=(E2E_OPENAI_API_KEY)
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"
+            echo "See docs/runbook.md, \"Running the E2E suite\", for what each one is."
+            exit 1
+          fi
+          case "$CLERK_SECRET_KEY" in
+            sk_test_*) ;;
+            *) echo "::error::E2E_CLERK_SECRET_KEY must be a development instance key (sk_test_*)."
+               echo "@clerk/testing refuses production keys, and this suite creates and deletes data."
+               exit 1 ;;
+          esac
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm test:e2e:install
+
+      - name: Migrate
+        run: pnpm migration:migrate
+
+      - name: Build
+        run: pnpm build
+
+      # Drives the product: sign in, send, stream, stop, resume after a reload,
+      # delete. Then axe-core over every route, public and authenticated,
+      # including a thread page with a live transcript.
+      # `test:e2e:run`, not `test:e2e`: the build above already used this job's
+      # NEXT_PUBLIC_APP_URL, and `test:e2e` would rebuild to set it.
+      - name: E2E and accessibility
+        run: pnpm test:e2e:run
+
+      # Lighthouse reuses the session the suite above already established, so
+      # the authenticated routes are audited too rather than only the public
+      # ones. SEO, accessibility and best-practices block; performance is
+      # reported — see the note in lighthouserc.js.
+      - name: Lighthouse
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm start --port 3000 &
+          npx --yes wait-on http://127.0.0.1:3000 --timeout 120000
+          LHCI_EXTRA_HEADERS="$(pnpm --silent lighthouse:session --allow-missing)" pnpm lighthouse
+
+      - name: Upload reports
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-reports
+          path: |
+            playwright-report/
+            test-results/
+            .lighthouseci/
+          retention-days: 7
