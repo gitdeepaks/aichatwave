@@ -92,6 +92,19 @@ export function withTurnSpan<TResult>(turnId: TurnId, work: () => TResult): TRes
 }
 
 /**
+ * Adds attributes to a turn's span without ending it.
+ *
+ * `annotateActiveSpan` cannot reach this one: the turn's span is deliberately
+ * detached, so by the time the first token arrives — in a pull driven by the
+ * platform's stream machinery, in a different async context — there is no
+ * active span to annotate. The time-to-first-token breakdown is discovered at
+ * exactly that moment and belongs on the turn, not on a root span of its own.
+ */
+export function annotateTurnSpan(turnId: TurnId, attributes: SpanAttributes): void {
+  turnSpans.get(turnId)?.span.handle.setAttributes(attributes);
+}
+
+/**
  * Closes the turn's span and drops the record.
  *
  * `aborted` is not a failure: the user stopped the answer and got what they

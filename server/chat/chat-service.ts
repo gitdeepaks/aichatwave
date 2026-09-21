@@ -11,7 +11,7 @@ import { toUIMessageStream } from "@ai-sdk/langchain";
 import { ensureUserProvisioned } from "@/server/auth/user-service";
 import { agent } from "@/server/chat/agent";
 import { toChatRuntimeContext } from "@/server/chat/runtime-context";
-import { deriveThreadTitle } from "@/server/chat/thread-title";
+import { deriveThreadTitle } from "@/lib/chat/thread-title";
 import { maybeTitleThread } from "@/server/chat/title-generation";
 import {
   onEachChunk,
@@ -32,8 +32,11 @@ import { bufferStreamToDatabase, markStreamSettled } from "@/server/chat/stream-
 import { accumulatedText, recordChunk } from "@/server/chat/turn-recorder";
 import { commitTurn } from "@/server/chat/turn-commit";
 import { createTurnId, registerTurn, releaseTurn } from "@/server/chat/turn-registry";
+import { startTurnSegmentTimer } from "@/server/chat/ttft-breakdown";
+import { claimColdStart } from "@/server/observability/cold-start";
+import { recordLatencySample } from "@/server/observability/latency-samples";
 import { createChatStream, markChatStreamFirstToken } from "@/server/db/chat-stream-repository";
-import { endTurnSpan, startTurnSpan } from "@/server/observability/turn-trace";
+import { annotateTurnSpan, endTurnSpan, startTurnSpan } from "@/server/observability/turn-trace";
 import { langsmithRunConfig } from "@/server/observability/langsmith";
 import { reportError } from "@/server/observability/error-reporter";
 import { assertModelAccess, resolvePlan } from "@/server/billing/subscription-service";
@@ -145,6 +148,29 @@ function toStreamState(outcome: StreamOutcome): Exclude<ChatStreamState, "stream
  * Everything after the slot is acquired runs inside a `try` that releases the
  * slot and refunds the reservation, so a failure never leaks either.
  *
+ * ## What runs concurrently, and why that does not weaken the order above
+ *
+ * Phase L put this path on a budget (900ms p95 to the first token, warm), and
+ * the reads that were serial for no reason are now not. Two pairs run
+ * together: the account-deletion check with the plan read, and the thread
+ * ownership check with the memory-consent read. Neither pair contains a gate
+ * that spends, reserves, or writes to a domain table, so neither weakens the
+ * ordering — the only cost is that a request rejected by one half pays for the
+ * other half's indexed read, on the rarest paths in the system.
+ *
+ * Everything that *does* spend still runs in the order above, and quota is
+ * still last. The memory lookup — an embedding call, historically the largest
+ * single segment — still runs after the quota reservation, deliberately: it is
+ * the one piece of pre-stream work that costs money, and pulling it earlier to
+ * save a few milliseconds would spend on turns quota refuses.
+ *
+ * ## Where the time goes
+ *
+ * `startTurnSegmentTimer` names every segment of this path, and the breakdown
+ * is emitted at the first token as `chat.ttft_breakdown` and as attributes on
+ * the turn's span. That is the phase's actual deliverable for this function:
+ * the next person to optimise it is not guessing where the time is.
+ *
  * ## The stream pipeline
  *
  * The returned body passes through four wrappers, innermost first:
@@ -168,28 +194,66 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
   const log = rootLogger.child({ requestId, userId, threadId, modelId: selectedModel });
   const now = new Date();
 
-  await assertAccountActive(userId);
+  // Claimed once per process, before anything is awaited. The two
+  // time-to-first-token budgets differ by a factor of two and a cold
+  // invocation must not be measured against the warm one.
+  const coldStart = claimColdStart();
+  const segments = startTurnSegmentTimer();
 
-  // The plan decides the limits, so it has to be known before the first gate.
-  // A warm read is local and costs no Polar call; a stale one is served locally
-  // and reconciled behind the response.
-  const { resolution, refresh } = await resolvePlan(userId, log);
+  /*
+    Two independent reads, so two reads at once.
+
+    "Is this account being deleted?" and "which plan's limits apply?" ask
+    different tables and neither answer changes the other's query. Serially
+    they were two round trips before the first gate had run; concurrently they
+    are one. A deleting account pays for a plan read it will not use, which is
+    one indexed read on the rarest path in the system.
+  */
+  const [, plan] = await Promise.all([
+    segments.measure("account_check", () => assertAccountActive(userId)),
+    segments.measure("plan_resolve", () => resolvePlan(userId, log)),
+  ]);
+  const { resolution, refresh } = plan;
   if (refresh !== null) waitUntil(refresh());
 
-  await assertWithinRateLimit({
-    userId,
-    planId: resolution.planId,
-    clientIp,
-    now,
-    log,
-  });
+  await segments.measure("rate_limit", () =>
+    assertWithinRateLimit({
+      userId,
+      planId: resolution.planId,
+      clientIp,
+      now,
+      log,
+    }),
+  );
   waitUntil(maybeSweepRateLimits(now, log));
 
-  const lease = await acquireChatStreamSlot({ userId, planId: resolution.planId, now, log });
+  const lease = await segments.measure("stream_slot", () =>
+    acquireChatStreamSlot({ userId, planId: resolution.planId, now, log }),
+  );
   let reservation: Awaited<ReturnType<typeof assertWithinQuota>> | null = null;
 
   try {
-    const createdThread = await ensureThreadAccess({ userId, threadId, messageContent, log });
+    /*
+      Ownership and consent, concurrently.
+
+      Consent is read before the memory lookup, not after, because it gates
+      both halves of the feature: an ungranted account neither has its stored
+      facts injected into the prompt nor has new ones extracted from this turn.
+      Reading it here also means the two are decided from one snapshot, so a
+      decision made mid-request cannot inject memories and then refuse to write
+      them (or the reverse).
+
+      It used to be read *after* the quota gate, alongside the attachment
+      blocks. Moving it up costs nothing — it neither spends nor reserves — and
+      takes one serial database round trip off the path to the first token.
+    */
+    const [createdThread, memoryConsent] = await Promise.all([
+      segments.measure("thread_access", () =>
+        ensureThreadAccess({ userId, threadId, messageContent, log }),
+      ),
+      segments.measure("memory_consent", () => readMemoryConsent(userId)),
+    ]);
+
     // Availability (is this deployment configured for the model?) before access
     // (does the user's plan include it?): the first is a 503 an operator owns,
     // the second a 403 the user can resolve by upgrading. Checking availability
@@ -197,30 +261,29 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
     assertModelAvailable(selectedModel);
     assertModelAccess(resolution.planId, selectedModel);
 
-    const attachments = await resolveTurnAttachments({
-      attachmentIds,
-      userId,
-      modelId: selectedModel,
-    });
+    const attachments = await segments.measure("attachments", () =>
+      resolveTurnAttachments({
+        attachmentIds,
+        userId,
+        modelId: selectedModel,
+      }),
+    );
 
-    reservation = await assertWithinQuota({ userId, planId: resolution.planId, now, log });
+    reservation = await segments.measure("quota", () =>
+      assertWithinQuota({ userId, planId: resolution.planId, now, log }),
+    );
 
-    // Consent is read before the memory lookup, not after, because it gates
-    // both halves of the feature: an ungranted account neither has its stored
-    // facts injected into the prompt nor has new ones extracted from this
-    // turn. Reading it here also means the two are decided from one snapshot,
-    // so a decision made mid-request cannot inject memories and then refuse to
-    // write them (or the reverse).
-    const memoryStartedAt = performance.now();
-    const [memoryConsent, attachmentPayload] = await Promise.all([
-      readMemoryConsent(userId),
-      loadAttachmentBlocks({ records: attachments, userId, log }),
-    ]);
     const memoryAllowed = memoryIsPermitted(memoryConsent);
-    const memoriesContent = memoryAllowed
-      ? await getMemoriesPromptContent({ userId, query: messageContent }, log)
-      : EMPTY_MEMORIES_CONTENT;
-    const memoryLookupMs = Math.round(performance.now() - memoryStartedAt);
+    const [memoriesContent, attachmentPayload] = await Promise.all([
+      memoryAllowed
+        ? segments.measure("memory_lookup", () =>
+            getMemoriesPromptContent({ userId, query: messageContent }, log),
+          )
+        : Promise.resolve(EMPTY_MEMORIES_CONTENT),
+      segments.measure("attachment_blocks", () =>
+        loadAttachmentBlocks({ records: attachments, userId, log }),
+      ),
+    ]);
 
     const turnId = createTurnId();
     const streamId = randomUUID();
@@ -240,14 +303,16 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
     // Written before the graph runs, and the reason the user's message no
     // longer has to be: this row is the durable record of the turn's input as
     // well as the anchor a reload reconnects to.
-    await createChatStream({
-      id: streamId,
-      threadId,
-      userId,
-      modelId: selectedModel,
-      userText: messageContent,
-      attachmentIds: attachments.map((attachment) => attachment.id),
-    });
+    await segments.measure("stream_record", () =>
+      createChatStream({
+        id: streamId,
+        threadId,
+        userId,
+        modelId: selectedModel,
+        userText: messageContent,
+        attachmentIds: attachments.map((attachment) => attachment.id),
+      }),
+    );
 
     // Parsed once before graph entry: every id is branded and memory context is
     // fixed for the turn, so tool loops do not repeat the embedding lookup.
@@ -278,30 +343,32 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       },
     });
 
-    const stream = await agent.streamEvents(
-      { messages: [new HumanMessage(userMessageForGraph(params, attachments))] },
-      {
-        configurable: { thread_id: threadId },
-        version: "v2",
-        context,
-        // Carries this turn's ids into LangSmith, when LangSmith is on. Without
-        // them a traced run shows the prompt and the answer and connects to
-        // nothing else in the system — see `server/observability/langsmith.ts`.
-        ...langsmithRunConfig({
-          requestId,
-          userId,
-          threadId,
-          turnId,
-          modelId: selectedModel,
-          planId: resolution.planId,
-        }),
-        // The turn's own signal, not the request's. Next aborts the request
-        // signal whenever the client disconnects, and a page refresh is a
-        // disconnect — using it here would tear the answer down at exactly the
-        // moment the buffer exists to preserve it. Stop is explicit instead:
-        // `DELETE /api/chat/[threadId]/stream` aborts this controller.
-        signal: record.abortController.signal,
-      },
+    const stream = await segments.measure("graph_start", () =>
+      agent.streamEvents(
+        { messages: [new HumanMessage(userMessageForGraph(params, attachments))] },
+        {
+          configurable: { thread_id: threadId },
+          version: "v2",
+          context,
+          // Carries this turn's ids into LangSmith, when LangSmith is on. Without
+          // them a traced run shows the prompt and the answer and connects to
+          // nothing else in the system — see `server/observability/langsmith.ts`.
+          ...langsmithRunConfig({
+            requestId,
+            userId,
+            threadId,
+            turnId,
+            modelId: selectedModel,
+            planId: resolution.planId,
+          }),
+          // The turn's own signal, not the request's. Next aborts the request
+          // signal whenever the client disconnects, and a page refresh is a
+          // disconnect — using it here would tear the answer down at exactly the
+          // moment the buffer exists to preserve it. Stop is explicit instead:
+          // `DELETE /api/chat/[threadId]/stream` aborts this controller.
+          signal: record.abortController.signal,
+        },
+      ),
     );
 
     if (memoryAllowed) {
@@ -325,9 +392,12 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
       regenerate,
       attachments: attachments.length,
       streamId,
-      memoryLookupMs,
       memoryConsent: memoryConsent.state,
-      preStreamMs: Math.round(performance.now() - requestStartedAt),
+      coldStart,
+      // Every pre-stream segment, by name, plus the `preStreamMs` and
+      // `memoryLookupMs` this line has always carried — they are two of the
+      // segments rather than two separately-maintained measurements now.
+      ...segments.fields(),
       // Null when no tracing backend is configured. Present, it is the other
       // half of the exit criterion: a user quotes a request id, this line
       // names the trace that explains it.
@@ -400,8 +470,37 @@ export async function streamChat(params: StreamChatParams): Promise<Response> {
         ),
         (chunk) => chunk.type === "text-delta" && chunk.delta.trim().length > 0,
         () => {
-          log.info("chat.first_token", {
-            timeToFirstTokenMs: Math.round(performance.now() - requestStartedAt),
+          const timeToFirstTokenMs = Math.round(performance.now() - requestStartedAt);
+
+          log.info("chat.first_token", { timeToFirstTokenMs, coldStart });
+
+          /*
+            The breakdown, emitted where it is usable.
+
+            Phase L's exit criterion is that the next person optimising this
+            path is not guessing, so the same numbers go to both places an
+            operator actually looks: onto the turn's span, where they sit
+            immediately above the provider call they precede, and into one log
+            line that can be grouped without a tracing backend.
+
+            Emitted at the first token rather than before the stream, because
+            that is the moment the total the segments add up to is known.
+          */
+          const breakdown = segments.fields();
+          log.info("chat.ttft_breakdown", { ...breakdown, timeToFirstTokenMs, coldStart });
+          annotateTurnSpan(turnId, {
+            ...segments.attributes(),
+            "chat.ttft_ms": timeToFirstTokenMs,
+            "chat.cold_start": coldStart,
+          });
+
+          // Against the Phase L budget, split by cold start because the two
+          // are held to different numbers and mixing them hides both.
+          recordLatencySample({
+            id: coldStart
+              ? "chat_time_to_first_token_cold_p95"
+              : "chat_time_to_first_token_warm_p95",
+            valueMs: timeToFirstTokenMs,
           });
           // Also written to the row, because the p95 of this number is an SLO
           // and an SLO computed from one process's memory is a different

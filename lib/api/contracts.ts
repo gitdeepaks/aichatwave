@@ -11,6 +11,7 @@
 import { z } from "zod";
 import { messagePartsSchema } from "@/lib/ai/message-parts";
 import { MODEL_IDS } from "@/lib/ai/model-registry";
+import { CLIENT_REPORTED_SLO_IDS, MAX_CLIENT_LATENCY_MS } from "@/lib/observability/slo";
 
 const isoDateTime = z.iso.datetime({ offset: true });
 
@@ -171,6 +172,41 @@ export const messageSearchQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().min(1).max(200),
 });
 export type MessageSearchQuery = z.infer<typeof messageSearchQuerySchema>;
+
+/* ─── Client latency reports ──────────────────────────────────────────────── */
+
+/**
+ * One interaction the browser timed.
+ *
+ * `metric` is a closed enum of the three objectives only a client can observe
+ * (`CLIENT_REPORTED_SLO_IDS`), so a signed-in user cannot invent an objective
+ * or write into one the server measures for itself. `valueMs` is capped rather
+ * than rejected at the ceiling: a backgrounded tab reports the wall clock it
+ * actually experienced, and losing that sample would flatter the p95 more than
+ * clamping it distorts it.
+ */
+export const clientLatencySampleSchema = z.object({
+  metric: z.enum(CLIENT_REPORTED_SLO_IDS),
+  valueMs: z
+    .number()
+    .nonnegative()
+    .transform((value) => Math.min(value, MAX_CLIENT_LATENCY_MS)),
+});
+export type ClientLatencySample = z.infer<typeof clientLatencySampleSchema>;
+
+/**
+ * A batch, because these are sent with `navigator.sendBeacon` on page hide as
+ * well as on a timer — one request carrying a minute of interaction rather
+ * than a request per interaction, which would make the measurement the
+ * dominant cost of the thing being measured.
+ */
+export const clientLatencyReportSchema = z.object({
+  samples: z.array(clientLatencySampleSchema).min(1).max(50),
+});
+export type ClientLatencyReport = z.infer<typeof clientLatencyReportSchema>;
+
+export const clientLatencyResponseSchema = z.object({ recorded: z.number().int().nonnegative() });
+export type ClientLatencyResponse = z.infer<typeof clientLatencyResponseSchema>;
 
 /* ─── Operations (admin only) ─────────────────────────────────────────────── */
 

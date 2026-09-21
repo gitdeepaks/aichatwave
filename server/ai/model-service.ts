@@ -106,7 +106,53 @@ function requireProviderKey(modelId: ModelId, key: string | undefined): string {
   throw new AppError("SERVICE_UNAVAILABLE", "That model isn't available on this deployment.");
 }
 
+/**
+ * One client per model, per process.
+ *
+ * Phase L item 4: this constructed a new provider client on every request.
+ * Each one parses options, builds a fetch wrapper and — for the OpenAI and
+ * Anthropic SDKs — sets up its own connection handling, all of it on the path
+ * of the token the user is waiting for, and all of it discarded when the turn
+ * ended. The clients are stateless with respect to a turn: the model id, the
+ * options and the API key are fixed by the registry and the environment, and
+ * everything that varies per call — messages, tools, the abort signal — is
+ * passed to `invoke` rather than to the constructor.
+ *
+ * Keyed by model id alone for that reason. When Phase N adds user-supplied
+ * keys this cache stops being correct as written, and that is deliberate: a
+ * BYOK client is per-key, so the key becomes part of the identity or it does
+ * not go in here at all.
+ *
+ * **On `globalThis`** for the reason `server/observability/metrics.ts`
+ * documents: Next builds route handlers and server components into separate
+ * module graphs, so a module-level `Map` is instantiated twice in one process
+ * and half the requests would miss a cache that looked full.
+ */
+declare global {
+  // `var` rather than `let`: it is the only declaration that augments `globalThis`.
+  var __aichatwaveModelClients: Map<ModelId, DynamicChatModel> | undefined;
+}
+
+function modelClients(): Map<ModelId, DynamicChatModel> {
+  globalThis.__aichatwaveModelClients ??= new Map<ModelId, DynamicChatModel>();
+  return globalThis.__aichatwaveModelClients;
+}
+
 export const getDynamicModel = (modelId: ModelId): DynamicChatModel => {
+  // Before the cache, always. Availability is a property of the environment,
+  // and a cached client must never be what decides whether a model is offered.
   assertModelAvailable(modelId);
-  return createModel(modelId, MODEL_REGISTRY[modelId]);
+
+  const clients = modelClients();
+  const existing = clients.get(modelId);
+  if (existing !== undefined) return existing;
+
+  const created = createModel(modelId, MODEL_REGISTRY[modelId]);
+  clients.set(modelId, created);
+  return created;
 };
+
+/** Test seam: drops the cached clients so a test can change the environment. */
+export function resetModelClients(): void {
+  modelClients().clear();
+}

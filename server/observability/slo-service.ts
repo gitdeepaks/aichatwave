@@ -1,10 +1,10 @@
 /**
- * Measures the four objectives in `lib/observability/slo.ts` and says which of
- * them are being missed.
+ * Measures the objectives in `lib/observability/slo.ts` and says which of them
+ * are being missed.
  *
- * Two of the four are read from the database and describe the whole fleet; two
- * are read from this process's counters and describe only the instance that
- * answered. That split is reported to the caller as `scope` rather than
+ * Two are read from the database and describe the whole fleet; the rest are
+ * read from this process's counters and samples and describe only the instance
+ * that answered. That split is reported to the caller as `scope` rather than
  * smoothed over, because an operator reading "5xx rate: 0%" deserves to know
  * whether that means the service is healthy or only that this container is.
  *
@@ -28,6 +28,7 @@ import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 import { AppError } from "@/server/lib/app-error";
 import { reportError } from "@/server/observability/error-reporter";
 import { apiOutcomeSnapshot, billingIngestSnapshot } from "@/server/observability/metrics";
+import { latencySamples } from "@/server/observability/latency-samples";
 import { listTimeToFirstTokenMs, readStreamOutcomes } from "@/server/observability/slo-repository";
 
 /** Enough samples for a stable p95 without reading a day of history for a dashboard. */
@@ -39,7 +40,30 @@ const SLO_SCOPE: Record<(typeof SLO_IDS)[number], "fleet" | "instance"> = {
   chat_stream_error_rate: "fleet",
   api_server_error_rate: "instance",
   billing_ingest_failure_rate: "instance",
+  // Phase L's five budgets are all counted in process memory
+  // (`latency-samples.ts`) for the reason recorded there: the alternative is a
+  // database write per thread switch and per frame of interaction, to measure
+  // how fast interaction is.
+  chat_time_to_first_token_warm_p95: "instance",
+  chat_time_to_first_token_cold_p95: "instance",
+  chat_thread_switch_warm_p95: "instance",
+  chat_thread_switch_cold_p95: "instance",
+  chat_optimistic_echo_p95: "instance",
 };
+
+/**
+ * The objectives whose value is the p95 of a bounded in-memory sample.
+ *
+ * Listed rather than evaluated inline because all five are measured the same
+ * way and a sixth should be one line, not one more copy of the same four.
+ */
+const LATENCY_SAMPLED_SLO_IDS = [
+  "chat_time_to_first_token_warm_p95",
+  "chat_time_to_first_token_cold_p95",
+  "chat_thread_switch_warm_p95",
+  "chat_thread_switch_cold_p95",
+  "chat_optimistic_echo_p95",
+] as const;
 
 export async function buildSloReport(params: {
   readonly windowMinutes: number;
@@ -63,6 +87,16 @@ export async function buildSloReport(params: {
     evaluateSlo(SLOS.chat_time_to_first_token_p95, {
       value: p95 ?? 0,
       sample: latencies.length,
+    }),
+    ...LATENCY_SAMPLED_SLO_IDS.map((id) => {
+      const observations = latencySamples({ id, windowMinutes: params.windowMinutes, now });
+      return evaluateSlo(SLOS[id], {
+        // `?? 0` is only reachable with an empty sample, which
+        // `minimumSample` already reports as `insufficient_data` — so the zero
+        // is never shown as a score.
+        value: percentile(observations, 0.95) ?? 0,
+        sample: observations.length,
+      });
     }),
     evaluateSlo(SLOS.chat_stream_error_rate, {
       value: failureRatio({ failures: streams.failed, total: streams.total }),

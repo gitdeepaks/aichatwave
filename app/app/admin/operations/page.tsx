@@ -131,7 +131,11 @@ function SloCard({ objective }: { objective: SloEvaluationDto }) {
 
 /**
  * Said out loud, on the page, rather than left in a comment nobody reading the
- * dashboard will see: two of these numbers describe one container.
+ * dashboard will see: most of these numbers describe one container.
+ *
+ * The list is built from the report rather than written out, because Phase L
+ * took the instance-scoped objectives from two to seven and a hand-written
+ * sentence would already be wrong.
  */
 function InstanceScopeNote({ report }: { report: SloReportResponse }) {
   const instanceScoped = report.objectives.filter((objective) => objective.scope === "instance");
@@ -139,10 +143,12 @@ function InstanceScopeNote({ report }: { report: SloReportResponse }) {
 
   return (
     <p className="text-xs leading-relaxed text-zinc-500">
-      {instanceScoped.map((objective) => objective.title).join(" and ")} are counted in this
-      process&apos;s memory — nothing durable records an HTTP response or a usage ingest — so on a
-      multi-instance deployment they describe whichever instance served this page, and they reset on
-      a cold start.
+      Counted in this process&apos;s memory, not in the database:{" "}
+      {instanceScoped.map((objective) => objective.title).join("; ")}. Nothing durable records an
+      HTTP response, a usage ingest, or a frame of interaction — writing a row per thread switch to
+      measure how fast thread switches are would be the slowest thing on the page. So on a
+      multi-instance deployment these describe whichever instance served this page, and they reset
+      on a cold start.
     </p>
   );
 }
