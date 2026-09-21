@@ -4,11 +4,11 @@ import type { ChatStatus } from "ai";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 import { useChatStore } from "@/store/chat-store";
+import { useThreadListCache } from "@/hooks/use-thread-list-cache";
 import type { ChatComposerController, SendChatMessage } from "@/components/chat/types";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import { THREADS_QUERY_KEY } from "@/lib/query-keys";
+import { deriveThreadTitle } from "@/lib/chat/thread-title";
 import {
   attachmentKindOf,
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -17,6 +17,7 @@ import {
 import { modelAcceptsAttachmentKind } from "@/lib/ai/model-registry";
 import { attachmentsApi } from "@/lib/api/client";
 import { toFiles } from "@/lib/chat/attachment-files";
+import { markInteractionStart, sendEchoMark } from "@/lib/perf/client-latency";
 import { chatRoute } from "@/lib/routes";
 
 export function useChatComposer({
@@ -40,7 +41,7 @@ export function useChatComposer({
 }): ChatComposerController {
   const { selectedModel } = useChatStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const threadCache = useThreadListCache();
   const [input, setInput] = useState(initialInput);
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -124,6 +125,14 @@ export function useChatComposer({
       const files = message.files ?? [];
       if ((!text && files.length === 0) || isBusy || isUploading || !sendMessage) return;
 
+      // Before anything, including the upload branch below: the budget being
+      // measured is "the user's own words appear", and starting the clock
+      // after an await would be measuring from a point the user never
+      // experienced. A turn with attachments legitimately waits for the
+      // upload and is not reported — the mark is closed by the transcript,
+      // which only sees the message once it exists.
+      markInteractionStart(sendEchoMark(threadId));
+
       const attachmentIds = await uploadAttachments(files);
       // A failed upload keeps the composer's contents: `PromptInput` only
       // clears when `onSubmit` resolves, so throwing here is what preserves
@@ -142,23 +151,44 @@ export function useChatComposer({
       setInput("");
 
       if (isNewThread) {
+        /*
+          The row the server is about to write, written locally first.
+
+          The sidebar used to invalidate here and wait: the conversation the
+          user had just started did not appear in the list until a refetch came
+          back, which is one round trip after the row itself was created inside
+          the chat request. `deriveThreadTitle` is the same function the write
+          path uses (`lib/chat/thread-title.ts`), so the optimistic row carries
+          the same placeholder the real one will — and the generated title
+          replaces both when the turn settles and `ChatShell` invalidates.
+        */
+        const startedAt = new Date().toISOString();
+        threadCache.insertThread({
+          id: threadId,
+          title: deriveThreadTitle(text),
+          createdAt: startedAt,
+          updatedAt: startedAt,
+          lastMessageAt: startedAt,
+          archived: false,
+          pinned: false,
+        });
+
         // Immediately, while the first answer is still streaming. Until the URL
         // carries the thread id, a reload lands back on `/` and mints a new one
         // — so the answer being written would have nothing to reconnect to.
         // The chat instance is keyed by this same id, so the navigation is
         // seamless: the stream continues into the very same instance.
         router.push(chatRoute(threadId));
-        void queryClient.invalidateQueries({ queryKey: THREADS_QUERY_KEY });
       }
     },
     [
       isBusy,
       isNewThread,
       isUploading,
-      queryClient,
       router,
       selectedModel,
       sendMessage,
+      threadCache,
       threadId,
       uploadAttachments,
     ],

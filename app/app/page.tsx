@@ -12,5 +12,5 @@ import { ChatInterfaceNew } from "@/components/chat-interface";
 export const dynamic = "force-dynamic";
 
 export default function HomePage() {
-  return <ChatInterfaceNew threadId={randomUUID()} initialMessages={[]} initialNextCursor={null} />;
+  return <ChatInterfaceNew threadId={randomUUID()} isNewThread />;
 }

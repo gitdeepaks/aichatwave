@@ -7,7 +7,7 @@ import {
   isPlaceholderTitle,
   normalizeGeneratedTitle,
   THREAD_TITLE_MAX_LENGTH,
-} from "@/server/chat/thread-title";
+} from "@/lib/chat/thread-title";
 
 test("uses the message as-is when short enough", () => {
   assert.equal(deriveThreadTitle("Plan my Tokyo trip"), "Plan my Tokyo trip");

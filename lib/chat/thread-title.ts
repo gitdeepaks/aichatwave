@@ -6,6 +6,13 @@
  * and so cannot be imported without a configured environment. Everything here
  * is string work, which is what lets it be tested on its own.
  *
+ * Under `lib/` rather than `server/` because both sides need it: the write
+ * path gives a thread its placeholder title, and — since Phase L — the sidebar
+ * shows that same placeholder optimistically, in the frame the first message
+ * is sent, rather than after the round trip that creates the row. One
+ * derivation, so the optimistic row and the real one cannot disagree
+ * (constraint C8).
+ *
  * `deriveThreadTitle` runs on the write path and gives the sidebar something
  * the moment a thread exists; the generated title replaces it once the first
  * exchange is known. The placeholder is necessary because at creation time the

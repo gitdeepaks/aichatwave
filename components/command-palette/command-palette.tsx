@@ -42,6 +42,7 @@ import {
 import { threadsApi } from "@/lib/api/client";
 import { isCustomerHaveSubscription } from "@/lib/polar";
 import { subscriptionQueryKey, threadSearchQueryKey, threadsQueryKey } from "@/lib/query-keys";
+import { markInteractionStart, threadSwitchMark } from "@/lib/perf/client-latency";
 import { chatRoute, ROUTES } from "@/lib/routes";
 import { useChatStore } from "@/store/chat-store";
 import { useCommandPaletteStore } from "@/store/command-palette-store";
@@ -238,6 +239,10 @@ export function CommandPalette() {
     // Warm the thread list cache so the sidebar does not flash empty behind the
     // navigation the palette just started.
     void queryClient.invalidateQueries({ queryKey: threadsQueryKey("active") });
+    // The palette is the other way into a conversation, so it opens the same
+    // timer the sidebar does — a switch measured only when it starts in one of
+    // two places is a p95 of half the switches.
+    markInteractionStart(threadSwitchMark(threadId));
     go(chatRoute(threadId));
   };
 

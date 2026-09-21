@@ -17,7 +17,7 @@ import {
   isPlaceholderTitle,
   normalizeGeneratedTitle,
   truncateForTitlePrompt,
-} from "@/server/chat/thread-title";
+} from "@/lib/chat/thread-title";
 import { findThreadForUser, updateThread } from "@/server/db/thread-repository";
 import { logger as rootLogger, type Logger } from "@/server/lib/logger";
 

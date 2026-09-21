@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import {
   AlertCircle,
   Archive,
@@ -32,11 +32,14 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useThreadPrefetch } from "@/components/sidebar/hooks/use-thread-prefetch";
+import { useThreadListCache } from "@/hooks/use-thread-list-cache";
 import { threadsApi } from "@/lib/api/client";
-import type { ThreadDto, ThreadView } from "@/lib/api/contracts";
-import { THREADS_QUERY_KEY, threadsQueryKey } from "@/lib/query-keys";
+import type { ThreadDto, ThreadView, UpdateThreadRequest } from "@/lib/api/contracts";
+import { threadsQueryKey } from "@/lib/query-keys";
 import { chatRoute, isChatRoute, ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { forgetChatForThread } from "@/store/chat-store";
 
 type ThreadsListProps = {
   view: ThreadView;
@@ -59,7 +62,6 @@ function firstPageCursor(): string | undefined {
 export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
 
@@ -77,34 +79,82 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 
-  const invalidateThreads = () => queryClient.invalidateQueries({ queryKey: THREADS_QUERY_KEY });
+  const threadCache = useThreadListCache();
+  const intentHandlers = useThreadPrefetch();
 
+  /**
+   * Rename, pin and archive, applied to the cached sidebar before the request
+   * leaves.
+   *
+   * `onMutate` snapshots every cached list, applies the change, and hands the
+   * snapshot to `onError` to put back. The change also carries a fresh
+   * `updatedAt`, because the server's own update bumps it and the list is
+   * ordered by it — omitting it would show the row in the right shape and the
+   * wrong place, and then watch it jump when the refetch landed.
+   *
+   * There is no `onSettled` invalidation. That is the point of the phase: the
+   * client computed the same thing the server did, the response confirms it,
+   * and refetching the list to be told so is the round trip this replaces. A
+   * rejected request rolls back and says why.
+   */
   const updateMutation = useMutation({
-    mutationFn: ({
-      threadId,
-      update,
-    }: {
-      threadId: string;
-      update: Parameters<typeof threadsApi.update>[1];
-    }) => threadsApi.update(threadId, update),
-    onSuccess: (_thread, variables) => {
+    mutationFn: ({ threadId, update }: { threadId: string; update: UpdateThreadRequest }) =>
+      threadsApi.update(threadId, update),
+
+    onMutate: ({ threadId, update }) => {
       setRenamingId(null);
-      void invalidateThreads();
+      const snapshot = threadCache.snapshot();
+      // Spread field by field: under `exactOptionalPropertyTypes` a request's
+      // absent `pinned` and a patch's `pinned: undefined` are different types,
+      // and only the first one means "leave it alone".
+      threadCache.patchThread(threadId, {
+        ...(update.title === undefined ? {} : { title: update.title }),
+        ...(update.pinned === undefined ? {} : { pinned: update.pinned }),
+        ...(update.archived === undefined ? {} : { archived: update.archived }),
+        updatedAt: new Date().toISOString(),
+      });
+      return { snapshot };
+    },
+
+    onSuccess: (thread, variables) => {
+      // The server is the authority on the row it just wrote — its
+      // `updatedAt` is the real one, and a generated title may have landed in
+      // the same moment. Replacing the optimistic row with it costs nothing
+      // and keeps the two from drifting.
+      threadCache.patchThread(thread.id, thread);
+
       if (variables.update.archived === true && isChatRoute(pathname, variables.threadId)) {
         router.push(ROUTES.app);
       }
     },
-    onError: (error: Error) => toast.error(error.message),
+
+    onError: (error: Error, _variables, context) => {
+      if (context !== undefined) threadCache.restore(context.snapshot);
+      toast.error(error.message);
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (threadId: string) => threadsApi.remove(threadId),
-    onSuccess: (_result, threadId) => {
-      void invalidateThreads();
+
+    onMutate: (threadId) => {
+      const snapshot = threadCache.snapshot();
+      threadCache.removeThread(threadId);
+      // The live chat instance goes with it, or a thread deleted and then
+      // recreated with the same id would reopen with the old transcript.
+      forgetChatForThread(threadId);
       if (isChatRoute(pathname, threadId)) router.push(ROUTES.app);
+      return { snapshot };
+    },
+
+    onSuccess: () => {
       toast.success("Conversation deleted");
     },
-    onError: (error: Error) => toast.error(error.message),
+
+    onError: (error: Error, _threadId, context) => {
+      if (context !== undefined) threadCache.restore(context.snapshot);
+      toast.error(error.message);
+    },
   });
 
   const threads = query.data?.pages.flatMap((page) => page.threads) ?? [];
@@ -189,11 +239,31 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                   <SidebarMenuItem key={thread.id} className="group/item relative">
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === `/chat/${thread.id}`}
+                      /*
+                        The active row was compared against `/chat/{id}`, which
+                        has not been a URL since the workspace moved under
+                        `/app` — so no thread in the sidebar has been shown as
+                        selected since. `isChatRoute` is the one place that
+                        knows the shape (`lib/routes.ts`).
+                      */
+                      isActive={isChatRoute(pathname, thread.id)}
                       tooltip={thread.title}
                       className={listItemClass}
                     >
-                      <Link href={chatRoute(thread.id)} className="block w-full min-w-0 pr-7">
+                      {/*
+                        Prefetch is explicit rather than `<Link prefetch>`: this
+                        route is dynamic, so the automatic viewport prefetch
+                        would stop at the loading boundary and the click would
+                        still wait on the server. `useThreadPrefetch` takes the
+                        whole segment plus the thread's first message page, on
+                        hover, focus or touch.
+                      */}
+                      <Link
+                        href={chatRoute(thread.id)}
+                        prefetch={false}
+                        className="block w-full min-w-0 pr-7"
+                        {...intentHandlers(thread.id)}
+                      >
                         <span className="block w-full truncate leading-5">{thread.title}</span>
                       </Link>
                     </SidebarMenuButton>

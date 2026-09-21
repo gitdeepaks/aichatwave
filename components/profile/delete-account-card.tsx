@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, LoaderCircle, Trash2 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { accountApi } from "@/lib/api/client";
 import { ACCOUNT_DELETION_CONFIRMATION, accountDeletionFormState } from "@/lib/account-deletion";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { endLocalSession } from "@/lib/cache/query-persistence";
 import { cn } from "@/lib/utils";
 import { brandGlassCardClass } from "@/components/brand/brand-atmosphere";
 
 export function DeleteAccountCard() {
   const { signOut } = useClerk();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
@@ -34,6 +37,10 @@ export function DeleteAccountCard() {
     setError(null);
     try {
       await accountApi.remove(confirmation);
+      // "Permanently delete your account, conversations, memories…" has to
+      // include the copies on this device, or the sidebar of a deleted account
+      // is still readable in the next tab until the cache expires.
+      await endLocalSession(queryClient);
       await signOut({ redirectUrl: "/sign-in" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Account deletion failed. Please retry.");
