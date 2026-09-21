@@ -1,7 +1,7 @@
 /**
  * Thread access, at the service boundary rather than through HTTP.
  *
- * `ensureThreadAccess` and `readThreadWindow` encode a three-way answer that
+ * `ensureThreadAccess` and `listThreadMessages` encode a three-way answer that
  * no route can express on its own: *yours*, *someone else's*, and *not written
  * yet*. The third is not a missing row to be tolerated — it is an ordinary
  * state, because the composer navigates to `/chat/{id}` before the chat request
@@ -118,26 +118,13 @@ dbTest("requireOwnedThread separates 'not yours' from 'does not exist'", async (
   );
 });
 
-dbTest("readThreadWindow tolerates a thread that does not exist yet", async () => {
+dbTest("listThreadMessages tolerates a thread that does not exist yet", async () => {
   const user = await seedUser({});
-  const { readThreadWindow } = await threadService();
+  const { listThreadMessages } = await threadService();
 
-  const page = await readThreadWindow({ threadId: randomUUID(), userId: user.id });
+  const page = await listThreadMessages({ threadId: randomUUID(), userId: user.id });
 
   assert.deepEqual(page, { items: [], nextCursor: null });
-});
-
-dbTest("readThreadWindow still refuses a thread that belongs to someone else", async () => {
-  const owner = await seedUser({});
-  const stranger = await seedUser({});
-  const thread = await seedThread({ userId: owner.id });
-
-  const { readThreadWindow } = await threadService();
-
-  assert.equal(
-    await codeOf(() => readThreadWindow({ threadId: thread.id, userId: stranger.id })),
-    "FORBIDDEN",
-  );
 });
 
 dbTest("listThreadMessages returns a chronological window bounded by its limit", async () => {

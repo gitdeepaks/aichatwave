@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import type { ThreadView } from "@/lib/api/contracts";
 import { ensureUserProvisioned } from "@/server/auth/user-service";
-import { deriveThreadTitle, FALLBACK_THREAD_TITLE } from "@/server/chat/thread-title";
+import { deriveThreadTitle, FALLBACK_THREAD_TITLE } from "@/lib/chat/thread-title";
 import * as messageRepository from "@/server/db/message-repository";
 import * as threadRepository from "@/server/db/thread-repository";
 import type { Page } from "@/server/db/pagination";
@@ -137,10 +137,10 @@ export async function deleteThread(params: {
 }
 
 /**
- * The newest window of a thread, for the page that renders it.
+ * A thread's messages, for the client that renders them.
  *
  * Tolerates a thread that does not exist *yet*, which is a real and ordinary
- * state rather than an error: the composer navigates to `/chat/{id}` the
+ * state rather than an error: the composer navigates to `/app/chat/{id}` the
  * moment the first message is sent, and the row is created inside the chat
  * request a beat later — deliberately, because the rate-limit and quota gates
  * run before anything is written. Treating that as a 404 made every new
@@ -148,10 +148,18 @@ export async function deleteThread(params: {
  *
  * A thread that exists and belongs to someone else is still a 403. The
  * distinction is the point: "not yours" and "not yet" are different answers.
+ *
+ * This used to be two functions. `readThreadWindow` carried the tolerance
+ * above because the page read history on the server, while `listThreadMessages`
+ * refused an unknown id because only the already-navigated client called it.
+ * Phase L moved the transcript onto the client cache, so the client now reads
+ * the first window through this same path — and inherits the case the page was
+ * written to handle. One function, because there is one rule (constraint C8).
  */
-export async function readThreadWindow(params: {
+export async function listThreadMessages(params: {
   threadId: string;
   userId: string;
+  cursor?: string | undefined;
   limit?: number | undefined;
   log?: Logger;
 }): Promise<Page<MessageRecord>> {
@@ -166,23 +174,6 @@ export async function readThreadWindow(params: {
     }
     return { items: [], nextCursor: null };
   }
-
-  return messageRepository.listMessages({
-    threadId: params.threadId,
-    ...(params.limit === undefined ? {} : { limit: params.limit }),
-    ...(params.log === undefined ? {} : { log: params.log }),
-  });
-}
-
-/** Paginated message history for a thread the user owns. */
-export async function listThreadMessages(params: {
-  threadId: string;
-  userId: string;
-  cursor?: string | undefined;
-  limit?: number | undefined;
-  log?: Logger;
-}): Promise<Page<MessageRecord>> {
-  await requireOwnedThread({ threadId: params.threadId, userId: params.userId });
 
   return messageRepository.listMessages({
     threadId: params.threadId,

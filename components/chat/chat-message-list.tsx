@@ -9,10 +9,12 @@ import { MessageRenderer } from "@/components/custom/message-renderer";
 import { ChatScrollButton } from "@/components/chat/chat-scroll-button";
 import { useChatScrollController } from "@/components/chat/hooks/use-chat-scroll-controller";
 import { usePrefersReducedMotion } from "@/components/chat/hooks/use-prefers-reduced-motion";
+import { completeInteraction, sendEchoMark } from "@/lib/perf/client-latency";
 
 export function ChatMessageList({
   messages,
   status,
+  threadId,
   hasEarlierMessages,
   isLoadingEarlier,
   onLoadEarlier,
@@ -20,6 +22,8 @@ export function ChatMessageList({
 }: {
   messages: AppUIMessage[];
   status: ChatStatus;
+  /** Only used to close the send timer; the transcript itself is passed in. */
+  threadId: string;
   hasEarlierMessages: boolean;
   isLoadingEarlier: boolean;
   onLoadEarlier: () => Promise<void>;
@@ -33,6 +37,20 @@ export function ChatMessageList({
   const buttonScrollBehavior: ScrollBehavior = prefersReducedMotion ? "auto" : "smooth";
   const pendingAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const isStreaming = status === "submitted" || status === "streaming";
+  const lastMessage = messages.at(-1);
+
+  /**
+   * Closes the timer the composer opened when the user pressed send.
+   *
+   * The budget is one frame (C5), and the only way to miss it is to have
+   * awaited something — so this is a correctness check wearing a
+   * latency-budget's clothes. Measured here rather than in the composer
+   * because the composer knows when it sent, and this is what paints.
+   */
+  useLayoutEffect(() => {
+    if (lastMessage?.role !== "user") return;
+    completeInteraction(sendEchoMark(threadId), "chat_optimistic_echo_p95");
+  }, [lastMessage, threadId]);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;

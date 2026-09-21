@@ -1,7 +1,6 @@
 "use client";
 
 import { ChatShell } from "@/components/chat/chat-shell";
-import type { MessageDto } from "@/lib/api/contracts";
 
 type ChatInterfaceProps = {
   /**
@@ -13,8 +12,16 @@ type ChatInterfaceProps = {
    * could disagree about which conversation was being had.
    */
   threadId: string;
-  initialMessages: MessageDto[];
-  initialNextCursor: string | null;
+  /**
+   * Whether this id names a conversation that does not exist yet.
+   *
+   * The transcript itself is no longer handed down from the server — Phase L
+   * moved it onto the client cache, so a revisited thread renders from disk
+   * rather than from a round trip. This flag is the one thing the client
+   * cannot work out for itself, and it is what stops the home page fetching
+   * the history of a thread that has none.
+   */
+  isNewThread: boolean;
 };
 
 export const ChatInterfaceNew = (props: ChatInterfaceProps) => {

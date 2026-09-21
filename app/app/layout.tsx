@@ -5,6 +5,7 @@ import { AiChatWaveDropdown } from "@/components/chat/aichatwave-dropdown";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { ModelSelectorComponent } from "@/components/model-selector";
 import { OnboardingDialog } from "@/components/onboarding/onboarding-dialog";
+import { QueryCacheSync } from "@/components/custom/query-cache-sync";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -82,6 +83,10 @@ export default async function WorkspaceLayout({
 
       {/* Mounted at the layout so ⌘K works on every workspace route, and so the
           consent question is asked once per account rather than once per page. */}
+      {/* The persisted client cache, connected for as long as the workspace is
+          open. Here rather than beside `QueryProvider` in the root layout,
+          which would put Clerk's client runtime in the landing page's bundle. */}
+      <QueryCacheSync />
       <CommandPalette />
       <OnboardingDialog />
     </BrandAtmosphere>

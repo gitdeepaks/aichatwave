@@ -179,11 +179,17 @@ export const threadsApi = {
   remove: (threadId: string): Promise<void> =>
     request(`/api/threads/${threadId}`, z.void(), { method: "DELETE" }),
 
-  messages: (threadId: string, params: { cursor?: string; limit?: number } = {}) =>
-    request<MessageListResponse>(
-      `/api/threads/${threadId}/messages${buildQuery(params)}`,
+  messages: (
+    threadId: string,
+    params: { cursor?: string; limit?: number; signal?: AbortSignal } = {},
+  ) => {
+    const { signal, ...pagination } = params;
+    return request<MessageListResponse>(
+      `/api/threads/${threadId}/messages${buildQuery(pagination)}`,
       messageListResponseSchema,
-    ),
+      signal ? { signal } : {},
+    );
+  },
 };
 
 const attachmentResponseSchema = z.object({ attachment: attachmentDtoSchema });

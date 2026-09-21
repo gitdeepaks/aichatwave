@@ -13,6 +13,19 @@
 
 export const SITE_NAME = "AIChatWave";
 
+/**
+ * The document title for a page whose own title is `title`.
+ *
+ * The same `%s · AIChatWave` the metadata template produces, as a function, so
+ * a client that sets `document.title` itself cannot drift from the one the
+ * server renders (constraint C8). The thread page is the only caller: its
+ * title is a conversation's, which now comes from the client cache rather than
+ * from a database read on every navigation.
+ */
+export function documentTitle(title: string): string {
+  return `${title} · ${SITE_NAME}`;
+}
+
 export const SITE_TAGLINE = "Chat for coders who want to work with AI";
 
 /**
