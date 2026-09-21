@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Bell, ChevronsUpDown, CreditCard, LogOut, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import { BRAND_LOGO_SRC } from "@/lib/brand";
 import { isCustomerHaveSubscription } from "@/lib/polar";
 import { subscriptionQueryKey } from "@/lib/query-keys";
 import { ROUTES } from "@/lib/routes";
+import { endLocalSession } from "@/lib/cache/query-persistence";
 import { Skeleton } from "../ui/skeleton";
 import Link from "next/link";
 
@@ -34,6 +35,7 @@ export function SidebarFooterComponent() {
   const { isMobile } = useSidebar();
   const router = useRouter();
   const { signOut } = useClerk();
+  const queryClient = useQueryClient();
   // `isLoaded` already guards against rendering before the user is known, so the
   // previous mounted-flag dance is no longer needed to avoid a hydration mismatch.
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
@@ -136,7 +138,17 @@ export function SidebarFooterComponent() {
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void signOut({ redirectUrl: ROUTES.home })}>
+              <DropdownMenuItem
+                onClick={() => {
+                  // Before the redirect, not after: the cached sidebar and the
+                  // transcripts on this device belong to the session that is
+                  // ending. The sign-out navigates away, so nothing mounted
+                  // here would still be around to clean up afterwards.
+                  void endLocalSession(queryClient).finally(() =>
+                    signOut({ redirectUrl: ROUTES.home }),
+                  );
+                }}
+              >
                 <LogOut />
                 Log out
               </DropdownMenuItem>
