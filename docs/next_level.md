@@ -1,7 +1,9 @@
 # AIChatWave — Competitive Plan
 
 > **Status:** Phase K is `WIP` — its two code items shipped, its four configuration items are
-> now checkable with `pnpm phase-k:verify`. Every other phase is `NOT DONE`.
+> now checkable with `pnpm phase-k:verify`. Phase L is `WIP` — every work item shipped; the
+> exit criteria that require a production deployment are unverified. Every other phase is
+> `NOT DONE`.
 > Owner: @gitdeepaks · Created 2026-09-20 · Baseline commit `2fa2bc0`
 > Predecessor: [`pro_plan.md`](./pro_plan.md), phases A–J.
 
@@ -28,7 +30,7 @@ criteria that are checkable rather than aspirational.
 | Phase                              | Status     | One-line goal                                                   |
 | ---------------------------------- | ---------- | --------------------------------------------------------------- |
 | **K — Close the launch gap**       | `WIP`      | Stop shipping a dev instance to a real domain                   |
-| **L — Instant**                    | `NOT DONE` | Sub-100ms thread switches and a measured TTFT budget            |
+| **L — Instant**                    | `WIP`      | Sub-100ms thread switches and a measured TTFT budget            |
 | **L2 — The design system**         | `NOT DONE` | One token layer, a real type scale, and a light theme           |
 | **M — The conversation is a tree** | `NOT DONE` | Edit, branch, alternates, and shareable threads                 |
 | **N — Breadth and BYOK**           | `NOT DONE` | More models, user-supplied keys, per-turn model controls        |
@@ -423,19 +425,163 @@ someone instead of being noticed in a demo.
 ### Exit criteria
 
 - [ ] Every budget in the table above is met on the production deployment and recorded in the SLO
-      dashboard.
+      dashboard. _(Recorded — nine objectives on `/app/admin/operations`. Not met, because there is
+      no production deployment yet: Phase K items 1–4.)_
 - [ ] Navigating to a previously-visited thread with the network throttled to offline still renders
-      the transcript.
-- [ ] Rename, pin and delete all reflect in the sidebar within one frame.
-- [ ] No mutation in the sidebar triggers a full list refetch.
-- [ ] A TTFT breakdown exists as a trace, with each segment named, so the next person optimising it
+      the transcript. _(Implemented; asserted by `tests/e2e/instant.spec.ts`, which has not run on
+      this machine — no Postgres.)_
+- [ ] Rename, pin and delete all reflect in the sidebar within one frame. _(Same: implemented and
+      asserted, not executed.)_
+- [x] No mutation in the sidebar triggers a full list refetch.
+- [x] A TTFT breakdown exists as a trace, with each segment named, so the next person optimising it
       is not guessing either.
-- [ ] Cached records are parsed on read into named types; no `any`, no leaked `unknown`, no new lint
+- [x] Cached records are parsed on read into named types; no `any`, no leaked `unknown`, no new lint
       suppression (C1).
+
+### What shipped (2026-09-21)
+
+**All six work items.** The shape of the change is one sentence: the transcript stopped being
+something the server hands down on every navigation and became something the client already has.
+
+**1 — A persistent client cache.** `lib/cache/indexed-db.ts` is a dependency-free typed wrapper over
+one database, one store and one index; `lib/cache/query-persistence.ts` mirrors the queries named in
+`PERSISTED_KINDS` to it and reads them back at boot. Two decisions are worth arguing with:
+
+- **Only the first message window is persisted, not every page.** "Load earlier messages" is a
+  deliberate action with a control and a spinner of its own and has never been expected to be
+  instant. Storing every page anyone ever scrolled back through would grow the cache without moving
+  a single budget.
+- **Search results and authorisation state are not persisted at all.** Search is keyed by whatever
+  anyone typed, so the store would slowly become a search history; consent and subscription are
+  authorisation, and serving those from disk is how a cancelled plan keeps working offline.
+
+**The cache is parsed on read, one record at a time** (C1). A record written by a previous deploy is
+dropped on its own rather than invalidating everybody's cache — which is the difference between a
+renamed field costing one round trip and costing every user their local-first experience.
+
+**2 — Prefetch on intent.** `useThreadPrefetch` warms both halves of the next screen on hover, focus
+or touch: `router.prefetch` for the route segment and `queryClient.prefetchQuery` for the thread's
+first message page. `<Link prefetch>` is deliberately off — the workspace layout is authenticated, so
+the thread route is dynamic, and an automatic viewport prefetch of a dynamic route stops at the
+loading boundary.
+
+**3 — Optimistic everything.** `lib/threads/thread-cache.ts` holds rename, pin, archive, delete and
+new-thread as pure functions over the cached pages, and `hooks/use-thread-list-cache.ts` applies one
+change to every cached list variant at once. The list is cached four ways (active, archived, pinned,
+unpinned) and a mutation can move a row between them, so rather than knowing which variant is on
+screen, each operation is applied everywhere and each variant decides for itself whether the result
+still belongs. That is what makes "archive" remove a row from one list and add it to another with no
+special case anywhere. **No mutation invalidates the list.**
+
+**4 — The critical path, instrumented before it was cut.** `server/chat/ttft-breakdown.ts` names
+every pre-stream segment and emits the breakdown at the first token, as `chat.ttft_breakdown` and as
+attributes on the turn's span. Three cuts followed from having the numbers rather than from guessing
+at them:
+
+- **Provider clients are built once per process.** `getDynamicModel` constructed a fresh
+  `ChatOpenAI` / `ChatAnthropic` / `ChatGoogleGenerativeAI` on every single request and threw it
+  away when the turn ended. They are stateless with respect to a turn — everything that varies is
+  passed to `invoke` — so they are now cached by model id. Noted in the code: Phase N's BYOK breaks
+  that key, deliberately and visibly.
+- **The account-deletion check and the plan read run concurrently.** Two independent reads that were
+  two serial round trips before the first gate had even run.
+- **The memory-consent read moved up, alongside the thread-ownership check.** It neither spends nor
+  reserves, so it has no business being a gate, and it was costing a serial round trip after quota.
+
+**What deliberately did not move: the memory lookup is still after the quota gate.** It is an
+embedding call and the largest single segment, and pulling it earlier would have been the biggest
+number on the chart — at the cost of spending on turns quota refuses. The gate order in
+`streamChat`'s docblock is a design, not an accident, and speed is not a reason to quietly abandon
+it.
+
+**5 — No layout shift on switch.** The thread page's `loading.tsx` is gone, because there is nothing
+left for it to fall back for. A cold thread now renders the _transcript's_ container with placeholder
+rows inside it, so the swap to real content changes text and nothing else — rather than swapping a
+`max-w-5xl` rounded box for a `max-w-6xl` one, which is what the empty state and the transcript did
+to each other.
+
+**6 — The echo is measured, not asserted.** `ChatComposer` already painted the user's message and a
+typing placeholder before any network result. What was missing was any way to know it stayed that
+way, so the clock now starts at the top of `handleSubmit`, before the upload branch, and stops in the
+transcript's layout effect.
+
+### The budgets, and where they now live
+
+All six budgets in the table above are objectives in `lib/observability/slo.ts` and panels on
+`/app/admin/operations`. Three are measured by the server; three can only be measured by the browser,
+which posts them to `POST /api/metrics/latency`.
+
+**They are counted in process memory, not in a table, and the dashboard says so.** The alternative is
+a database write per thread switch and per frame of interaction — a row per frame, to measure how
+fast frames are. The same trade-off `server/observability/metrics.ts` already made for the API 5xx
+rate, made again for the same reason and reported the same way, through the `scope` field.
+
+**Time to first token is now three objectives, not one.** The fleet-wide number read from
+`chat_stream` stays as the outer guard; warm (900ms) and cold-start (1.8s) are separate because they
+are different problems with different fixes and averaging them hides both. `claimColdStart()` is
+exact rather than heuristic: one invocation per process claims the bit.
+
+**A browser may only report the three objectives a browser can observe.** `CLIENT_REPORTED_SLO_IDS`
+is a closed enum, the value is clamped, and the batch is bounded. Time to first token is absent from
+it on purpose — the browser sees it, but the server _knows_ it, and accepting a client's opinion of a
+number the server measures would let a tab move an objective it has no way of observing.
+
+### Found on the way
+
+**Every thread in the sidebar had been unhighlighted since Phase J.** The active row was decided by
+`pathname === `/chat/${thread.id}``— a URL shape that stopped existing when the workspace moved under`/app`. No test covered it and nothing failed; the selected conversation simply never looked selected.
+It now goes through `isChatRoute`, which is the one place that knows the shape.
+
+**The bundle budget caught a 282KB regression on the landing page, in a phase about speed.** The
+persistence wiring was first written into `QueryProvider`, which lives in the root layout — so its
+`useAuth` import pulled Clerk's client runtime into `/`, `/sign-in`, `/sign-up` and `/_not-found`,
+and `pnpm bundle:check` failed all four. Nothing outside `/app` caches anything, so the wiring moved
+to `QueryCacheSync` in the workspace layout and every route is back inside its budget. Worth
+recording rather than quietly fixing: it is exactly the shape C5 warns about, the budget found it
+before a human did, and the thread page came out 4KB _smaller_ than it started.
+
+**Signing out now clears the device.** Moving the wiring out of the provider took the sign-out
+handler with it, which turned out to be the better place for it anyway: `endLocalSession` is called
+from the two places a session actually ends — the sidebar menu and account deletion — rather than
+inferred from an auth-state change in a component that unmounts as the redirect happens. A shared
+browser stops holding the previous user's conversation titles, and "permanently delete your account,
+conversations, memories" now includes the copies on this machine.
+
+**`readThreadWindow` and `listThreadMessages` differed only in a case that is now shared.** One
+tolerated a thread that did not exist yet because the page called it before the first message was
+written; the other refused, because only an already-navigated client called it. The client now reads
+the first window through the same path, so there is one function and one rule (C8). The test that
+pinned the difference now pins the tolerance.
+
+### Not measured, and not claimed
+
+- **No budget has been verified on a production deployment**, because there is not one yet: Phase K
+  items 1–4 are still open. The instrumentation is in place and the dashboard reports it; the numbers
+  are not.
+- **`pnpm test:e2e` has not been run against these changes.** `tests/e2e/instant.spec.ts` asserts the
+  three client-side exit criteria — offline revisit, optimistic sidebar, no list refetch — by holding
+  the network open or switching it off, but this machine has no Docker daemon and no reachable
+  Postgres, so it has not executed. Everything that does not need a database is green:
+  `pnpm typecheck`, `pnpm lint`, `pnpm build`, and 392 passing unit tests (up from 357).
+- **`experimental.staleTimes` was considered and left alone.** Raising `staleTimes.dynamic` would
+  keep visited routes in the client router cache and help back/forward navigation — but it applies to
+  every route, including the memory centre and the operations dashboard, whose server-rendered data
+  would then be served stale. Prefetch-on-intent already covers the path the budgets describe.
 
 ### Phase L status
 
-> **`NOT DONE`**
+> **`WIP`** — all six work items shipped and the budgets are instrumented, but two exit criteria
+> cannot be checked from here:
+>
+> 1. **"Every budget is met on the production deployment"** needs a production deployment, which is
+>    Phase K items 1–4. The budgets are declared, measured and on the dashboard; nothing has been
+>    measured _in production_ and this document does not claim otherwise.
+> 2. **The three browser-side criteria are asserted by an E2E spec that has not run here** — no
+>    Docker, no Postgres. They are implemented and reviewed, not verified.
+>
+> Everything else in the exit list is done and checkable locally: the TTFT breakdown exists as a
+> named trace, no sidebar mutation refetches the list, and cached records are parsed into named types
+> with no new lint suppression.
 
 ---
 
