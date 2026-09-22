@@ -47,6 +47,15 @@ const NAMESPACES = [
 ];
 
 /**
+ * A stack of Tailwind variants: `hover:`, `data-[active=true]:`,
+ * `group-data-[collapsible=icon]:`, `supports-[backdrop-filter]:` and the
+ * arbitrary `[&_svg]:` form. Capturing the whole stack matters — Tailwind
+ * emits the selector for the *full* chain and nothing for its tail, so a
+ * candidate that starts at `text-` would be reported missing every time.
+ */
+const VARIANT = String.raw`(?:(?:\[[^\]\s]*\]|[a-z0-9@-]+(?:-\[[^\]\s]*\])?):)*`;
+
+/**
  * A candidate class inside a string literal. Loose on the left — it has to
  * survive `hover:`, `data-[active=true]:` and
  * `group-data-[collapsible=icon]:` — and anchored on a utility prefix, without
@@ -54,7 +63,9 @@ const NAMESPACES = [
  * ordinary TypeScript would be read as a class name.
  */
 const CANDIDATE = new RegExp(
-  String.raw`(?<![\w-])((?:[a-z0-9-]+(?:-\[[^\]\s]*\])?:)*-?` +
+  String.raw`(?<![\w-])(` +
+    VARIANT +
+    String.raw`-?` +
     String.raw`(?:bg|text|border|ring|inset-ring|outline|divide|placeholder|caret|accent|decoration|fill|stroke|shadow|inset-shadow|from|via|to|blur|backdrop-blur|duration|ease|rounded)-` +
     String.raw`(?:${NAMESPACES.join("|")})(?:-[a-z0-9]+)*(?:\/(?:\d{1,3}|\[[^\]\s]*\]))?)(?![\w-])`,
   "gu",
@@ -68,7 +79,9 @@ const CANDIDATE = new RegExp(
  * it takes the whole class down rather than one token.
  */
 const FOREIGN_NAMESPACE = new RegExp(
-  String.raw`(?<![\w-])(?:[a-z0-9-]+(?:-\[[^\]\s]*\])?:)*-?` +
+  String.raw`(?<![\w-])` +
+    VARIANT +
+    String.raw`-?` +
     String.raw`(?:bg|text|border|ring|inset-ring|outline|shadow|inset-shadow|from|via|to)-` +
     String.raw`([a-z]{4,})-[a-z0-9-]+(?![\w-])`,
   "gu",
@@ -101,8 +114,20 @@ const STRING_LITERAL = /"([^"\\\n]*)"|'([^'\\\n]*)'|`([^`\\]*)`/gu;
  */
 const CLASS_LIST = /^[a-z0-9\s:_/[\]().,%#&*<>=+-]*$/u;
 
-/** `glass` and `glass-strong` are utilities, not namespaced colour classes. */
-const BARE_UTILITIES = ["glass", "glass-strong"];
+/**
+ * The composed utilities, which carry no colour prefix to anchor on. Ordered
+ * longest first so `brand-wash-tile` is not reported as `brand-wash`.
+ */
+const BARE_UTILITIES = [
+  "brand-action-vivid",
+  "brand-wash-tile",
+  "brand-action",
+  "brand-glass",
+  "brand-wash",
+  "brand-rule",
+  "glass-strong",
+  "glass",
+];
 
 type Usage = {
   readonly className: string;
@@ -207,9 +232,15 @@ function isOneEditApart(left: string, right: string): boolean {
   return edits + (longer.length - longIndex) + (shorter.length - shortIndex) === 1;
 }
 
-/** How Tailwind escapes a class name when it writes the selector. */
+/**
+ * How Tailwind escapes a class name when it writes the selector: everything
+ * that is not a word character or a hyphen takes a backslash. Naming the
+ * characters individually is what made this miss `=`, and a missed escape
+ * reports a class that is present as absent — the failure mode that makes a
+ * guard worse than no guard.
+ */
 function escapeSelector(className: string): string {
-  return className.replaceAll(/[:/.[\]()%,#]/gu, (char) => `\\${char}`);
+  return className.replaceAll(/[^\w-]/gu, (char) => `\\${char}`);
 }
 
 async function collectUsages(): Promise<Usage[]> {
@@ -239,8 +270,10 @@ async function collectUsages(): Promise<Usage[]> {
 
         if (!CLASS_LIST.test(text)) continue;
         for (const utility of BARE_UTILITIES) {
-          if (new RegExp(String.raw`(?<![\w-])${utility}(?![\w-])`, "u").test(text)) {
-            usages.push({ className: utility, file });
+          const pattern = new RegExp(String.raw`(?<![\w-])(${VARIANT}${utility})(?![\w-])`, "gu");
+          for (const match of text.matchAll(pattern)) {
+            const className = match[1];
+            if (className !== undefined) usages.push({ className, file });
           }
         }
       }

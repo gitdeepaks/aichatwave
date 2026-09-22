@@ -113,7 +113,11 @@ export function SidebarFooterComponent() {
               {showProMemberCta ? (
                 <>
                   <DropdownMenuGroup>
-                    <DropdownMenuItem className="bg-[#373669] border-[#3e3e4a] text-white !hover:bg-[#373669]/60 text-[12px] font-medium">
+                    {/* Ember on glass, not the indigo `#373669` this was. That indigo was the
+    only one in the product and belonged to no scale; and the hover it
+    carried was written `!hover:bg-…`, which is not a class Tailwind
+    generates, so the badge never had a hover state at all. */}
+                    <DropdownMenuItem className="border-hairline bg-glass-strong text-xs font-medium text-brand-text-strong hover:bg-glass-heavy">
                       <Sparkles />
                       Pro Member
                     </DropdownMenuItem>

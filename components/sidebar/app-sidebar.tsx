@@ -38,10 +38,10 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         )}
       </SidebarContent>
 
-      <SidebarFooter role="contentinfo" className="border-t border-white/[0.06] pt-1">
+      <SidebarFooter role="contentinfo" className="border-t border-hairline-subtle pt-1">
         <SidebarFooterComponent />
       </SidebarFooter>
-      <SidebarRail className="after:bg-orange-400/30 hover:after:bg-orange-400/50" />
+      <SidebarRail className="after:bg-brand/30 hover:after:bg-brand/50" />
     </Sidebar>
   );
 }

@@ -417,6 +417,92 @@
   box-shadow: var(--inset-shadow-highlight);
 }
 
+/* ── The brand gradients, spelled once (Phase L2 item 5) ─────────────────────
+
+   Five recurring surfaces, found written twenty different ways across the app:
+   the filled call-to-action, the send button, the active-row wash, the tinted
+   glass panel, and the hairline rule that fades in from both ends. No two
+   instances of any of them agreed — `from-orange-500/20 to-red-600/12` and
+   `from-orange-500/25 to-red-600/15` are the same surface at two alphas
+   nobody chose on purpose.
+
+   Each carries its own `:hover` where it has one. A hover state written at the
+   call site is a second decision about the same surface, and it is the one
+   that drifts first: three of the six call-to-action buttons had a hover
+   gradient and three did not.
+
+   The values read from the ramps rather than the roles because a gradient is
+   two or three specific steps of a ramp, which is what a ramp is for. The rule
+   that components may not do this still holds — this is the token layer. */
+
+@utility brand-action {
+  background-image: linear-gradient(to right, var(--ember-500), var(--crimson-600));
+
+  &:hover {
+    background-image: linear-gradient(to right, var(--ember-400), var(--crimson-500));
+  }
+}
+
+/* The send button: the brightest surface in the product, and the only one that
+   reads as lit rather than tinted. It is the primary action of the primary
+   screen, which is the one place ADR-0010's restraint rule spends everything. */
+@utility brand-action-vivid {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--ember-200),
+    var(--ember-300),
+    var(--amber-400)
+  );
+
+  &:hover {
+    background-image: linear-gradient(to bottom right, var(--ember-100), var(--ember-300));
+  }
+}
+
+/* Active state on a row — a selected thread, the current nav item. */
+@utility brand-wash {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--ember-500) 22%, transparent),
+    color-mix(in oklab, var(--crimson-600) 13%, transparent)
+  );
+}
+
+/* The same wash on a square: the brand tile, the icon chip. */
+@utility brand-wash-tile {
+  background-image: linear-gradient(
+    to bottom right,
+    color-mix(in oklab, var(--ember-500) 28%, transparent),
+    color-mix(in oklab, var(--crimson-600) 15%, transparent)
+  );
+}
+
+/* A glass panel with the ember warmed into it. Pair with `border-glass-border`
+   and a radius; the fill is this rather than `glass` because the tint is the
+   point. */
+@utility brand-glass {
+  background-image: linear-gradient(
+    to bottom right,
+    color-mix(in oklab, var(--ember-300) 20%, transparent),
+    var(--glass-fill-strong),
+    color-mix(in oklab, var(--crimson-500) 10%, transparent)
+  );
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+}
+
+/* The hairline that fades in from both ends — a divider that is brightest in
+   the middle, used under headings and between sections. It is a background,
+   so it needs a height: pair with `h-px`. */
+@utility brand-rule {
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--ember-200) 45%, transparent),
+    transparent
+  );
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

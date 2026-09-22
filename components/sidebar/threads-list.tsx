@@ -48,11 +48,11 @@ type ThreadsListProps = {
 };
 
 const listItemClass = cn(
-  "h-9 w-full rounded-[10px] px-2.5 text-left text-[13px] font-medium transition-all duration-200 ease-out",
-  "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100",
-  "data-[active=true]:bg-gradient-to-r data-[active=true]:from-orange-500/20 data-[active=true]:to-red-600/12",
-  "data-[active=true]:text-white data-[active=true]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/25 active:scale-[0.99]",
+  "h-9 w-full rounded-lg px-2.5 text-left text-sm font-medium transition-all duration-base ease-out",
+  "text-fg-muted hover:bg-glass hover:text-fg-strong",
+  "data-[active=true]:brand-wash data-[active=true]:text-fg-bright",
+  "data-[active=true]:inset-shadow-hairline",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-strong/25 active:scale-[0.99]",
 );
 
 function firstPageCursor(): string | undefined {
@@ -175,20 +175,20 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
 
   return (
     <SidebarGroup className="p-0 group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel className="mb-1 mt-4 px-3 text-[12px] font-medium uppercase tracking-wider text-zinc-500">
+      <SidebarGroupLabel className="mb-1 mt-4 px-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
         {label}
       </SidebarGroupLabel>
 
       {query.isError ? (
         <div className="px-3 py-2">
-          <div className="mb-2 flex items-center gap-2 text-xs text-red-400">
+          <div className="mb-2 flex items-center gap-2 text-xs text-destructive">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{query.error.message || "Failed to load threads"}</span>
           </div>
           <button
             type="button"
             onClick={() => void query.refetch()}
-            className="h-8 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs text-zinc-200 transition-colors hover:bg-white/[0.1]"
+            className="h-8 rounded-xl border border-hairline bg-glass px-3 text-xs text-fg transition-colors hover:bg-glass-strong"
           >
             Try again
           </button>
@@ -211,7 +211,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
               Array.from({ length: pinned ? 2 : 6 }).map((_, index) => (
                 <SidebarMenuItem key={index} aria-hidden>
                   <div className={cn(listItemClass, "pointer-events-none")}>
-                    <Skeleton className="h-4 w-full bg-white/[0.06]" />
+                    <Skeleton className="h-4 w-full bg-glass" />
                   </div>
                 </SidebarMenuItem>
               ))
@@ -229,7 +229,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                           if (event.key === "Escape") setRenamingId(null);
                         }}
                         aria-label="Conversation title"
-                        className="h-9 w-full rounded-[10px] border border-orange-300/40 bg-zinc-900/80 px-2.5 text-[13px] text-zinc-100 outline-none"
+                        className="h-9 w-full rounded-lg border border-brand-text/40 bg-surface-raised/80 px-2.5 text-sm text-fg-strong outline-none"
                       />
                     </SidebarMenuItem>
                   );
@@ -272,7 +272,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                         <button
                           type="button"
                           aria-label={`Actions for ${thread.title}`}
-                          className="absolute right-1 top-1/2 flex h-7 w-6 -translate-y-1/2 items-center justify-center rounded-md text-zinc-500 opacity-0 transition-opacity hover:bg-white/10 hover:text-zinc-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/25 group-hover/item:opacity-100"
+                          className="absolute right-1 top-1/2 flex h-7 w-6 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle opacity-0 transition-opacity hover:bg-glass-strong hover:text-fg-strong focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-strong/25 group-hover/item:opacity-100"
                         >
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
@@ -343,7 +343,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
               visible text is the reason it is serious. Same for the button
               below. */}
           {!query.isLoading && threads.length === 0 ? (
-            <li className="px-3 py-2 text-xs text-zinc-500">
+            <li className="px-3 py-2 text-xs text-fg-subtle">
               {view === "archived" ? "No archived conversations." : "No conversations yet."}
             </li>
           ) : null}
@@ -354,7 +354,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                 type="button"
                 disabled={query.isFetchingNextPage}
                 onClick={() => void query.fetchNextPage()}
-                className="mx-2 mt-1 flex h-8 items-center justify-center gap-2 rounded-lg text-xs text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-300 disabled:opacity-50"
+                className="mx-2 mt-1 flex h-8 items-center justify-center gap-2 rounded-lg text-xs text-fg-subtle transition-colors hover:bg-glass hover:text-fg-soft disabled:opacity-50"
               >
                 {query.isFetchingNextPage && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
                 {query.isFetchingNextPage ? "Loading" : "Show older"}

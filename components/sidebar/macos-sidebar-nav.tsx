@@ -51,10 +51,10 @@ const primaryNav = [
 }>;
 
 const macosItemClass =
-  "h-9 rounded-[10px] px-2.5 text-[13px] font-medium text-zinc-300 transition-colors duration-200 ease-out " +
-  "hover:bg-white/[0.08] hover:text-white " +
-  "data-[active=true]:bg-gradient-to-r data-[active=true]:from-orange-500/25 data-[active=true]:to-red-600/15 " +
-  "data-[active=true]:text-white data-[active=true]:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] " +
+  "h-9 rounded-lg px-2.5 text-sm font-medium text-fg-soft transition-colors duration-base ease-out " +
+  "hover:bg-glass-strong hover:text-fg-bright " +
+  "data-[active=true]:brand-wash data-[active=true]:text-fg-bright " +
+  "data-[active=true]:inset-shadow-hairline " +
   "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0";
 
 export function MacosSidebarNav({
@@ -75,7 +75,7 @@ export function MacosSidebarNav({
       <SidebarHeader role="banner" className="gap-3 px-2 pb-1 pt-3">
         <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px] bg-gradient-to-br from-orange-500/30 to-red-600/15 ring-1 ring-white/10 shadow-[0_2px_12px_-4px_rgba(249,115,22,0.35)]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg brand-wash-tile shadow-glow-sm ring-1 ring-hairline">
               <Image
                 src={BRAND_LOGO_SRC}
                 alt="AIChatWave"
@@ -85,16 +85,16 @@ export function MacosSidebarNav({
                 priority
               />
             </div>
-            <span className="truncate text-[15px] font-semibold tracking-tight text-white group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-base font-semibold tracking-tight text-fg-bright group-data-[collapsible=icon]:hidden">
               AIChatWave
             </span>
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
             <SidebarTrigger
               className={cn(
-                "h-8 w-8 shrink-0 rounded-lg text-zinc-400",
-                "hover:bg-white/10 hover:text-zinc-100",
-                "transition-colors duration-200",
+                "h-8 w-8 shrink-0 rounded-lg text-fg-muted",
+                "hover:bg-glass-strong hover:text-fg-strong",
+                "transition-colors duration-base",
               )}
             />
           </div>
@@ -117,9 +117,9 @@ export function MacosSidebarNav({
               onClick={openPalette}
               className={macosItemClass}
             >
-              <Search className="h-4 w-4 shrink-0 text-zinc-500 transition-colors" />
+              <Search className="h-4 w-4 shrink-0 text-fg-subtle transition-colors" />
               <span className="group-data-[collapsible=icon]:sr-only">Search</span>
-              <kbd className="ml-auto text-[10px] text-zinc-600 group-data-[collapsible=icon]:hidden">
+              <kbd className="ml-auto text-2xs text-fg-faint group-data-[collapsible=icon]:hidden">
                 ⌘K
               </kbd>
             </SidebarMenuButton>
@@ -141,13 +141,13 @@ export function MacosSidebarNav({
                     onClick={() => onViewChange("active")}
                     className={cn(
                       "flex w-full items-center gap-2.5",
-                      !isActive && "hover:[&_svg]:text-orange-200/85",
+                      !isActive && "hover:[&_svg]:text-brand-text-strong/85",
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0 transition-colors",
-                        isActive ? "text-orange-300" : "text-zinc-500",
+                        isActive ? "text-brand-text" : "text-fg-subtle",
                       )}
                     />
                     <span className="group-data-[collapsible=icon]:sr-only">{item.title}</span>
@@ -168,7 +168,7 @@ export function MacosSidebarNav({
               <Archive
                 className={cn(
                   "h-4 w-4 shrink-0 transition-colors",
-                  view === "archived" ? "text-orange-300" : "text-zinc-500",
+                  view === "archived" ? "text-brand-text" : "text-fg-subtle",
                 )}
               />
               <span className="group-data-[collapsible=icon]:sr-only">Archived</span>
