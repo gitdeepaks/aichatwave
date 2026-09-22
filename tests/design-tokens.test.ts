@@ -240,6 +240,111 @@ test("a documented declaration inside a comment is not read as a real one", () =
   assert.equal(layer.tokens.has("--real"), true);
 });
 
+/* ── Scales (Phase L2 item 5) ───────────────────────────────────────────── */
+
+test("the elevation scale is four black lifts and nothing coloured", () => {
+  const steps = ["sm", "md", "lg", "xl"].map((step) => `--shadow-elevation-${step}`);
+
+  for (const step of steps) {
+    const token = LAYER.tokens.get(step);
+    assert.ok(token !== undefined, `${step} is not declared`);
+    assert.equal(token.value.kind, "other", `${step} should be a shadow, not a colour`);
+    assert.ok(token.value.kind === "other" && token.value.raw.includes("oklch(0% 0 0"));
+    assert.ok(
+      token.value.kind === "other" && !token.value.raw.includes("--brand"),
+      `${step} carries the brand; a coloured shadow is a glow and belongs on the other scale`,
+    );
+  }
+});
+
+test("every brand glow takes its colour from the brand rather than a literal", () => {
+  const glows = [...LAYER.tokens.keys()].filter((name) => name.startsWith("--shadow-glow-"));
+
+  assert.equal(glows.length, 5, "thirty arbitrary shadows collapse to four lifts and five glows");
+  for (const name of glows) {
+    const token = LAYER.tokens.get(name);
+    assert.ok(token !== undefined);
+    assert.ok(
+      token.value.kind === "other" && /var\(--brand(-strong)?\)/u.test(token.value.raw),
+      `${name} does not read from the brand`,
+    );
+  }
+});
+
+test("the motion scale is one duration set and one emphasis curve", () => {
+  const durations = [...LAYER.tokens.keys()].filter((name) => name.startsWith("--duration-"));
+  assert.deepEqual(durations.sort(), [
+    "--duration-base",
+    "--duration-fast",
+    "--duration-slow",
+    "--duration-slower",
+  ]);
+
+  const ease = LAYER.tokens.get("--ease-emphasis");
+  assert.ok(ease !== undefined);
+  assert.ok(ease.value.kind === "other" && ease.value.raw.startsWith("cubic-bezier("));
+});
+
+test("the added type and radius steps exist, and Tailwind's own are untouched", () => {
+  const twoXs = LAYER.tokens.get("--text-2xs");
+  assert.ok(twoXs !== undefined, "--text-2xs is the one new type step");
+  assert.ok(
+    LAYER.tokens.has("--text-2xs--line-height"),
+    "a type step without a line height is half a step",
+  );
+  assert.ok(LAYER.tokens.has("--radius-5xl"));
+
+  // Redefining `--text-sm` would silently move 76 existing call sites.
+  for (const step of ["--text-xs", "--text-sm", "--text-base", "--text-lg"]) {
+    assert.equal(LAYER.tokens.has(step), false, `${step} is Tailwind's and must stay Tailwind's`);
+  }
+});
+
+test("the glass utility is declared once, in both heavinesses, with the prefixed filter", () => {
+  for (const name of ["glass", "glass-strong"]) {
+    const block = utilityBlock(name);
+    assert.ok(block !== undefined, `@utility ${name} is missing`);
+    assert.match(block, /blur\(var\(--blur-glass\)\)/u);
+    // Safari still ships the prefixed property; without it the fill renders
+    // flat and the blur simply does not happen.
+    assert.match(block, /-webkit-backdrop-filter/u);
+    assert.match(block, /var\(--inset-shadow-highlight\)/u);
+    // Radius and border are the caller's: a glass panel is a card in one place
+    // and a full-bleed bar in another.
+    assert.equal(/border(?!-)/u.test(block), false, `@utility ${name} bakes in a border`);
+    assert.equal(/border-radius/u.test(block), false, `@utility ${name} bakes in a radius`);
+  }
+});
+
+test("the four glass fills ascend in alpha", () => {
+  const alphas = [
+    "--glass-fill",
+    "--glass-fill-strong",
+    "--glass-fill-heavy",
+    "--glass-fill-solid",
+  ].map((name) => {
+    const resolution = resolveColor(LAYER, name);
+    assert.ok(resolution.ok, `${name} does not resolve`);
+    return resolution.color.alpha;
+  });
+
+  for (let index = 1; index < alphas.length; index += 1) {
+    const previous = alphas[index - 1];
+    const current = alphas[index];
+    assert.ok(previous !== undefined && current !== undefined);
+    assert.ok(current > previous, "a glass weight that is not heavier than the last says nothing");
+  }
+});
+
+/** The body of `@utility <name> { … }`, or undefined if it is not declared. */
+function utilityBlock(name: string): string | undefined {
+  const start = CSS.indexOf(`@utility ${name} {`);
+  if (start === -1) return undefined;
+
+  const end = CSS.indexOf("}", start);
+  return end === -1 ? undefined : CSS.slice(start, end);
+}
+
 /** OKLCH components compared at the precision the stylesheet writes them. */
 function sameColor(left: OklchColor, right: OklchColor): boolean {
   return (

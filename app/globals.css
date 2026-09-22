@@ -89,6 +89,8 @@
   /* Glass — the product's signature surface, spelled once. */
   --color-glass: var(--glass-fill);
   --color-glass-strong: var(--glass-fill-strong);
+  --color-glass-heavy: var(--glass-fill-heavy);
+  --color-glass-solid: var(--glass-fill-solid);
   --color-glass-border: var(--glass-border);
   --color-glass-highlight: var(--glass-highlight);
 
@@ -115,6 +117,72 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-text: var(--danger-text);
   --color-danger-surface: var(--danger-surface);
+
+  /* ── Design system, Phase L2 item 5 ─────────────────────────────────────
+     Type, radius, elevation, blur and motion, each a named scale.
+
+     The counts these replace: 24 distinct arbitrary font sizes, 19 radii, 30
+     shadows and three blur radii, chosen per component. The cost was never any
+     one of them — it was that choosing was a decision every component had to
+     make, and `text-[15px]`, `text-[16px]` and `text-[17px]` are three answers
+     to a question whose answers are indistinguishable.
+
+     Tailwind's own steps are kept at their default values rather than
+     redefined. 164 uses of `text-sm`, `text-xs` and their neighbours already
+     sit on them, and a design system that moves 164 existing call sites to
+     tidy up 129 is not tidying up. What is added is the steps the product
+     needed and did not have. */
+
+  /* Type. Seven UI steps — 2xs, xs, sm, base, lg, xl, 2xl — of which only
+     `2xs` is new; the display sizes land on Tailwind's 3xl…7xl. The arbitrary
+     sizes move by at most 2px at UI sizes, which is the collapse this item
+     asks for rather than a regression. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: calc(0.875 / 0.625);
+
+  /* Radius. `--radius` drives sm…4xl above; `5xl` is the pill-adjacent step
+     the composer and the marketing cards were reaching for at `rounded-[2rem]`
+     and `rounded-[32px]`. */
+  --radius-5xl: calc(var(--radius) + 22px);
+
+  /* Elevation. Four lifts, and every one of them is black — a shadow is the
+     absence of light, and a coloured one is a glow, which is the next scale.
+     The inset highlight that the glass surfaces pair with a lift is a separate
+     token, below, because the two are composed independently. */
+  --shadow-elevation-sm: 0 12px 36px -22px oklch(0% 0 0 / 0.7);
+  --shadow-elevation-md: 0 18px 48px -30px oklch(0% 0 0 / 0.9);
+  --shadow-elevation-lg: 0 24px 72px -38px oklch(0% 0 0 / 0.95);
+  --shadow-elevation-xl: 0 40px 120px -52px oklch(0% 0 0 / 1);
+
+  /* Glow. The brand, thrown. ADR-0010 reserves it for the primary action, the
+     focus ring and active state, so these are the shadows those three wear.
+     `ring` is the streaming indicator's halo; `up` is the composer's wash,
+     which throws light at the transcript above it rather than the page below. */
+  --shadow-glow-sm: 0 2px 12px -4px color-mix(in oklab, var(--brand-strong) 35%, transparent);
+  --shadow-glow-md: 0 14px 34px -16px color-mix(in oklab, var(--brand) 90%, transparent);
+  --shadow-glow-lg: 0 24px 60px -34px color-mix(in oklab, var(--brand) 45%, transparent);
+  --shadow-glow-ring: 0 0 12px color-mix(in oklab, var(--brand) 85%, transparent);
+  --shadow-glow-up: 0 -24px 70px -58px color-mix(in oklab, var(--brand) 80%, transparent);
+
+  /* Hairlines drawn as shadows rather than borders, which is how a 1px rule is
+     added to an element whose border is already spoken for. */
+  --shadow-hairline: 0 0 0 1px var(--hairline-subtle);
+  --inset-shadow-hairline: inset 0 0 0 1px var(--glass-fill-strong);
+  --inset-shadow-highlight: inset 0 1px 0 var(--glass-highlight);
+  --inset-shadow-highlight-strong: inset 0 1px 0 oklch(100% 0 0 / 55%);
+
+  /* Blur. Two, and the first is the one the `glass` utility uses. */
+  --blur-glass: 24px;
+  --blur-glass-heavy: 40px;
+
+  /* Motion. One duration set and one emphasis curve for the whole app.
+     `emphasis` is the overshoot-free ease-out the auth screens were spelling
+     as `cubic-bezier(0.22, 1, 0.36, 1)` in three places. */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-slower: 520ms;
+  --ease-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -285,8 +353,15 @@
   /* Fill, border and inset highlight of the translucent panel. The blur radius
      and the composed utility arrive with the scales in item 5; these are the
      colours, which is what item 1 owns. */
+  /* Four weights: resting, hover, pressed, and the one a disabled control
+     sits on. Eighteen hand-rolled variations between 3% and 20% collapsed
+     to these; the largest move any of them makes is 1.5 percentage points
+     of white over a near-black ground, which is under two levels per
+     channel. */
   --glass-fill: oklch(100% 0 0 / 4.5%);
   --glass-fill-strong: oklch(100% 0 0 / 8.5%);
+  --glass-fill-heavy: oklch(100% 0 0 / 14%);
+  --glass-fill-solid: oklch(100% 0 0 / 20%);
   --glass-border: oklch(100% 0 0 / 10%);
   --glass-highlight: oklch(100% 0 0 / 5%);
 
@@ -310,6 +385,36 @@
   --danger-foreground: var(--ink-50);
   --danger-text: var(--crimson-300);
   --danger-surface: var(--crimson-950);
+}
+
+/* ── The glass panel, spelled once (Phase L2 item 5) ─────────────────────────
+
+   The product's most recognisable surface was also its least consistent: 18
+   hand-rolled combinations of `backdrop-blur-*`, a translucent white fill and
+   an inset top highlight, no two of them alike. This is the treatment, and the
+   only thing a component chooses is how heavy it is.
+
+   Radius and border are deliberately left out. A glass panel is a rounded card
+   in one place and a full-bleed bar in another, and baking either in would
+   mean every second caller overriding it. Pair with `border border-glass-border`
+   and a radius from the scale.
+
+   `-webkit-backdrop-filter` is not redundant: Safari still ships the prefixed
+   property, and without it the fill renders as flat translucent white with no
+   blur behind it — which reads as a mistake rather than as a different look. */
+
+@utility glass {
+  background-color: var(--glass-fill);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--inset-shadow-highlight);
+}
+
+@utility glass-strong {
+  background-color: var(--glass-fill-strong);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--inset-shadow-highlight);
 }
 
 @layer base {

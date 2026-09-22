@@ -36,7 +36,8 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "test:e2e:run": "node --env-file-if-exists=.env node_modules/@playwright/test/cli.js test",
     "test:integration": "cross-env TEST_REQUIRE_DATABASE=1 node --import tsx --test \"tests/integration/**/*.test.ts\" \"tests/service/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "design:verify": "node --import tsx scripts/check-design-tokens.ts"
   },
   "dependencies": {
     "@ai-sdk/langchain": "^3.0.11",
