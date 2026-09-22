@@ -706,7 +706,36 @@ the light theme the ADR called "a project" is a second block of variable declara
 
 ### Phase L2 status
 
-> **`NOT DONE`**
+> **`WIP`** — the system exists and is enforced; the migration is 4 files of 40 done.
+>
+> **Shipped.** Items 1, 2, 4 and 5, and the first slice of item 3.
+>
+> - The token layer: ember and neutral ramps, and roles on top of them for brand, seven text
+>   weights, four surface elevations, glass, hairlines and the state trio. `--primary`, `--ring`,
+>   `--border`, `--destructive` and the sidebar tokens read from those roles. Zero `rgb()` literals
+>   remain in `app/globals.css`.
+> - ADR-0010 records the identity decision — keep ember-on-zinc, reserve it for the primary action,
+>   the focus ring and active state — and the scrollbar thumb has returned to neutral.
+> - Type, radius, elevation, glow, blur and motion scales, and eight composed utilities replacing 18
+>   hand-rolled glass treatments and 20 hand-rolled brand gradients.
+> - `design/no-raw-palette` rejects every palette literal and arbitrary colour outside
+>   `components/ui/`, with a named ratchet of the files not yet migrated. A test runs the rule over
+>   every `.tsx` and asserts the offending set equals the list exactly, so the number can only go
+>   down.
+> - `pnpm design:verify` checks the built stylesheet for every design-system class the source uses,
+>   which is the one failure mode nothing else catches: a theme key that is not there compiles to no
+>   class at all, with no error.
+> - `docs/design-system.md` is the substitution table the remaining files are migrated against.
+>
+> **Not done.** Item 3 for the other 36 files (567 literals: chat, marketing, auth, admin,
+> workspace, gen-UI and the shared components), and items 6 through 10 — the light theme and the
+> ADR-0005 supersession, the automated contrast audit, the density control, the chart ramp, and the
+> pass over the marketing, OG, empty-state and error surfaces. No exit criterion is met yet: the
+> ratchet is at 36, not 0.
+>
+> **Two deliberate visual changes so far**, both from item 2 rather than from the migration:
+> repointing `--primary` from the stock shadcn grey to the brand, which moved 21 uses — most of
+> them inside `components/ui/` — and the scrollbar thumb going neutral.
 
 ---
 
