@@ -1,5 +1,7 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import tseslint from "typescript-eslint";
+import noRawPalette from "./eslint-rules/no-raw-palette.mjs";
+import { UNMIGRATED_PALETTE_FILES } from "./eslint-rules/unmigrated-palette-files.mjs";
 import unknownParseBoundary from "./eslint-rules/unknown-parse-boundary.mjs";
 
 /**
@@ -116,6 +118,20 @@ export default [
     plugins: { local: unknownParseBoundary },
     rules: {
       "local/parse-boundary-only": "error",
+    },
+  },
+
+  // Phase L2 item 4: a colour is named once, in the token layer. The `allow`
+  // list is the migration's ratchet — a file leaves it when it is migrated and
+  // can never regress afterwards. It reaching `[]` is the phase's exit
+  // criterion. `components/ui/` is exempt for the same reason it is exempt
+  // from the type rules: it is shadcn output a regeneration would revert.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    ignores: VENDORED,
+    plugins: { design: noRawPalette },
+    rules: {
+      "design/no-raw-palette": ["error", { allow: UNMIGRATED_PALETTE_FILES }],
     },
   },
 
