@@ -46,6 +46,75 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ── Design system, Phase L2 item 1 ─────────────────────────────────────
+     Semantic roles only. The raw ramps below are declared once in
+     `:root, .dark`; what a component may name is a role — `bg-surface-raised`,
+     `text-fg-muted`, `border-hairline` — never a ramp step and never a
+     Tailwind palette literal. `eslint-rules/no-raw-palette.mjs` enforces that.
+
+     Deliberately *not* exposed: a neutral ramp. Exposing `--color-neutral-400`
+     would only rename `zinc-400` and leave the same 467 per-component
+     decisions in place. Every neutral in this product is either text at one of
+     seven weights or a surface at one of four elevations, and those are the
+     names below. */
+
+  /* Brand — ember. `--brand` is the identity value; the ramp it points into
+     lives in `:root, .dark` and is the only place an ember number is written. */
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-text: var(--brand-text);
+  --color-brand-text-strong: var(--brand-text-strong);
+  --color-brand-text-bright: var(--brand-text-bright);
+  --color-brand-surface: var(--brand-surface);
+
+  /* Text, seven weights, brightest to faintest. */
+  --color-fg-bright: var(--fg-bright);
+  --color-fg-strong: var(--fg-strong);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-faint: var(--fg-faint);
+
+  /* Surfaces, four elevations. `surface` is the page; `sunken` is the well a
+     composer or code block sits in; `raised` is a panel; `overlay` is a
+     dialog, popover or sheet — the only one that floats above everything. */
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+
+  /* Glass — the product's signature surface, spelled once. */
+  --color-glass: var(--glass-fill);
+  --color-glass-strong: var(--glass-fill-strong);
+  --color-glass-border: var(--glass-border);
+  --color-glass-highlight: var(--glass-highlight);
+
+  /* Hairlines. `--border` stays what shadcn's components read; these are the
+     two weights the product's own surfaces use either side of it. */
+  --color-hairline-subtle: var(--hairline-subtle);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  /* States. `--streaming` is its own name rather than an alias of `--brand`
+     so the restraint rule in ADR-0010 can move it without moving the action
+     colour with it. */
+  --color-streaming: var(--streaming);
+  --color-success: var(--success);
+  --color-success-strong: var(--success-strong);
+  --color-success-text: var(--success-text);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-text: var(--warning-text);
+  --color-warning-surface: var(--warning-surface);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-text: var(--danger-text);
+  --color-danger-surface: var(--danger-surface);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -88,18 +157,28 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  /* Repointed at the brand. `--primary` means "the primary action colour",
+     and the primary action in this product has always been ember — it was
+     just written as `orange-…` in every component instead of here, while
+     this token kept the stock shadcn grey nothing had revisited. */
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  /* shadcn's own role, kept at the value it already had (crimson-400) and
+     now sourced from the ramp. It is deliberately not `var(--danger)`:
+     `destructive` is the button variant, `--danger` is the product's error
+     surface, and they sit at different weights on the same ramp. */
+  --destructive: var(--crimson-400);
+  --border: var(--hairline);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* The focus ring is one of the three places ADR-0010 reserves for the
+     brand. It was a grey that `:focus-visible` below already overrode. */
+  --ring: var(--brand);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -107,12 +186,130 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.17 0.012 55);
   --sidebar-foreground: oklch(0.96 0.01 75);
-  --sidebar-primary: oklch(0.7 0.18 55);
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: var(--brand);
+
+  /* ═══ Design system, Phase L2 item 1 ═════════════════════════════════════
+
+     Two layers, and the order matters.
+
+     First the ramps — raw colour, written as numbers, in exactly one place.
+     Second the roles — every token a component is allowed to name, each one a
+     `var()` into a ramp step. A component never reads a ramp; the lint rule
+     will not let it. That indirection is the whole phase: changing `--brand`
+     below restyles the product, and adding a light theme becomes a second
+     block of role assignments rather than an audit of 467 literals.
+
+     The ramp values are Tailwind v4's own `orange`, `zinc`, `emerald`, `amber`
+     and `red`, copied verbatim from `tailwindcss/theme.css`. That is
+     deliberate: the migration in item 3 has to be a substitution that moves no
+     pixel, and it can only be that if `--brand-text` and `orange-300` are the
+     same colour to the last digit.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ── Ramp: ember ──────────────────────────────────────────────────────── */
+  --ember-50: oklch(98% 0.016 73.684);
+  --ember-100: oklch(95.4% 0.038 75.164);
+  --ember-200: oklch(90.1% 0.076 70.697);
+  --ember-300: oklch(83.7% 0.128 66.29);
+  --ember-400: oklch(75% 0.183 55.934);
+  --ember-500: oklch(70.5% 0.213 47.604);
+  --ember-600: oklch(64.6% 0.222 41.116);
+  --ember-700: oklch(55.3% 0.195 38.402);
+  --ember-800: oklch(47% 0.157 37.304);
+  --ember-900: oklch(40.8% 0.123 38.172);
+  --ember-950: oklch(26.6% 0.079 36.259);
+
+  /* ── Ramp: neutral ────────────────────────────────────────────────────── */
+  --ink-50: oklch(98.5% 0 0);
+  --ink-100: oklch(96.7% 0.001 286.375);
+  --ink-200: oklch(92% 0.004 286.32);
+  --ink-300: oklch(87.1% 0.006 286.286);
+  --ink-400: oklch(70.5% 0.015 286.067);
+  --ink-500: oklch(55.2% 0.016 285.938);
+  --ink-600: oklch(44.2% 0.017 285.786);
+  --ink-700: oklch(37% 0.013 285.805);
+  --ink-800: oklch(27.4% 0.006 286.033);
+  --ink-900: oklch(21% 0.006 285.885);
+  --ink-950: oklch(14.1% 0.005 285.823);
+
+  /* ── Ramp: status ─────────────────────────────────────────────────────── */
+  --emerald-200: oklch(90.5% 0.093 164.15);
+  --emerald-400: oklch(76.5% 0.177 163.223);
+  --emerald-500: oklch(69.6% 0.17 162.48);
+  --emerald-950: oklch(26.2% 0.051 172.552);
+  --amber-200: oklch(92.4% 0.12 95.746);
+  --amber-400: oklch(82.8% 0.189 84.429);
+  --amber-500: oklch(76.9% 0.188 70.08);
+  --amber-950: oklch(27.9% 0.077 45.635);
+  --crimson-300: oklch(80.8% 0.114 19.571);
+  --crimson-400: oklch(70.4% 0.191 22.216);
+  --crimson-500: oklch(63.7% 0.237 25.331);
+  --crimson-600: oklch(57.7% 0.245 27.325);
+  --crimson-950: oklch(25.8% 0.092 26.042);
+
+  /* ── Role: brand ──────────────────────────────────────────────────────── */
+  /* The action colour. ADR-0010 reserves it for the primary action, the focus
+     ring, and active state — furniture stays neutral. */
+  --brand: var(--ember-400);
+  --brand-strong: var(--ember-500);
+  --brand-foreground: var(--ink-950);
+  --brand-text: var(--ember-300);
+  --brand-text-strong: var(--ember-200);
+  --brand-text-bright: var(--ember-100);
+  --brand-surface: var(--ember-950);
+
+  /* ── Role: text ───────────────────────────────────────────────────────── */
+  --fg-bright: var(--ink-50);
+  --fg-strong: var(--ink-100);
+  --fg: var(--ink-200);
+  --fg-soft: var(--ink-300);
+  --fg-muted: var(--ink-400);
+  --fg-subtle: var(--ink-500);
+  --fg-faint: var(--ink-600);
+
+  /* ── Role: surface ────────────────────────────────────────────────────── */
+  /* `--surface` is `--background` by definition, not by coincidence: the page
+     is elevation zero. The other three are the zinc steps the product already
+     used, given the names that say what they are for. */
+  --surface-sunken: var(--ink-950);
+  --surface: var(--background);
+  --surface-raised: var(--ink-900);
+  --surface-overlay: var(--ink-900);
+
+  /* ── Role: glass ──────────────────────────────────────────────────────── */
+  /* Fill, border and inset highlight of the translucent panel. The blur radius
+     and the composed utility arrive with the scales in item 5; these are the
+     colours, which is what item 1 owns. */
+  --glass-fill: oklch(100% 0 0 / 4.5%);
+  --glass-fill-strong: oklch(100% 0 0 / 8.5%);
+  --glass-border: oklch(100% 0 0 / 10%);
+  --glass-highlight: oklch(100% 0 0 / 5%);
+
+  /* ── Role: hairline ───────────────────────────────────────────────────── */
+  --hairline-subtle: oklch(100% 0 0 / 6%);
+  --hairline: oklch(100% 0 0 / 10%);
+  --hairline-strong: oklch(100% 0 0 / 18%);
+
+  /* ── Role: state ──────────────────────────────────────────────────────── */
+  --streaming: var(--ember-400);
+  --success: var(--emerald-400);
+  --success-strong: var(--emerald-500);
+  --success-text: var(--emerald-200);
+  --success-surface: var(--emerald-950);
+  --warning: var(--amber-400);
+  --warning-strong: var(--amber-500);
+  --warning-text: var(--amber-200);
+  --warning-surface: var(--amber-950);
+  --danger: var(--crimson-500);
+  --danger-strong: var(--crimson-600);
+  --danger-foreground: var(--ink-50);
+  --danger-text: var(--crimson-300);
+  --danger-surface: var(--crimson-950);
 }
 
 @layer base {
@@ -127,14 +324,20 @@
       "cv11" 1;
   }
 
+  /* Selection keeps the brand. It is not furniture: it is the mark the
+     reader just made, which ADR-0010 counts as active state. */
   ::selection {
-    background: rgb(251 146 60 / 0.34);
-    color: rgb(255 247 237);
+    background: color-mix(in oklab, var(--brand) 34%, transparent);
+    color: var(--ember-50);
   }
 
+  /* Neutral, not ember. ADR-0010 reserves the brand for the primary action,
+     the focus ring and active state; a scrollbar thumb is chrome that is on
+     screen the entire session, and an accent that is on the furniture
+     cannot also be the thing that says "this is the action". */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(251 146 60 / 0.35) transparent;
+    scrollbar-color: color-mix(in oklab, var(--fg-faint) 75%, transparent) transparent;
   }
 
   button {
@@ -159,7 +362,7 @@
      place. Components that need a different ring (Clerk's social buttons,
      the composer) still override it locally. */
   :focus-visible {
-    outline: 2px solid rgb(251 146 60 / 0.85);
+    outline: 2px solid color-mix(in oklab, var(--brand) 85%, transparent);
     outline-offset: 2px;
     border-radius: inherit;
   }
@@ -201,13 +404,13 @@
   z-index: 100;
   transform: translateY(calc(-100% - 1rem));
   border-radius: 0.75rem;
-  border: 1px solid rgb(253 186 116 / 0.35);
-  background: rgb(24 24 27);
+  border: 1px solid color-mix(in oklab, var(--brand-text) 35%, transparent);
+  background: var(--surface-raised);
   padding: 0.625rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: rgb(254 215 170);
-  box-shadow: 0 18px 44px -24px rgb(0 0 0 / 0.9);
+  color: var(--brand-text-strong);
+  box-shadow: 0 18px 44px -24px oklch(0% 0 0 / 0.9);
   transition: transform 160ms ease;
 }
 
@@ -298,12 +501,12 @@
 .auth-clerk .cl-socialButtonsIconButton {
   height: 3.25rem;
   border-radius: 1rem;
-  border: 1px solid rgb(255 255 255 / 0.1);
-  background: rgb(255 255 255 / 0.045);
-  color: rgb(244 244 245);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-fill);
+  color: var(--fg-strong);
   box-shadow:
-    0 14px 34px -26px rgb(0 0 0 / 0.9),
-    inset 0 1px 0 rgb(255 255 255 / 0.05);
+    0 14px 34px -26px oklch(0% 0 0 / 0.9),
+    inset 0 1px 0 var(--glass-highlight);
   transition:
     transform 200ms ease,
     background-color 200ms ease,
@@ -313,8 +516,8 @@
 .auth-clerk .cl-socialButtonsBlockButton:hover,
 .auth-clerk .cl-socialButtonsIconButton:hover {
   transform: translateY(-1px);
-  border-color: rgb(253 186 116 / 0.3);
-  background: rgb(255 255 255 / 0.085);
+  border-color: color-mix(in oklab, var(--brand-text) 30%, transparent);
+  background: var(--glass-fill-strong);
 }
 
 .auth-clerk .cl-socialButtonsBlockButton:active,
@@ -326,7 +529,7 @@
 .auth-clerk .cl-socialButtonsBlockButton:focus-visible,
 .auth-clerk .cl-socialButtonsIconButton:focus-visible,
 .auth-clerk .cl-footerActionLink:focus-visible {
-  outline: 2px solid rgb(251 146 60 / 0.75);
+  outline: 2px solid color-mix(in oklab, var(--brand) 75%, transparent);
   outline-offset: 2px;
 }
 
@@ -343,17 +546,17 @@
   top: 0;
   right: 0.875rem;
   transform: translateY(-50%);
-  border: 1px solid rgb(253 186 116 / 0.28);
+  border: 1px solid color-mix(in oklab, var(--brand-text) 28%, transparent);
   border-radius: 999px;
   padding: 0.1875rem 0.5rem;
-  background: rgb(23 20 19);
-  box-shadow: 0 0 0 4px rgb(8 8 10 / 0.55);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--surface-sunken) 55%, transparent);
   font-size: 0.625rem;
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgb(254 215 170 / 0.95);
+  color: color-mix(in oklab, var(--brand-text-strong) 95%, transparent);
 }
 
 /* Footer: "Don't have an account? Sign up" plus Clerk's badge.
@@ -363,7 +566,7 @@
    on — zeroed so both rows inherit `--auth-gutter` from the shell. */
 .auth-clerk .cl-footer {
   background: transparent;
-  border-top: 1px solid rgb(255 255 255 / 0.06);
+  border-top: 1px solid var(--hairline-subtle);
   margin-top: 1.5rem;
   padding: 0;
   gap: 0;
@@ -393,18 +596,18 @@
    for the measured scale. */
 .auth-clerk .cl-footerActionText {
   font-size: 0.875rem;
-  color: rgb(159 159 169);
+  color: var(--fg-muted);
 }
 
 .auth-clerk .cl-footerActionLink {
   border-radius: 0.25rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: rgb(253 186 116);
+  color: var(--brand-text);
 }
 
 .auth-clerk .cl-footerActionLink:hover {
-  color: rgb(254 215 170);
+  color: var(--brand-text-strong);
 }
 
 /* Development-only: Clerk paints a full-bleed orange hazard wash and a 1px

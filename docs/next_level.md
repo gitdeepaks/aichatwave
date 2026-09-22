@@ -719,7 +719,7 @@ alternates, any point can be forked, and a thread can be shared read-only.
 
 ### Why it is high risk
 
-LangGraph checkpoints are linear. The `message` table is linear. Branching makes the conversation a
+LangGraph checkpoints are linea r. The `message` table is linear. Branching makes the conversation a
 tree while the checkpointer still believes it is a list, and the reconciliation between those two
 views is the whole difficulty of this phase. Decide the model before writing UI:
 
