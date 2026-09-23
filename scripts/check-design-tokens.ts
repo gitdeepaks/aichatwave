@@ -43,6 +43,7 @@ const NAMESPACES = [
   "danger",
   "elevation",
   "glow",
+  "highlight",
   "ember",
 ];
 

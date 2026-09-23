@@ -8,7 +8,7 @@ import { formatRetryDelay } from "@/lib/api/chat-error";
 import type { ChatVisibleStatus } from "@/components/chat/types";
 
 const actionClass =
-  "rounded-full px-2 py-0.5 text-orange-200 transition hover:bg-orange-300/10 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50 disabled:opacity-50 motion-reduce:transition-none";
+  "rounded-full px-2 py-0.5 text-brand-text-strong transition hover:bg-brand-text/10 hover:text-brand-text-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50 disabled:opacity-50 motion-reduce:transition-none";
 
 export function ChatStatusBar({
   status,
@@ -21,7 +21,7 @@ export function ChatStatusBar({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-3xl items-center gap-2 px-1 pb-2 text-xs text-zinc-400"
+      className="mx-auto flex w-full max-w-3xl items-center gap-2 px-1 pb-2 text-xs text-fg-muted"
       role="status"
     >
       {renderIcon(status)}
@@ -37,21 +37,21 @@ function renderIcon(status: ChatVisibleStatus) {
     case "idle":
       return null;
     case "stopped":
-      return <CircleStop className="size-3.5 text-zinc-400" aria-hidden />;
+      return <CircleStop className="size-3.5 text-fg-muted" aria-hidden />;
     case "uploading":
-      return <Upload className="size-3.5 animate-pulse text-orange-200" aria-hidden />;
+      return <Upload className="size-3.5 animate-pulse text-streaming" aria-hidden />;
     case "error":
-      return <AlertCircle className="size-3.5 text-red-300" aria-hidden />;
+      return <AlertCircle className="size-3.5 text-danger-text" aria-hidden />;
     case "quota-exceeded":
-      return <Sparkles className="size-3.5 text-orange-300" aria-hidden />;
+      return <Sparkles className="size-3.5 text-brand-text" aria-hidden />;
     case "rate-limited":
-      return <TimerReset className="size-3.5 text-amber-300" aria-hidden />;
+      return <TimerReset className="size-3.5 text-warning-text" aria-hidden />;
     case "submitted":
     case "streaming":
     case "tool-running":
       return (
         <Loader2
-          className="size-3.5 animate-spin text-orange-200 motion-reduce:animate-none"
+          className="size-3.5 animate-spin text-streaming motion-reduce:animate-none"
           aria-hidden
         />
       );
@@ -125,7 +125,7 @@ function RateLimitAction({
 
   if (remaining > 0) {
     return (
-      <span className="rounded-full px-2 py-0.5 tabular-nums text-zinc-500">
+      <span className="rounded-full px-2 py-0.5 tabular-nums text-fg-subtle">
         retry in {formatRetryDelay(remaining)}
       </span>
     );

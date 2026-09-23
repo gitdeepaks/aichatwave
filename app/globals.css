@@ -171,7 +171,11 @@
   --inset-shadow-highlight: inset 0 1px 0 var(--glass-highlight);
   --inset-shadow-highlight-strong: inset 0 1px 0 oklch(100% 0 0 / 55%);
 
-  /* Blur. Two, and the first is the one the `glass` utility uses. */
+  /* Blur. Three steps, which is exactly the three radii the product was
+     already using through Tailwind's `md`, `xl` and `2xl`. Named here so
+     there is one blur scale rather than the framework's beside the
+     product's; `glass` is the weight the `glass` utility uses. */
+  --blur-glass-light: 12px;
   --blur-glass: 24px;
   --blur-glass-heavy: 40px;
 
@@ -371,7 +375,10 @@
   --hairline-strong: oklch(100% 0 0 / 18%);
 
   /* ── Role: state ──────────────────────────────────────────────────────── */
-  --streaming: var(--ember-400);
+  /* The colour of "a reply is arriving": the composer's spinner, the
+     upload indicator, the streaming halo. A step lighter than the action
+     colour, because it reports rather than invites. */
+  --streaming: var(--ember-200);
   --success: var(--emerald-400);
   --success-strong: var(--emerald-500);
   --success-text: var(--emerald-200);

@@ -271,6 +271,23 @@ test("every brand glow takes its colour from the brand rather than a literal", (
   }
 });
 
+test("the blur scale covers the three radii the product uses, and only those", () => {
+  const blurs = [...LAYER.tokens.keys()].filter((name) => name.startsWith("--blur-"));
+
+  assert.deepEqual(blurs.sort(), ["--blur-glass", "--blur-glass-heavy", "--blur-glass-light"]);
+});
+
+test("--streaming is its own colour, not an alias of the action colour", () => {
+  // It has its own name so ADR-0010's restraint rule can move the state
+  // without moving the action. A name that resolves to the same value as
+  // `--brand` would be a comment, not a role.
+  const streaming = resolveColor(LAYER, "--streaming");
+  const brand = resolveColor(LAYER, "--brand");
+
+  assert.ok(streaming.ok && brand.ok);
+  assert.notDeepEqual(streaming.color, brand.color);
+});
+
 test("the motion scale is one duration set and one emphasis curve", () => {
   const durations = [...LAYER.tokens.keys()].filter((name) => name.startsWith("--duration-"));
   assert.deepEqual(durations.sort(), [

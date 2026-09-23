@@ -94,7 +94,7 @@ export function ChatMessageList({
               type="button"
               disabled={isLoadingEarlier || isStreaming}
               onClick={() => void handleLoadEarlier()}
-              className="mx-auto flex h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-45"
+              className="mx-auto flex h-8 items-center gap-2 rounded-full border border-hairline bg-glass px-3 text-xs font-medium text-fg-muted transition-colors hover:bg-glass-strong hover:text-fg-strong disabled:cursor-not-allowed disabled:opacity-45"
             >
               {isLoadingEarlier && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
               {isLoadingEarlier ? "Loading history" : "Load earlier messages"}

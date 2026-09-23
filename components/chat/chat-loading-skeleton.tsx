@@ -22,7 +22,7 @@ export function ChatLoadingSkeleton() {
       </div>
 
       {/* Composer */}
-      <Skeleton className="h-24 w-full shrink-0 rounded-2xl bg-white/5" />
+      <Skeleton className="h-24 w-full shrink-0 rounded-2xl bg-glass" />
 
       <span className="sr-only">Loading conversation…</span>
     </div>
@@ -33,7 +33,7 @@ function MessageSkeleton({ align, widths }: { align: "start" | "end"; widths: re
   return (
     <div className={`flex flex-col gap-2 ${align === "end" ? "items-end" : "items-start"}`}>
       {widths.map((width, index) => (
-        <Skeleton key={index} className={`h-4 ${width} max-w-full bg-white/5`} />
+        <Skeleton key={index} className={`h-4 ${width} max-w-full bg-glass`} />
       ))}
     </div>
   );
