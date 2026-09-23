@@ -377,6 +377,27 @@
   --hairline: oklch(100% 0 0 / 10%);
   --hairline-strong: oklch(100% 0 0 / 18%);
 
+  /* ── Role: bloom ──────────────────────────────────────────────────────── */
+  /* The three radial washes that light the page from above. They are colours
+     rather than gradients because the ellipse geometry differs per surface and
+     only the colour is shared; they are named because they were previously
+     written as `rgba(249, 115, 22, 0.26)` inside an arbitrary background
+     value — a place the lint rule could not look until it learned to read
+     inside brackets. One set, not two: the marketing page and the
+     workspace drew the same three washes at figures four points apart
+     that nobody chose, and they are never seen side by side. */
+  --bloom-ember: color-mix(in oklab, var(--ember-500) 30%, transparent);
+  /* The same wash at card scale rather than page scale, on the featured
+     plan. A page-sized bloom put on a 400px card reads as a stain. */
+  --bloom-ember-soft: color-mix(in oklab, var(--ember-500) 14%, transparent);
+  --bloom-crimson: color-mix(in oklab, var(--crimson-600) 15%, transparent);
+  --bloom-amber: color-mix(in oklab, var(--amber-400) 11%, transparent);
+
+  /* The edge darkening under both atmospheres, and the diagonal sheen across
+     the workspace. Written as `rgba(0, 0, 0, 0.52)` and `rgba(0, 0, 0, 0.55)`
+     in the two places that draw the same vignette. */
+  --vignette: oklch(0% 0 0 / 54%);
+
   /* ── Role: state ──────────────────────────────────────────────────────── */
   /* The colour of "a reply is arriving": the composer's spinner, the
      upload indicator, the streaming halo. A step lighter than the action
@@ -508,9 +529,11 @@
   );
 }
 
-/* A glass panel with the ember warmed into it. Pair with `border-glass-border`
-   and a radius; the fill is this rather than `glass` because the tint is the
-   point. */
+/* A glass panel with the ember warmed into it: a tinted fill, and nothing
+   else. Pair with `border-glass-border`, a radius, and `backdrop-blur-glass`
+   if the surface is large enough to want one — two of the three places this
+   appears are 36px tiles, where a backdrop filter costs a layer and buys
+   nothing. */
 @utility brand-glass {
   background-image: linear-gradient(
     to bottom right,
@@ -518,8 +541,13 @@
     var(--glass-fill-strong),
     color-mix(in oklab, var(--crimson-500) 10%, transparent)
   );
-  -webkit-backdrop-filter: blur(var(--blur-glass));
-  backdrop-filter: blur(var(--blur-glass));
+}
+
+/* The same rule without the ember: structure rather than emphasis. The
+   marketing page uses it between sections, where a brand-coloured divider
+   would be the accent on the furniture ADR-0010 warns about. */
+@utility hairline-rule {
+  background-image: linear-gradient(to right, transparent, var(--hairline), transparent);
 }
 
 /* The hairline that fades in from both ends — a divider that is brightest in

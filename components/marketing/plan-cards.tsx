@@ -58,12 +58,12 @@ function PlanColumn({ plan, isSignedIn }: Readonly<{ plan: PlanCard; isSignedIn:
       className={cn(
         panelClass,
         "relative flex flex-col gap-7 overflow-hidden p-7 sm:p-9",
-        plan.featured && "border-orange-300/20",
+        plan.featured && "border-brand-text/20",
       )}
     >
       {plan.featured ? (
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(249,115,22,0.14),transparent_68%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,var(--bloom-ember-soft),transparent_68%)]"
           aria-hidden
         />
       ) : null}
@@ -72,12 +72,12 @@ function PlanColumn({ plan, isSignedIn }: Readonly<{ plan: PlanCard; isSignedIn:
         <div className="flex items-center justify-between gap-3">
           <h2
             id={`plan-${plan.id}`}
-            className="text-[13px] font-medium uppercase tracking-[0.22em] text-zinc-300"
+            className="text-sm font-medium uppercase tracking-[0.22em] text-fg-soft"
           >
             {plan.name}
           </h2>
           {plan.featured ? (
-            <span className="rounded-full border border-orange-300/25 px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-orange-200/85">
+            <span className="rounded-full border border-brand-text/25 px-2.5 py-0.5 font-mono text-2xs uppercase tracking-[0.18em] text-brand-text-strong/85">
               Everything
             </span>
           ) : null}
@@ -85,7 +85,7 @@ function PlanColumn({ plan, isSignedIn }: Readonly<{ plan: PlanCard; isSignedIn:
 
         <PriceLine plan={plan} />
 
-        <p className="max-w-[40ch] text-[14px] leading-6 text-zinc-400">{plan.tagline}</p>
+        <p className="max-w-[40ch] text-sm leading-6 text-fg-muted">{plan.tagline}</p>
       </div>
 
       <div className="relative">
@@ -95,19 +95,19 @@ function PlanColumn({ plan, isSignedIn }: Readonly<{ plan: PlanCard; isSignedIn:
       <ul className="relative flex flex-col gap-3">
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5">
-            <Check className="mt-[3px] size-4 shrink-0 text-orange-300/80" aria-hidden />
-            <span className="text-[14px] leading-6 text-zinc-300">{feature}</span>
+            <Check className="mt-[3px] size-4 shrink-0 text-brand-text/80" aria-hidden />
+            <span className="text-sm leading-6 text-fg-soft">{feature}</span>
           </li>
         ))}
       </ul>
 
       <div className="relative">
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-400">Models</p>
+        <p className="font-mono text-2xs uppercase tracking-[0.24em] text-fg-muted">Models</p>
         <ul className="mt-3 flex flex-col gap-2.5">
           {plan.models.map((model) => (
             <li key={model.id} className="flex items-baseline gap-2.5">
-              <span className="text-[14px] font-medium text-zinc-200">{model.name}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+              <span className="text-sm font-medium text-fg">{model.name}</span>
+              <span className="font-mono text-2xs uppercase tracking-[0.16em] text-fg-muted">
                 {model.vendor}
               </span>
             </li>
@@ -123,7 +123,7 @@ function PriceLine({ plan }: Readonly<{ plan: PlanCard }>) {
     // Polar could not be read. Saying so beats inventing a number, and the
     // checkout button below still works — it gets its price from Polar too.
     return (
-      <p className="text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-white">
+      <p className="text-3xl font-semibold leading-none tracking-[-0.03em] text-fg-bright">
         See price at checkout
       </p>
     );
@@ -131,10 +131,10 @@ function PriceLine({ plan }: Readonly<{ plan: PlanCard }>) {
 
   return (
     <p className="flex items-baseline gap-2">
-      <span className="text-[3rem] font-semibold leading-none tracking-[-0.045em] text-white">
+      <span className="text-5xl font-semibold leading-none tracking-[-0.045em] text-fg-bright">
         {formatPlanPrice(plan.price)}
       </span>
-      <span className="text-[14px] text-zinc-400">{formatPlanInterval(plan.price)}</span>
+      <span className="text-sm text-fg-muted">{formatPlanInterval(plan.price)}</span>
     </p>
   );
 }

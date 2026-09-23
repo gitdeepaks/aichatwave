@@ -15,7 +15,7 @@ import { MarketingBackdrop, MarketingFooter } from "@/components/marketing/marke
  */
 export default function MarketingLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="relative min-h-dvh bg-[#08080a] text-zinc-100">
+    <div className="relative min-h-dvh bg-surface-sunken text-fg-strong">
       <a href="#main" className="skip-link">
         Skip to content
       </a>

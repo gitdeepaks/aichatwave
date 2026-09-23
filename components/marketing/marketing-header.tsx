@@ -22,7 +22,7 @@ import { SITE_NAME } from "@/lib/seo/site";
  */
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-zinc-950/60 backdrop-blur-xl supports-[backdrop-filter]:bg-zinc-950/40">
+    <header className="sticky top-0 z-40 border-b border-hairline-subtle bg-surface-sunken/60 backdrop-blur-glass supports-[backdrop-filter]:bg-surface-sunken/40">
       <Container className="flex h-16 items-center justify-between gap-4">
         <Link href={ROUTES.home} className="rounded-lg" aria-label={`${SITE_NAME} home`}>
           <BrandMark />
@@ -31,7 +31,7 @@ export function MarketingHeader() {
         <nav aria-label="Main" className="flex items-center gap-1 sm:gap-2">
           <Link
             href={ROUTES.pricing}
-            className="rounded-full px-3 py-2 text-[14px] font-medium text-zinc-400 transition-colors hover:text-white motion-reduce:transition-none"
+            className="rounded-full px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:text-fg-bright motion-reduce:transition-none"
           >
             Pricing
           </Link>
@@ -42,17 +42,17 @@ export function MarketingHeader() {
               <>
                 <Link
                   href={ROUTES.signIn}
-                  className="rounded-full px-3 py-2 text-[14px] font-medium text-zinc-400 transition-colors hover:text-white motion-reduce:transition-none"
+                  className="rounded-full px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:text-fg-bright motion-reduce:transition-none"
                 >
                   Sign in
                 </Link>
-                <Link href={ROUTES.signUp} className={`${primaryButtonClass} h-9 px-4 text-[13px]`}>
+                <Link href={ROUTES.signUp} className={`${primaryButtonClass} h-9 px-4 text-sm`}>
                   Start free
                 </Link>
               </>
             }
           >
-            <Link href={ROUTES.app} className={`${primaryButtonClass} h-9 px-4 text-[13px]`}>
+            <Link href={ROUTES.app} className={`${primaryButtonClass} h-9 px-4 text-sm`}>
               Open workspace
             </Link>
           </Show>

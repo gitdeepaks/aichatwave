@@ -87,8 +87,27 @@ As a **border** rather than a fill, the same values become hairlines:
 | `amber-400` / `-500`   | `warning` / `warning-strong`                  |
 | `amber-200` / `-950`   | `warning-text` / `warning-surface`            |
 
-`--streaming` exists for the "a reply is arriving" state and is currently the brand. It has its own
-name so the restraint rule can move it without moving the action colour.
+`--streaming` is the "a reply is arriving" state — the upload indicator, the composer spinner. A
+step lighter than the action colour, because it reports rather than invites.
+
+### Atmosphere
+
+The washes that light a page are colours, not gradients: the ellipse geometry differs per surface
+and only the colour is shared. Written inside an arbitrary background value, as
+`bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,var(--bloom-ember),transparent_60%)]`.
+
+| Token                | Is                                                                           |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--bloom-ember`      | the ember wash from above the fold                                           |
+| `--bloom-ember-soft` | the same at card scale — a page-sized bloom on a 400px card reads as a stain |
+| `--bloom-crimson`    | the deep wash from the right                                                 |
+| `--bloom-amber`      | the warm wash from the lower left                                            |
+| `--vignette`         | the edge darkening under both atmospheres                                    |
+
+A colour nested inside an arbitrary value is still a literal, and
+`design/no-raw-palette` reads inside the brackets — including the
+arbitrary-property form, `[background-image:…]`, which carries no utility prefix. The 64px
+technical grid and the whole ember atmosphere hid there until it learned to.
 
 ## Scales
 
@@ -112,16 +131,18 @@ Eighteen hand-rolled glass treatments and twenty hand-rolled brand gradients, ea
 None of them sets a radius or a border — a glass panel is a card in one place and a full-bleed bar
 in another — so pair them with `border-glass-border` and a step from the radius scale.
 
-| Utility              | Is                                                              |
-| -------------------- | --------------------------------------------------------------- |
-| `glass`              | the translucent panel: fill, blur, inset top highlight          |
-| `glass-strong`       | the same, one weight up — hover, or a panel over a panel        |
-| `brand-action`       | the filled call-to-action, with its hover                       |
-| `brand-action-vivid` | the send button: the brightest surface in the product           |
-| `brand-wash`         | active state on a row — a selected thread, the current nav item |
-| `brand-wash-tile`    | the same wash on a square: the brand tile, an icon chip         |
-| `brand-glass`        | a glass panel with the ember warmed into it                     |
-| `brand-rule`         | the divider that fades in from both ends; pair with `h-px`      |
+| Utility              | Is                                                                     |
+| -------------------- | ---------------------------------------------------------------------- |
+| `glass`              | the translucent panel: fill, blur, inset top highlight                 |
+| `glass-strong`       | the same, one weight up — hover, or a panel over a panel               |
+| `brand-action`       | the filled call-to-action, with its hover                              |
+| `brand-action-vivid` | the send button: the brightest surface in the product                  |
+| `brand-wash`         | active state on a row — a selected thread, the current nav item        |
+| `brand-wash-tile`    | the same wash on a square: the brand tile, an icon chip                |
+| `brand-glass`        | a tinted fill, ember warmed into glass; add your own blur              |
+| `brand-rule`         | the divider that fades in from both ends; pair with `h-px`             |
+| `hairline-rule`      | the same divider without the ember: structure, not emphasis            |
+| `brand-headline`     | the display gradient clipped to the text, `color: transparent` and all |
 
 ## Checking it
 

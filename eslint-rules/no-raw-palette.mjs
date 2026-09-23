@@ -92,10 +92,30 @@ const NAMED_COLOR = new RegExp(
   "gu",
 );
 
-/** `text-[#b4b4b4]`, `bg-[rgb(24_24_27)]`, `border-[oklch(…)]`. */
+/** The colour functions, and a bare hex. */
+const COLOR_VALUE = String.raw`(?:#[0-9a-f]{3,8}\b|(?:rgba?|hsla?|oklch|oklab|lab|lch)\()`;
+
+/**
+ * A colour written as an arbitrary value: `text-[#b4b4b4]`,
+ * `bg-[rgb(24_24_27)]`, and — the ones that hid here the longest —
+ * `bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,rgba(249,115,22,0.26),transparent)]`
+ * and `[background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent)]`.
+ *
+ * The colour is matched anywhere inside the brackets rather than only at the
+ * start, because the page's entire ember atmosphere was written as raw `rgba`
+ * nested three levels into a gradient — the one place a rule that only looked
+ * at the first character never reached. The arbitrary-property form
+ * (`[prop:value]`, with no utility prefix) is a second pattern for the same
+ * reason: the 64px grid lives there.
+ */
 const ARBITRARY_COLOR = new RegExp(
-  String.raw`(?<![\w-])${VARIANT}-?(?:${PREFIXES.join("|")})-\[` +
-    String.raw`(?:#[0-9a-f]{3,8}|(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\()[^\]]*\]`,
+  String.raw`(?<![\w-])${VARIANT}-?(?:${PREFIXES.join("|")})-\[[^\]]*${COLOR_VALUE}[^\]]*\]`,
+  "giu",
+);
+
+/** `[background-image:…rgba(…)…]` — an arbitrary property, no utility prefix. */
+const ARBITRARY_PROPERTY_COLOR = new RegExp(
+  String.raw`(?<![\w-])${VARIANT}\[[a-z-]+:[^\]]*${COLOR_VALUE}[^\]]*\]`,
   "giu",
 );
 
@@ -144,6 +164,7 @@ const noRawPalette = {
       for (const [pattern, messageId] of [
         [NAMED_COLOR, "namedPalette"],
         [ARBITRARY_COLOR, "arbitraryColor"],
+        [ARBITRARY_PROPERTY_COLOR, "arbitraryColor"],
       ]) {
         // A fresh regex per string: the shared ones are global, so `lastIndex`
         // would carry from the previous node and skip real matches.

@@ -40,6 +40,15 @@ test("the rule rejects palette literals and accepts token roles", () => {
       { code: 'const c = "gap-white-space";' },
       // Arbitrary values that are not colours.
       { code: 'const c = "text-[14px] rounded-[30px] w-[calc(100%-2rem)]";' },
+      // An arbitrary value whose colour comes from a token is the fix, not the
+      // problem — a gradient's geometry is per-surface and only the colour is
+      // shared, so this is how the atmosphere is written now.
+      {
+        code: 'const c = "bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,var(--bloom-ember),transparent_60%)]";',
+      },
+      {
+        code: 'const c = "[mask-image:radial-gradient(ellipse_90%_75%_at_50%_30%,black,transparent)]";',
+      },
       // A file on the ratchet is silent, however many literals it holds.
       {
         code: 'const c = "bg-zinc-900 text-orange-300";',
@@ -88,6 +97,19 @@ test("the rule rejects palette literals and accepts token roles", () => {
       },
       {
         code: 'const c = "shadow-[oklch(0%_0_0/0.9)]";',
+        errors: [{ messageId: "arbitraryColor" }],
+      },
+      // Nested inside a gradient, which is where the whole ember atmosphere
+      // hid: a rule that only looked at the first character inside the
+      // brackets never reached it.
+      {
+        code: 'const c = "bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,rgba(249,115,22,0.26),transparent_60%)]";',
+        errors: [{ messageId: "arbitraryColor" }],
+      },
+      // Arbitrary *property* syntax, which carries no utility prefix at all.
+      // The 64px marketing grid lived here.
+      {
+        code: 'const c = "[background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px)]";',
         errors: [{ messageId: "arbitraryColor" }],
       },
       // Template literals, which is how conditional classes are written.
