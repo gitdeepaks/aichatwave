@@ -12,14 +12,11 @@
  *
  * Baseline at the token layer commit: 619 literals across 40 files.
  * Migrated so far: sidebar (52/4), chat (114/9), marketing shell and
- * atmosphere (52/5).
+ * atmosphere (52/5), the marketing pages (54/2).
  * The trailing number on each line is that file's count when the list was
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // marketing — 54 across 2 files
-  "app/(marketing)/page.tsx", // 37
-  "app/(marketing)/pricing/page.tsx", // 17
   // auth — 30 across 1 file
   "components/auth/auth-screen-shell.tsx", // 30
   // gen-ui — 26 across 2 files

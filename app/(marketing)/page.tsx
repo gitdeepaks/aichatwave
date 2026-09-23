@@ -94,11 +94,11 @@ function Hero() {
           <div className="flex flex-col gap-7">
             <Eyebrow>{HERO.eyebrow}</Eyebrow>
 
-            <h1 className="max-w-[16ch] text-balance text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.045em] text-white sm:text-[3.5rem] lg:text-[4rem]">
+            <h1 className="max-w-[16ch] text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.045em] text-fg-bright sm:text-6xl lg:text-7xl">
               {HERO.headline}
             </h1>
 
-            <p className="max-w-[52ch] text-[17px] leading-8 text-zinc-300">{HERO.subhead}</p>
+            <p className="max-w-[52ch] text-lg leading-8 text-fg-soft">{HERO.subhead}</p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link href={HERO.primaryCta.href} className={primaryButtonClass}>
@@ -110,7 +110,7 @@ function Hero() {
               </Link>
             </div>
 
-            <p className="text-[13px] leading-6 text-zinc-400">{HERO.reassurance}</p>
+            <p className="text-sm leading-6 text-fg-muted">{HERO.reassurance}</p>
           </div>
 
           {/* The right column is the product's own instrument panel, drawn
@@ -132,15 +132,10 @@ function Hero() {
 function ModelPanel() {
   return (
     <div className={cn(panelClass, "relative overflow-hidden p-1.5")}>
-      <div
-        className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/50 to-transparent"
-        aria-hidden
-      />
+      <div className="brand-rule pointer-events-none absolute inset-x-12 top-0 h-px" aria-hidden />
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.26em] text-zinc-400">
-          Model
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.26em] text-zinc-400">⌘K</span>
+        <span className="font-mono text-2xs uppercase tracking-[0.26em] text-fg-muted">Model</span>
+        <span className="font-mono text-2xs uppercase tracking-[0.26em] text-fg-muted">⌘K</span>
       </div>
       <Hairline />
       <ul className="flex flex-col gap-1 p-1.5">
@@ -150,32 +145,30 @@ function ModelPanel() {
           return (
             <li
               key={modelId}
-              className="flex items-start gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.04] motion-reduce:transition-none"
+              className="flex items-start gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-glass motion-reduce:transition-none"
             >
               <span
                 className={cn(
                   "mt-1.5 size-1.5 shrink-0 rounded-full",
-                  isPro ? "bg-zinc-700" : "bg-orange-400/80 shadow-[0_0_10px_rgba(251,146,60,0.8)]",
+                  isPro ? "bg-fg-faint/60" : "bg-brand/80 shadow-glow-ring",
                 )}
                 aria-hidden
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
-                  <span className="text-[14px] font-medium text-zinc-100">{model.name}</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                  <span className="text-sm font-medium text-fg-strong">{model.name}</span>
+                  <span className="font-mono text-2xs uppercase tracking-[0.18em] text-fg-muted">
                     {model.vendor}
                   </span>
                 </span>
-                <span className="mt-1 block text-[13px] leading-5 text-zinc-400">
-                  {model.blurb}
-                </span>
+                <span className="mt-1 block text-sm leading-5 text-fg-muted">{model.blurb}</span>
               </span>
               <span
                 className={cn(
-                  "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em]",
+                  "shrink-0 rounded-full border px-2 py-0.5 font-mono text-2xs uppercase tracking-[0.16em]",
                   isPro
-                    ? "border-white/10 text-zinc-400"
-                    : "border-orange-300/25 text-orange-200/85",
+                    ? "border-hairline text-fg-muted"
+                    : "border-brand-text/25 text-brand-text-strong/85",
                 )}
               >
                 {isPro ? "Pro" : "Free"}
@@ -196,11 +189,8 @@ function TrustStrip() {
         <ul className="grid gap-x-8 gap-y-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST_POINTS.map((point) => (
             <li key={point} className="flex items-start gap-2.5">
-              <span
-                className="mt-[7px] size-1 shrink-0 rounded-full bg-orange-400/70"
-                aria-hidden
-              />
-              <span className="text-[13px] leading-6 text-zinc-400">{point}</span>
+              <span className="mt-[7px] size-1 shrink-0 rounded-full bg-brand/70" aria-hidden />
+              <span className="text-sm leading-6 text-fg-muted">{point}</span>
             </li>
           ))}
         </ul>
@@ -218,7 +208,7 @@ function Features() {
           <Eyebrow>What you get</Eyebrow>
           <h2
             id="features-heading"
-            className="mt-5 text-balance text-[2rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.5rem]"
+            className="mt-5 text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright sm:text-5xl"
           >
             Built like a tool, not like a chat box.
           </h2>
@@ -229,14 +219,14 @@ function Features() {
             read as one list that happens to wrap. */}
         <ul className="mt-14 grid gap-x-12 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
-            <li key={feature.index} className="border-l border-white/[0.07] pl-5">
-              <p className="font-mono text-[10px] uppercase leading-4 tracking-[0.26em] text-orange-200/55">
+            <li key={feature.index} className="border-l border-hairline-subtle pl-5">
+              <p className="font-mono text-2xs uppercase leading-4 tracking-[0.26em] text-brand-text-strong/55">
                 {feature.index}
               </p>
-              <h3 className="mt-3 text-[17px] font-medium leading-6 tracking-[-0.01em] text-zinc-100">
+              <h3 className="mt-3 text-lg font-medium leading-6 tracking-[-0.01em] text-fg-strong">
                 {feature.title}
               </h3>
-              <p className="mt-2.5 text-[14px] leading-6 text-zinc-400">{feature.body}</p>
+              <p className="mt-2.5 text-sm leading-6 text-fg-muted">{feature.body}</p>
             </li>
           ))}
         </ul>
@@ -258,17 +248,17 @@ function ModelLineup() {
             <Eyebrow>Model lineup</Eyebrow>
             <h2
               id="models-heading"
-              className="mt-5 text-balance text-[2rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.4rem]"
+              className="mt-5 text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright sm:text-5xl"
             >
               Pick the model per question, not per subscription.
             </h2>
-            <p className="mt-5 max-w-[44ch] text-[15px] leading-7 text-zinc-400">
+            <p className="mt-5 max-w-[44ch] text-base leading-7 text-fg-muted">
               Every model reads images and PDFs. When a provider goes down, the turn falls back to a
               healthy one at the same tier or lower — never to a paid model you did not pay for.
             </p>
             <Link
               href={ROUTES.pricing}
-              className="mt-7 inline-flex items-center gap-1.5 rounded-sm text-[14px] font-medium text-orange-200 transition-colors hover:text-orange-100 motion-reduce:transition-none"
+              className="mt-7 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-brand-text-strong transition-colors hover:text-brand-text-bright motion-reduce:transition-none"
             >
               Compare the plans
               <ArrowRight className="size-3.5" aria-hidden />
@@ -291,19 +281,19 @@ function ModelTierList({
 }: Readonly<{ heading: string; modelIds: readonly (typeof MODEL_IDS)[number][] }>) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-zinc-400">{heading}</p>
+      <p className="font-mono text-2xs uppercase tracking-[0.26em] text-fg-muted">{heading}</p>
       <ul className="mt-4 flex flex-col">
         {modelIds.map((modelId) => {
           const model = getModelPresentation(modelId);
           return (
             <li
               key={modelId}
-              className="flex flex-col gap-1 border-t border-white/[0.06] py-4 sm:flex-row sm:items-baseline sm:gap-6"
+              className="flex flex-col gap-1 border-t border-hairline-subtle py-4 sm:flex-row sm:items-baseline sm:gap-6"
             >
-              <span className="w-40 shrink-0 text-[15px] font-medium text-zinc-100">
+              <span className="w-40 shrink-0 text-base font-medium text-fg-strong">
                 {model.name}
               </span>
-              <span className="text-[14px] leading-6 text-zinc-400">{model.blurb}</span>
+              <span className="text-sm leading-6 text-fg-muted">{model.blurb}</span>
             </li>
           );
         })}
@@ -322,7 +312,7 @@ function Faq() {
             <Eyebrow>Before you sign up</Eyebrow>
             <h2
               id="faq-heading"
-              className="mt-5 text-balance text-[2rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.4rem]"
+              className="mt-5 text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright sm:text-5xl"
             >
               The questions worth asking.
             </h2>
@@ -333,11 +323,9 @@ function Faq() {
               structured-data answer that has to match what is visible. */}
           <dl className="flex flex-col">
             {FAQ.map((entry) => (
-              <div key={entry.question} className="border-t border-white/[0.06] py-6">
-                <dt className="text-[16px] font-medium leading-6 text-zinc-100">
-                  {entry.question}
-                </dt>
-                <dd className="mt-2.5 max-w-[62ch] text-[14px] leading-7 text-zinc-400">
+              <div key={entry.question} className="border-t border-hairline-subtle py-6">
+                <dt className="text-base font-medium leading-6 text-fg-strong">{entry.question}</dt>
+                <dd className="mt-2.5 max-w-[62ch] text-sm leading-7 text-fg-muted">
                   {entry.answer}
                 </dd>
               </div>
@@ -355,14 +343,14 @@ function ClosingCta() {
       <Container>
         <div className={cn(panelClass, "relative overflow-hidden px-8 py-14 text-center sm:px-14")}>
           <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_100%_at_50%_0%,rgba(249,115,22,0.16),transparent_70%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_100%_at_50%_0%,var(--bloom-ember-soft),transparent_70%)]"
             aria-hidden
           />
           <div className="relative flex flex-col items-center gap-5">
-            <h2 className="text-balance text-[2rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-[2.5rem]">
+            <h2 className="text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright sm:text-5xl">
               {CLOSING_CTA.headline}
             </h2>
-            <p className="max-w-[48ch] text-[15px] leading-7 text-zinc-300">{CLOSING_CTA.body}</p>
+            <p className="max-w-[48ch] text-base leading-7 text-fg-soft">{CLOSING_CTA.body}</p>
             <Link href={CLOSING_CTA.cta.href} className={cn(primaryButtonClass, "mt-2")}>
               {CLOSING_CTA.cta.label}
               <ArrowRight className="size-4" aria-hidden />

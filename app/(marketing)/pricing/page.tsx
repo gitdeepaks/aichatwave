@@ -73,10 +73,10 @@ export default async function PricingPage() {
         <Container className="flex flex-col gap-10">
           <div className="max-w-[44ch]">
             <Eyebrow>Pricing</Eyebrow>
-            <h1 className="mt-5 text-balance text-[2.5rem] font-semibold leading-[1.05] tracking-[-0.045em] text-white sm:text-[3.25rem]">
+            <h1 className="mt-5 text-balance text-5xl font-semibold leading-[1.05] tracking-[-0.045em] text-fg-bright sm:text-6xl">
               Two plans. No surprises in either.
             </h1>
-            <p className="mt-5 text-[16px] leading-7 text-zinc-300">
+            <p className="mt-5 text-base leading-7 text-fg-soft">
               Every number below is read from the same code that enforces it — the message allowance
               from the rate limiter, the model list from the registry, the price from the product
               checkout charges.
@@ -119,11 +119,11 @@ function TokenPricing() {
             <Eyebrow>Underlying cost</Eyebrow>
             <h2
               id="token-pricing-heading"
-              className="mt-5 text-balance text-[1.9rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white"
+              className="mt-5 text-balance text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright"
             >
               What each model costs to run.
             </h2>
-            <p className="mt-5 max-w-[42ch] text-[14px] leading-7 text-zinc-400">
+            <p className="mt-5 max-w-[42ch] text-sm leading-7 text-fg-muted">
               Provider list prices in US dollars per million tokens. Your plan covers these — the
               table is here because it is the honest answer to why Claude and Gemini are on Pro.
             </p>
@@ -132,22 +132,22 @@ function TokenPricing() {
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">Provider list price per million tokens, by model</caption>
             <thead>
-              <tr className="border-b border-white/[0.08]">
+              <tr className="border-b border-hairline">
                 <th
                   scope="col"
-                  className="pb-3 font-mono text-[10px] font-normal uppercase tracking-[0.22em] text-zinc-400"
+                  className="pb-3 font-mono text-2xs font-normal uppercase tracking-[0.22em] text-fg-muted"
                 >
                   Model
                 </th>
                 <th
                   scope="col"
-                  className="pb-3 text-right font-mono text-[10px] font-normal uppercase tracking-[0.22em] text-zinc-400"
+                  className="pb-3 text-right font-mono text-2xs font-normal uppercase tracking-[0.22em] text-fg-muted"
                 >
                   Input / 1M
                 </th>
                 <th
                   scope="col"
-                  className="pb-3 text-right font-mono text-[10px] font-normal uppercase tracking-[0.22em] text-zinc-400"
+                  className="pb-3 text-right font-mono text-2xs font-normal uppercase tracking-[0.22em] text-fg-muted"
                 >
                   Output / 1M
                 </th>
@@ -158,17 +158,17 @@ function TokenPricing() {
                 const presentation = getModelPresentation(modelId);
                 const pricing = getModelPricing(modelId);
                 return (
-                  <tr key={modelId} className="border-b border-white/[0.05]">
-                    <th scope="row" className="py-4 pr-4 text-[14px] font-medium text-zinc-200">
+                  <tr key={modelId} className="border-b border-hairline-subtle">
+                    <th scope="row" className="py-4 pr-4 text-sm font-medium text-fg">
                       {presentation.name}
-                      <span className="ml-2 font-mono text-[10px] font-normal uppercase tracking-[0.16em] text-zinc-400">
+                      <span className="ml-2 font-mono text-2xs font-normal uppercase tracking-[0.16em] text-fg-muted">
                         {presentation.vendor}
                       </span>
                     </th>
-                    <td className="py-4 text-right text-[14px] tabular-nums text-zinc-300">
+                    <td className="py-4 text-right text-sm tabular-nums text-fg-soft">
                       {currency.format(pricing.inputPerMillionUsd)}
                     </td>
-                    <td className="py-4 text-right text-[14px] tabular-nums text-zinc-300">
+                    <td className="py-4 text-right text-sm tabular-nums text-fg-soft">
                       {currency.format(pricing.outputPerMillionUsd)}
                     </td>
                   </tr>
@@ -189,15 +189,15 @@ function PricingFaq() {
         <Hairline className="mb-14" />
         <h2
           id="pricing-faq-heading"
-          className="text-balance text-[1.9rem] font-semibold leading-[1.1] tracking-[-0.04em] text-white"
+          className="text-balance text-3xl font-semibold leading-[1.1] tracking-[-0.04em] text-fg-bright"
         >
           Questions about the plans.
         </h2>
         <dl className="mt-10 grid gap-x-12 sm:grid-cols-2">
           {FAQ.map((entry) => (
-            <div key={entry.question} className="border-t border-white/[0.06] py-6">
-              <dt className="text-[15px] font-medium leading-6 text-zinc-100">{entry.question}</dt>
-              <dd className="mt-2.5 text-[14px] leading-7 text-zinc-400">{entry.answer}</dd>
+            <div key={entry.question} className="border-t border-hairline-subtle py-6">
+              <dt className="text-base font-medium leading-6 text-fg-strong">{entry.question}</dt>
+              <dd className="mt-2.5 text-sm leading-7 text-fg-muted">{entry.answer}</dd>
             </div>
           ))}
         </dl>
