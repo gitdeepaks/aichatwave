@@ -122,6 +122,7 @@ const CLASS_LIST = /^[a-z0-9\s:_/[\]().,%#&*<>=+-]*$/u;
 const BARE_UTILITIES = [
   "brand-action-vivid",
   "brand-wash-tile",
+  "brand-headline",
   "brand-action",
   "brand-glass",
   "brand-wash",

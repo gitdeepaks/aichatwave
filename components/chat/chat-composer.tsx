@@ -73,12 +73,12 @@ export function ChatComposer({
   return (
     <div
       ref={containerRef}
-      className="shrink-0 border-t border-white/10 bg-zinc-950/45 px-3 pt-3 pb-[calc(var(--chat-safe-bottom,env(safe-area-inset-bottom))+0.75rem)] shadow-[0_-24px_70px_-58px_rgba(251,146,60,0.8)] backdrop-blur-2xl sm:px-5"
+      className="shrink-0 border-t border-hairline bg-surface-sunken/45 px-3 pt-3 pb-[calc(var(--chat-safe-bottom,env(safe-area-inset-bottom))+0.75rem)] shadow-glow-up backdrop-blur-glass-heavy sm:px-5"
     >
       <ChatStatusBar status={visibleStatus} {...(onRetry === undefined ? {} : { onRetry })} />
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center">
         <PromptInput
-          className="w-full rounded-[30px] border border-white/10 bg-zinc-900/90 shadow-[0_22px_70px_-34px_rgba(0,0,0,1),0_0_0_1px_rgba(255,255,255,0.025),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-[border-color,box-shadow,background-color,transform] focus-within:-translate-y-0.5 focus-within:border-orange-200/45 focus-within:bg-zinc-900/95 focus-within:ring-2 focus-within:ring-orange-500/15 motion-reduce:transition-none motion-reduce:focus-within:translate-y-0"
+          className="w-full rounded-5xl border border-hairline bg-surface-raised/90 shadow-elevation-lg inset-shadow-highlight backdrop-blur-glass transition-[border-color,box-shadow,background-color,transform] focus-within:-translate-y-0.5 focus-within:border-brand-text-strong/45 focus-within:bg-surface-raised/95 focus-within:ring-2 focus-within:ring-brand-strong/15 motion-reduce:transition-none motion-reduce:focus-within:translate-y-0"
           onSubmit={handleSubmit}
           accept={ATTACHMENT_ACCEPT}
           multiple
@@ -99,13 +99,13 @@ export function ChatComposer({
                 ref={textareaRef}
                 value={input}
                 placeholder="Message AIChatWave, paste code, or dictate an idea..."
-                className="flex max-h-48 min-h-11 w-full resize-none items-center justify-center border-none bg-transparent py-3 text-[16px] leading-relaxed text-zinc-100 placeholder:text-zinc-500 focus:ring-0 focus-visible:ring-0 sm:text-[17px]"
+                className="flex max-h-48 min-h-11 w-full resize-none items-center justify-center border-none bg-transparent py-3 text-base leading-relaxed text-fg-strong placeholder:text-fg-subtle focus:ring-0 focus-visible:ring-0 sm:text-lg"
               />
             </div>
 
             <div className="mb-0.5 flex shrink-0 items-center gap-1.5">
               <SpeechInput
-                className="h-10 w-10 shrink-0 bg-transparent text-zinc-300 hover:bg-white/8 hover:text-white"
+                className="h-10 w-10 shrink-0 bg-transparent text-fg-soft hover:bg-glass-strong hover:text-fg-bright"
                 onTranscriptionChange={handleTranscriptionChange}
                 size="icon-lg"
                 variant="ghost"
@@ -123,7 +123,7 @@ export function ChatComposer({
                   type="button"
                   onClick={handleStop}
                   aria-label="Stop generating"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-zinc-100 transition-all hover:scale-105 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline-strong bg-glass-strong text-fg-strong transition-all hover:scale-105 hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/70 motion-reduce:transition-none motion-reduce:hover:scale-100"
                 >
                   <Square className="h-3.5 w-3.5 fill-current" />
                 </button>
@@ -132,7 +132,7 @@ export function ChatComposer({
                   type="submit"
                   disabled={!canSubmit}
                   aria-label="Send message"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-200 via-orange-300 to-amber-400 text-zinc-950 shadow-[0_14px_34px_-16px_rgba(251,146,60,0.95),inset_0_1px_0_rgba(255,255,255,0.55)] transition-all hover:scale-105 hover:from-orange-100 hover:to-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:scale-100 disabled:bg-none disabled:bg-white/20 disabled:text-zinc-500 disabled:opacity-100 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  className="brand-action-vivid flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-foreground shadow-glow-md inset-shadow-highlight-strong transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/70 disabled:scale-100 disabled:bg-none disabled:bg-glass-solid disabled:text-fg-subtle disabled:opacity-100 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:scale-100"
                 >
                   {isUploading || isBusy ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -174,7 +174,7 @@ function SendButton({
       type="submit"
       disabled={!canSend}
       aria-label="Send message"
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-200 via-orange-300 to-amber-400 text-zinc-950 shadow-[0_14px_34px_-16px_rgba(251,146,60,0.95),inset_0_1px_0_rgba(255,255,255,0.55)] transition-all hover:scale-105 hover:from-orange-100 hover:to-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 disabled:scale-100 disabled:bg-none disabled:bg-white/20 disabled:text-zinc-500 disabled:opacity-100 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:scale-100"
+      className="brand-action-vivid flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-foreground shadow-glow-md inset-shadow-highlight-strong transition-all hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/70 disabled:scale-100 disabled:bg-none disabled:bg-glass-solid disabled:text-fg-subtle disabled:opacity-100 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:scale-100"
     >
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
     </button>
@@ -194,7 +194,7 @@ function AddAttachmentButton({ disabled }: { disabled: boolean }) {
       disabled={disabled}
       onClick={() => attachments.openFileDialog()}
       aria-label="Add an image or PDF"
-      className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-zinc-400 transition-colors hover:border-white/10 hover:bg-white/8 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50 disabled:opacity-40 motion-reduce:transition-none"
+      className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-transparent text-fg-muted transition-colors hover:border-hairline hover:bg-glass-strong hover:text-fg-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50 disabled:opacity-40 motion-reduce:transition-none"
     >
       <Plus size={24} strokeWidth={1.5} />
     </button>
@@ -214,7 +214,7 @@ function AttachmentTray() {
         return (
           <li
             key={file.id}
-            className="group/chip relative flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] py-1.5 pl-1.5 pr-7 text-xs text-zinc-200"
+            className="group/chip relative flex items-center gap-2 rounded-xl border border-hairline bg-glass py-1.5 pl-1.5 pr-7 text-xs text-fg"
           >
             {isImage && file.url ? (
               // A local blob URL for a file the user just picked; it is
@@ -222,8 +222,8 @@ function AttachmentTray() {
               // eslint-disable-next-line @next/next/no-img-element -- blob URL, never optimizable
               <img src={file.url} alt="" className="h-8 w-8 rounded-lg object-cover" aria-hidden />
             ) : (
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <FileText className="h-4 w-4 text-zinc-300" aria-hidden />
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-glass-strong">
+                <FileText className="h-4 w-4 text-fg-soft" aria-hidden />
               </span>
             )}
             <span className="max-w-40 truncate">{file.filename ?? "Attachment"}</span>
@@ -231,7 +231,7 @@ function AttachmentTray() {
               type="button"
               onClick={() => attachments.remove(file.id)}
               aria-label={`Remove ${file.filename ?? "attachment"}`}
-              className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50"
+              className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-glass-strong hover:text-fg-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50"
             >
               <X className="h-3 w-3" />
             </button>

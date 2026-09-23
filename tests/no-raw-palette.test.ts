@@ -163,7 +163,13 @@ function offendingFiles(): string[] {
     const messages = linter.verify(readFileSync(resolve(REPO, relative), "utf8"), [config], {
       filename: resolve(REPO, relative),
     });
-    if (messages.length > 0) offenders.push(relative);
+    // By rule id, not by message count. `linter.verify` also reports its own
+    // problems — an inline `eslint-disable` naming a rule this minimal config
+    // does not load reads as a message here, and counting it would mark a file
+    // as holding a literal it does not hold.
+    if (messages.some((message) => message.ruleId === "design/no-raw-palette")) {
+      offenders.push(relative);
+    }
   }
 
   return offenders.sort();

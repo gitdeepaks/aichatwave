@@ -11,15 +11,11 @@
  * list reaching `[]` is Phase L2's first exit criterion.
  *
  * Baseline at the token layer commit: 619 literals across 40 files.
- * Migrated so far: sidebar (52 across 4), the chat surrounds (38 across 6).
+ * Migrated so far: sidebar (52 across 4), chat (114 across 9).
  * The trailing number on each line is that file's count when the list was
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // chat — 76 across 3 files
-  "components/chat/chat-composer.tsx", // 49
-  "components/chat/chat-empty-state.tsx", // 18
-  "components/chat/prompt-starter-card.tsx", // 9
   // marketing — 102 across 6 files
   "app/(marketing)/layout.tsx", // 2
   "app/(marketing)/page.tsx", // 37

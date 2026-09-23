@@ -367,7 +367,10 @@
   --glass-fill-heavy: oklch(100% 0 0 / 14%);
   --glass-fill-solid: oklch(100% 0 0 / 20%);
   --glass-border: oklch(100% 0 0 / 10%);
-  --glass-highlight: oklch(100% 0 0 / 5%);
+  /* 6.5%, the centre of the 5–8% the composer, the shells and the auth
+     panel each picked separately. No call site moves by more than 1.5
+     percentage points of white on a one-pixel line. */
+  --glass-highlight: oklch(100% 0 0 / 6.5%);
 
   /* ── Role: hairline ───────────────────────────────────────────────────── */
   --hairline-subtle: oklch(100% 0 0 / 6%);
@@ -424,7 +427,28 @@
   box-shadow: var(--inset-shadow-highlight);
 }
 
-/* ── The brand gradients, spelled once (Phase L2 item 5) ─────────────────────
+/* The display headline: a gradient clipped to the text, running from white
+   through the palest ember into a mid neutral. It is the first thing a visitor
+   reads on the marketing page and the first thing a user sees in an empty
+   thread, and those two were written separately.
+
+   `color: transparent` is part of the treatment rather than the caller's, for
+   the same reason the gradient is: forgetting it renders solid foreground text
+   with an invisible gradient behind it, which looks like a design choice. */
+
+@utility brand-headline {
+  background-image: linear-gradient(
+    to bottom right,
+    oklch(100% 0 0),
+    var(--ember-50),
+    var(--ink-500)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── The brand gradients, spelled once (Phase L2 item 5) ────────────────────────
 
    Five recurring surfaces, found written twenty different ways across the app:
    the filled call-to-action, the send button, the active-row wash, the tinted

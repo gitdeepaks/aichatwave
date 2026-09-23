@@ -333,6 +333,18 @@ test("the glass utility is declared once, in both heavinesses, with the prefixed
   }
 });
 
+test("brand-headline carries its own transparent colour", () => {
+  // Forgetting `color: transparent` at the call site renders solid foreground
+  // text with an invisible gradient behind it, which reads as a design choice
+  // rather than as a mistake. So it is part of the treatment, not the caller's.
+  const block = utilityBlock("brand-headline");
+
+  assert.ok(block !== undefined);
+  assert.match(block, /background-clip: text/u);
+  assert.match(block, /-webkit-background-clip: text/u);
+  assert.match(block, /color: transparent/u);
+});
+
 test("the four glass fills ascend in alpha", () => {
   const alphas = [
     "--glass-fill",

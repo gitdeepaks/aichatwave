@@ -17,35 +17,35 @@ const PROMPT_STARTERS = [
 export function ChatEmptyState({ onPromptSelect }: { onPromptSelect: (prompt: string) => void }) {
   return (
     <div className="mb-8 flex w-full max-w-4xl flex-col items-center text-center">
-      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-orange-200/20 bg-orange-300/[0.08] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-100/85 shadow-[0_12px_36px_-22px_rgba(251,146,60,0.9)] backdrop-blur-md">
+      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-text-strong/20 bg-brand-text/[0.08] px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand-text-bright/85 shadow-glow-md backdrop-blur-glass-light">
         <span className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-orange-300 opacity-60 motion-reduce:animate-none" />
-          <span className="relative inline-flex size-2 rounded-full bg-orange-200" />
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand-text opacity-60 motion-reduce:animate-none" />
+          <span className="relative inline-flex size-2 rounded-full bg-brand-text-strong" />
         </span>
         Live multimodal workspace
       </div>
-      <div className="mb-5 grid grid-cols-3 gap-2 text-orange-100/70" aria-hidden>
+      <div className="mb-5 grid grid-cols-3 gap-2 text-brand-text-bright/70" aria-hidden>
         <Sparkles className="size-4" />
         <Zap className="size-4" />
         <Compass className="size-4" />
       </div>
-      <h1 className="max-w-3xl text-balance bg-gradient-to-br from-white via-orange-50 to-zinc-500 bg-clip-text text-4xl font-semibold tracking-[-0.055em] text-transparent sm:text-6xl">
+      <h1 className="brand-headline max-w-3xl text-balance text-4xl font-semibold tracking-[-0.055em] sm:text-6xl">
         Think, build, and ship without leaving the conversation.
       </h1>
-      <p className="mt-4 max-w-2xl text-pretty text-[15px] leading-7 text-zinc-400 sm:text-base">
+      <p className="mt-4 max-w-2xl text-pretty text-base leading-7 text-fg-muted sm:text-base">
         A faster, calmer AI workspace for code review, product decisions, research, and execution.
         Ask naturally, keep context visible, and move from thought to output with less interface
         drag.
       </p>
-      <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-500">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
-          <Blocks className="size-3 text-orange-200/80" aria-hidden />
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-xs text-fg-subtle">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-glass px-3 py-1.5">
+          <Blocks className="size-3 text-brand-text-strong/80" aria-hidden />
           code aware
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
+        <span className="rounded-full border border-hairline bg-glass px-3 py-1.5">
           research ready
         </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5">
+        <span className="rounded-full border border-hairline bg-glass px-3 py-1.5">
           voice input
         </span>
       </div>
