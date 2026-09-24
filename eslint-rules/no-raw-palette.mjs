@@ -189,8 +189,79 @@ const noRawPalette = {
   },
 };
 
+/**
+ * A size, radius, lift, blur or timing is named once, in the token layer, and
+ * never chosen per component (Phase L2 item 5).
+ *
+ * The palette rule above says which colour; this one says how big, how round,
+ * how high, how soft and how fast. Before it, the product had 24 distinct
+ * arbitrary font sizes — `text-[15px]`, `text-[16px]` and `text-[17px]` among
+ * them — and every one was a decision a component made alone.
+ *
+ * Rejected: an arbitrary font size (`text-[15px]`, `text-[2.4rem]`); any
+ * arbitrary radius or shadow (`rounded-[1.45rem]`, `shadow-[0_18px_50px_…]`);
+ * Tailwind's stock blur steps, which the `glass`, `glass-light` and
+ * `glass-heavy` steps replace; a numeric or arbitrary duration; and any
+ * easing but `ease-emphasis` and `ease-linear`, because the app has one curve.
+ *
+ * Allowed: an arbitrary text value that is not a length — `text-[length:…]`
+ * is the only way to reach some Tailwind internals and is left to review.
+ */
+const ARBITRARY_SCALE = new RegExp(
+  [
+    String.raw`text-\[[0-9.]+(?:px|rem|em)\]`,
+    String.raw`text-\[(?:clamp|calc|min|max)\([^\]\s]*\]`,
+    String.raw`rounded(?:-(?:[trblse]|tl|tr|bl|br|ss|se|es|ee))?-\[[^\]\s]+\]`,
+    String.raw`(?:inset-)?shadow-\[[^\]\s]+\]`,
+    String.raw`(?:backdrop-)?blur-(?:xs|sm|md|lg|xl|2xl|3xl|\[[^\]\s]+\])`,
+    String.raw`duration-(?:\d+|\[[^\]\s]+\])`,
+    String.raw`ease-(?:in|out|in-out|\[[^\]\s]+\])`,
+  ]
+    .map((alternative) => String.raw`(?<![\w-])${VARIANT}-?${alternative}(?![\w-])`)
+    .join("|"),
+  "gu",
+);
+
+/** @type {import("eslint").Rule.RuleModule} */
+const noArbitraryScale = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Use a step from the type, radius, elevation, blur or motion scale instead of an arbitrary or stock value.",
+    },
+    schema: [],
+    messages: {
+      offScale:
+        '"{{match}}" is off the scale. Use a named step — see "Scales" in `docs/design-system.md`.',
+    },
+  },
+  create(context) {
+    function check(node, text) {
+      const scanner = new RegExp(ARBITRARY_SCALE.source, ARBITRARY_SCALE.flags);
+      let match = scanner.exec(text);
+      while (match !== null) {
+        context.report({ node, messageId: "offScale", data: { match: match[0] } });
+        match = scanner.exec(text);
+      }
+    }
+
+    return {
+      Literal(node) {
+        if (typeof node.value === "string") check(node, node.value);
+      },
+      TemplateElement(node) {
+        const raw = node.value.cooked ?? node.value.raw;
+        if (typeof raw === "string") check(node, raw);
+      },
+    };
+  },
+};
+
 function normalize(path) {
   return path.replaceAll("\\", "/");
 }
 
-export default { rules: { "no-raw-palette": noRawPalette } };
+export default {
+  rules: { "no-raw-palette": noRawPalette, "no-arbitrary-scale": noArbitraryScale },
+};

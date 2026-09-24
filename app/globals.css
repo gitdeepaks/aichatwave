@@ -559,6 +559,19 @@
   );
 }
 
+/* The user's own message: the ember warmed into glass, one step brighter than
+   `brand-glass` because it is the reader's words rather than furniture. It
+   was the last brand gradient still spelled at a call site, in a directory
+   the lint rule could not see. */
+@utility brand-bubble {
+  background-image: linear-gradient(
+    to bottom right in oklab,
+    color-mix(in oklab, var(--ember-300) 22%, transparent),
+    color-mix(in oklab, var(--ember-200) 12%, transparent),
+    var(--glass-fill-strong)
+  );
+}
+
 /* The same wash on a square: the brand tile, the icon chip. */
 @utility brand-wash-tile {
   background-image: linear-gradient(

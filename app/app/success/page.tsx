@@ -47,10 +47,10 @@ function SuccessContent() {
           <CheckCircle2 className="h-8 w-8 text-success" />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-[32px] font-semibold tracking-tight text-fg-bright">
+          <CardTitle className="text-3xl font-semibold tracking-tight text-fg-bright">
             Payment Successful
           </CardTitle>
-          <CardDescription className="mx-auto max-w-80 text-[15px] leading-relaxed text-fg-muted">
+          <CardDescription className="mx-auto max-w-80 text-base leading-relaxed text-fg-muted">
             Thank you for upgrading. Your transaction is complete, and your account now has access
             to premium features.
           </CardDescription>
@@ -61,7 +61,7 @@ function SuccessContent() {
         {/* Render the Checkout ID if it exists in the URL */}
         {checkoutId && (
           <div className="flex flex-col items-center justify-center rounded-xl border border-hairline bg-glass p-4 text-center shadow-inner shadow-shade/20">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-fg-subtle">
               Order Reference
             </span>
             <span className="mt-1 w-full max-w-62.5 truncate font-mono text-sm text-fg-strong">

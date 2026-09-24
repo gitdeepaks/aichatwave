@@ -100,16 +100,16 @@ export function AuthScreenShell({
                   priority
                 />
               </div>
-              <span className="text-[15px] font-semibold tracking-[-0.02em] text-fg-bright">
+              <span className="text-base font-semibold tracking-[-0.02em] text-fg-bright">
                 AIChatWave
               </span>
             </div>
 
             <div className="space-y-5">
-              <h1 className="max-w-[15ch] text-balance text-[3.25rem] font-semibold leading-[1.03] tracking-[-0.05em] text-fg-bright">
+              <h1 className="max-w-[15ch] text-balance text-5xl font-semibold leading-[1.03] tracking-[-0.05em] text-fg-bright">
                 {headline}
               </h1>
-              <p className="max-w-[38ch] text-[17px] leading-8 text-fg-soft">{tagline}</p>
+              <p className="max-w-[38ch] text-lg leading-8 text-fg-soft">{tagline}</p>
             </div>
 
             {/* The rule is the list's spine; each marker is centred on it. */}
@@ -120,13 +120,13 @@ export function AuthScreenShell({
                     className="absolute -left-[26px] top-1 size-1.5 rounded-full bg-brand/70 shadow-glow-ring"
                     aria-hidden
                   />
-                  <p className="font-mono text-[10px] uppercase leading-4 tracking-[0.28em] text-brand-text-strong/55">
+                  <p className="font-mono text-2xs uppercase leading-4 tracking-[0.28em] text-brand-text-strong/55">
                     {item.label}
                   </p>
-                  <p className="mt-2 text-[15px] font-medium leading-5 text-fg-strong">
+                  <p className="mt-2 text-base font-medium leading-5 text-fg-strong">
                     {item.title}
                   </p>
-                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-fg-muted">
+                  <p className="mt-1.5 max-w-[42ch] text-sm leading-6 text-fg-muted">
                     {item.body}
                   </p>
                 </li>
@@ -137,14 +137,14 @@ export function AuthScreenShell({
           {/* Right: the auth panel. `--auth-gutter` is the single horizontal
               rail every child of the card lines up on, Clerk's included. */}
           <div className="auth-reveal auth-reveal-delayed mx-auto w-full max-w-[440px]">
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-hairline bg-surface-sunken/55 shadow-elevation-xl inset-shadow-highlight backdrop-blur-glass-heavy [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-surface-sunken/40 sm:[--auth-gutter:2rem]">
+            <div className="relative overflow-hidden rounded-4xl border border-hairline bg-surface-sunken/55 shadow-elevation-xl inset-shadow-highlight backdrop-blur-glass-heavy [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-surface-sunken/40 sm:[--auth-gutter:2rem]">
               <div
                 className="pointer-events-none absolute inset-x-10 top-0 h-px brand-rule"
                 aria-hidden
               />
 
               <div className="flex flex-col items-center gap-4 px-[var(--auth-gutter)] pt-9 text-center">
-                <div className="flex size-14 items-center justify-center rounded-[1.2rem] border border-hairline brand-glass shadow-glow-md lg:hidden">
+                <div className="flex size-14 items-center justify-center rounded-2xl border border-hairline brand-glass shadow-glow-md lg:hidden">
                   <Image
                     src={BRAND_LOGO_SRC}
                     className="size-9 object-contain"
@@ -155,7 +155,7 @@ export function AuthScreenShell({
                   />
                 </div>
 
-                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-brand-text-strong/65">
+                <span className="flex items-center gap-2 font-mono text-2xs uppercase tracking-[0.3em] text-brand-text-strong/65">
                   <span
                     className="size-1 rounded-full bg-brand/80 shadow-glow-ring"
                     aria-hidden
@@ -165,11 +165,11 @@ export function AuthScreenShell({
 
                 {/* The left column carries the headline on desktop; on small
                     screens it is hidden, so the panel takes over that job. */}
-                <h2 className="text-balance text-[1.55rem] font-semibold leading-tight tracking-[-0.035em] text-fg-bright lg:hidden">
+                <h2 className="text-balance text-2xl font-semibold leading-tight tracking-[-0.035em] text-fg-bright lg:hidden">
                   {headline}
                 </h2>
 
-                <p className="text-balance text-[14px] leading-6 text-fg-muted">{panelHint}</p>
+                <p className="text-balance text-sm leading-6 text-fg-muted">{panelHint}</p>
               </div>
 
               {/* Clerk's widget. De-chromed and stretched by `.auth-clerk` rules;
@@ -181,13 +181,13 @@ export function AuthScreenShell({
                 rather than a third stacked hairline. */}
             <div className="mt-6 flex items-center gap-4" aria-hidden>
               <span className="h-px flex-1 bg-gradient-to-r from-transparent to-glass-strong" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-muted">
+              <p className="font-mono text-2xs uppercase tracking-[0.24em] text-fg-muted">
                 Encrypted session handoff
               </p>
               <span className="h-px flex-1 bg-gradient-to-l from-transparent to-glass-strong" />
             </div>
 
-            <p className="mt-5 text-center text-[13px] leading-6 text-fg-muted lg:hidden">
+            <p className="mt-5 text-center text-sm leading-6 text-fg-muted lg:hidden">
               Threads, long-term memory, and tool-powered answers.
             </p>
           </div>

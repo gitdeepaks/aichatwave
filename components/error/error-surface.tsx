@@ -110,7 +110,7 @@ function DigestBlock({ digest }: { digest: string }) {
   return (
     <div className="mt-6 rounded-xl border border-hairline bg-surface-sunken/60 p-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[0.7rem] font-medium tracking-[0.14em] text-fg-subtle uppercase">
+        <span className="text-xs font-medium tracking-[0.14em] text-fg-subtle uppercase">
           Error reference
         </span>
         <Button

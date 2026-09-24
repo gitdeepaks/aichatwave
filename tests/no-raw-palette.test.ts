@@ -175,8 +175,9 @@ test("every path on the ratchet is a repo-relative file that exists", () => {
 /**
  * Every file under `app/` and `components/` that still spells a colour, found
  * by running the rule itself rather than by a second regex that could disagree
- * with it. `components/ui/` and `components/ai-elements/` are excluded for the
- * same reasons `eslint.config.mjs` excludes them: both are CLI output.
+ * with it. `components/ui/` is excluded for the reason `eslint.config.mjs`
+ * excludes it: it is shadcn output. `components/ai-elements/` is not — it
+ * held the message bubble's fourteen literals until Phase L2 looked.
  */
 function offendingFiles(): string[] {
   const linter = new Linter();
@@ -211,7 +212,7 @@ function sourceFiles(): string[] {
     for (const entry of readdirSync(resolve(REPO, relative), { withFileTypes: true })) {
       const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) {
-        if (child === "components/ui" || child === "components/ai-elements") continue;
+        if (child === "components/ui") continue;
         walk(child);
       } else if (entry.name.endsWith(".tsx")) {
         found.push(child);
@@ -223,3 +224,34 @@ function sourceFiles(): string[] {
   walk("components");
   return found;
 }
+
+test("the scale rule rejects arbitrary and stock steps and accepts named ones", () => {
+  tester.run("no-arbitrary-scale", noRawPalette.rules["no-arbitrary-scale"], {
+    valid: [
+      { code: 'const c = "text-2xs text-sm text-base text-5xl leading-[1.05] tracking-[-0.04em]";' },
+      { code: 'const c = "rounded-3xl rounded-br-md shadow-elevation-md inset-shadow-highlight";' },
+      { code: 'const c = "backdrop-blur-glass backdrop-blur-glass-heavy duration-base ease-emphasis";' },
+      // Spinners turn at a constant rate; linear is not a second curve.
+      { code: 'const c = "animate-spin ease-linear";' },
+      // Widths and heights are layout, not type.
+      { code: 'const c = "w-[calc(100%-2rem)] max-w-[38ch] min-w-[92px]";' },
+    ],
+    invalid: [
+      { code: 'const c = "text-[15px]";', errors: [{ messageId: "offScale" }] },
+      { code: 'const c = "sm:text-[3.25rem]";', errors: [{ messageId: "offScale" }] },
+      {
+        code: 'const c = "group-[.is-user]:rounded-[1.45rem] rounded-br-[6px]";',
+        errors: [{ messageId: "offScale" }, { messageId: "offScale" }],
+      },
+      { code: 'const c = "shadow-[0_18px_50px_-34px_var(--shade)]";', errors: [{ messageId: "offScale" }] },
+      {
+        code: 'const c = "backdrop-blur-md blur-2xl";',
+        errors: [{ messageId: "offScale" }, { messageId: "offScale" }],
+      },
+      {
+        code: 'const c = "duration-300 ease-out ease-[cubic-bezier(0.32,0.72,0,1)]";',
+        errors: [{ messageId: "offScale" }, { messageId: "offScale" }, { messageId: "offScale" }],
+      },
+    ],
+  });
+});

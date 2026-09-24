@@ -7,7 +7,17 @@ import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  Children,
+  createContext,
+  isValidElement,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Streamdown } from "streamdown";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
@@ -36,9 +46,9 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-[15px] leading-relaxed shadow-[0_18px_50px_-34px_rgba(0,0,0,0.95)]",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-[1.45rem] group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-orange-100/15 group-[.is-user]:bg-gradient-to-br group-[.is-user]:from-orange-300/22 group-[.is-user]:via-orange-200/12 group-[.is-user]:to-white/[0.075] group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-zinc-50",
-      "group-[.is-assistant]:rounded-[1.45rem] group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-white/10 group-[.is-assistant]:bg-zinc-900/68 group-[.is-assistant]:px-4 group-[.is-assistant]:py-3 group-[.is-assistant]:text-zinc-100 group-[.is-assistant]:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_50px_-36px_rgba(0,0,0,0.95)] group-[.is-assistant]:backdrop-blur-md",
+      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-base leading-relaxed shadow-elevation-md",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-3xl group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-brand-text-bright/15 group-[.is-user]:brand-bubble group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-fg-bright",
+      "group-[.is-assistant]:rounded-3xl group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-hairline group-[.is-assistant]:bg-surface-raised/68 group-[.is-assistant]:px-4 group-[.is-assistant]:py-3 group-[.is-assistant]:text-fg-strong group-[.is-assistant]:inset-shadow-highlight group-[.is-assistant]:backdrop-blur-glass-light",
       className,
     )}
     {...props}
@@ -167,10 +177,10 @@ export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
   const { currentBranch, setBranches, branches } = useMessageBranch();
-  const childrenArray = useMemo(
-    () => (Array.isArray(children) ? children : [children]),
-    [children],
-  );
+  // Elements only: a branch is a rendered message, and `Children.toArray`
+  // gives each one a stable key, which the `Array.isArray` it replaces did not
+  // — and typed the result `any[]`, which C1 does not allow.
+  const childrenArray = useMemo(() => Children.toArray(children).filter(isValidElement), [children]);
 
   // Use useEffect to update branches when they change
   useEffect(() => {

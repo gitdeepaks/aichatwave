@@ -676,7 +676,6 @@ export const PromptInput = ({
 				}
 			}
 		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
 		[usingProvider]
 	);
 
@@ -721,8 +720,8 @@ export const PromptInput = ({
 		[referencedSources, clearReferencedSources]
 	);
 
-	const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
-		async (event) => {
+	const submit = useCallback(
+		async (event: FormEvent<HTMLFormElement>) => {
 			event.preventDefault();
 
 			const form = event.currentTarget;
@@ -781,6 +780,15 @@ export const PromptInput = ({
 			}
 		},
 		[usingProvider, controller, files, onSubmit, clear]
+	);
+
+	// The form wants a handler that returns nothing; the work is async and
+	// settles its own errors above, so the promise is deliberately dropped.
+	const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+		(event) => {
+			void submit(event);
+		},
+		[submit]
 	);
 
 	// Render with or without local provider

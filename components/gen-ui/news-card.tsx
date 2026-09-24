@@ -84,7 +84,7 @@ export function NewsCard({ query, news, summary, error }: DisplayNewsResult) {
                       alt={item.title}
                       fill
                       sizes="256px"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="object-cover transition-transform duration-slow group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">

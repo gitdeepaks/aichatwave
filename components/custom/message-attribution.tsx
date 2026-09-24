@@ -33,7 +33,7 @@ export function MessageAttribution({ metadata }: { metadata: ChatMessageMetadata
   if (attribution === null) return null;
 
   return (
-    <div className="flex items-center gap-3 px-1 text-[11px] text-fg-subtle">
+    <div className="flex items-center gap-3 px-1 text-xs text-fg-subtle">
       <span className="flex items-center gap-1">
         <Cpu className="size-3" aria-hidden />
         {MODEL_LABELS[attribution.modelId]}

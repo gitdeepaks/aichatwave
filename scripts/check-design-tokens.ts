@@ -45,6 +45,9 @@ const NAMESPACES = [
   "glow",
   "highlight",
   "ember",
+  "shade",
+  "media",
+  "rating",
 ];
 
 /**
@@ -120,13 +123,19 @@ const CLASS_LIST = /^[a-z0-9\s:_/[\]().,%#&*<>=+-]*$/u;
  * longest first so `brand-wash-tile` is not reported as `brand-wash`.
  */
 const BARE_UTILITIES = [
+  "atmosphere-ground",
+  "weather-sky-night",
+  "weather-sky-day",
+  "weather-panel",
   "brand-action-vivid",
   "brand-wash-tile",
   "brand-headline",
   "brand-action",
   "brand-glass",
   "brand-wash",
+  "brand-bubble",
   "brand-rule",
+  "hairline-rule",
   "glass-strong",
   "glass",
 ];

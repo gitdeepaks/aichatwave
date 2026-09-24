@@ -55,7 +55,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
           return (
             <Card
               key={product.id}
-              className="shrink-0 w-55 sm:w-60 snap-start flex flex-col overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 group cursor-pointer bg-card p-0"
+              className="shrink-0 w-55 sm:w-60 snap-start flex flex-col overflow-hidden hover:shadow-lg transition-all duration-slow border-border/50 group cursor-pointer bg-card p-0"
             >
               {/* Image Container - White background to act like a lightbox for product images */}
               <a href={product.productLink} target="_blank" rel="noreferrer">
@@ -66,7 +66,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
                       alt={product.title}
                       fill
                       sizes="(min-width: 640px) 240px, 220px"
-                      className="object-contain p-6 mix-blend-multiply hover:scale-105 transition-transform duration-500 ease-out"
+                      className="object-contain p-6 mix-blend-multiply hover:scale-105 transition-transform duration-slower ease-emphasis"
                     />
                   ) : (
                     <div className="text-xs text-muted-foreground">Image unavailable</div>

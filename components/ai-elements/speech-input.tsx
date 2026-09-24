@@ -56,12 +56,14 @@ declare global {
 type SpeechInputMode = "speech-recognition" | "media-recorder" | "none";
 
 function isSpeechRecognitionEvent(event: Event): event is SpeechRecognitionEvent {
-  const candidate = event as Partial<SpeechRecognitionEvent>;
   return (
-    typeof candidate.resultIndex === "number" &&
-    typeof candidate.results === "object" &&
-    candidate.results !== null &&
-    typeof candidate.results.length === "number"
+    "resultIndex" in event &&
+    typeof event.resultIndex === "number" &&
+    "results" in event &&
+    typeof event.results === "object" &&
+    event.results !== null &&
+    "length" in event.results &&
+    typeof event.results.length === "number"
   );
 }
 
@@ -245,7 +247,9 @@ export const SpeechInput = ({
       };
 
       mediaRecorder.addEventListener("dataavailable", handleDataAvailable);
-      mediaRecorder.addEventListener("stop", handleStop);
+      mediaRecorder.addEventListener("stop", () => {
+        void handleStop();
+      });
       mediaRecorder.addEventListener("error", handleError);
 
       mediaRecorderRef.current = mediaRecorder;
@@ -275,7 +279,7 @@ export const SpeechInput = ({
       if (isListening) {
         stopMediaRecorder();
       } else {
-        startMediaRecorder();
+        void startMediaRecorder();
       }
     }
   }, [mode, isListening, startMediaRecorder, stopMediaRecorder]);
@@ -293,7 +297,7 @@ export const SpeechInput = ({
       {isListening &&
         [0, 1, 2].map((index) => (
           <div
-            className="absolute inset-0 animate-ping rounded-full border-2 border-red-400/30"
+            className="absolute inset-0 animate-ping rounded-full border-2 border-destructive/30"
             key={index}
             style={{
               animationDelay: `${index * 0.3}s`,
@@ -305,9 +309,9 @@ export const SpeechInput = ({
       {/* Main record button */}
       <Button
         className={cn(
-          "relative z-10 rounded-full transition-all duration-300",
+          "relative z-10 rounded-full transition-all duration-slow",
           isListening
-            ? "bg-destructive text-white hover:bg-destructive/80 hover:text-white"
+            ? "bg-destructive text-fg-on-fill hover:bg-destructive/80 hover:text-fg-on-fill"
             : "bg-primary text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground",
           className,
         )}

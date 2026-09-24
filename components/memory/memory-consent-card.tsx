@@ -61,20 +61,20 @@ export function MemoryConsentCard() {
             <div className="flex flex-wrap items-center gap-2">
               {/* `h2`: the page's `h1` is "Memory Center", so this is the next
                   level down and skipping to `h3` would break the outline. */}
-              <h2 className="text-[15px] font-medium text-fg-bright">Long-term memory</h2>
+              <h2 className="text-base font-medium text-fg-bright">Long-term memory</h2>
               {consent.isPending ? (
                 <Skeleton className="h-5 w-20 rounded-full bg-glass" />
               ) : (
                 <StatusPill state={state ?? "undecided"} />
               )}
             </div>
-            <p className="mt-1.5 max-w-xl text-[13px] leading-6 text-fg-muted">
+            <p className="mt-1.5 max-w-xl text-sm leading-6 text-fg-muted">
               {isOn
                 ? "The assistant may store short durable facts from your messages and use them in later conversations. Delete any of them below."
                 : "Nothing is being stored. The assistant starts each conversation without prior knowledge of you."}
             </p>
             {isOn ? null : (
-              <p className="mt-1 text-[12px] leading-5 text-fg-muted">
+              <p className="mt-1 text-xs leading-5 text-fg-muted">
                 Memories already saved stay listed below and are not used while this is off.
               </p>
             )}
@@ -87,7 +87,7 @@ export function MemoryConsentCard() {
             disabled={consent.isPending || decide.isPending}
             onClick={() => decide.mutate(isOn ? "declined" : "granted")}
             className={cn(
-              "h-9 gap-2 rounded-full px-4 text-[13px] font-semibold",
+              "h-9 gap-2 rounded-full px-4 text-sm font-semibold",
               isOn
                 ? "border border-hairline bg-glass text-fg hover:bg-glass-strong"
                 : "brand-action text-fg-on-fill",
@@ -113,7 +113,7 @@ function StatusPill({ state }: Readonly<{ state: "undecided" | "granted" | "decl
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em]",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-2xs uppercase tracking-[0.18em]",
         state === "granted"
           ? "border-brand-text/30 text-brand-text-strong/90"
           : "border-hairline text-fg-muted",

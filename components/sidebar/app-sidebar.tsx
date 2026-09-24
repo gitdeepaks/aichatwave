@@ -17,7 +17,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
       variant="floating"
       collapsible="icon"
       className={cn(
-        "transition-[left,right,width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "transition-[left,right,width] duration-slow ease-emphasis",
       )}
       {...props}
     >

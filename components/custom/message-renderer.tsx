@@ -92,7 +92,7 @@ function ReasoningBlock({ text }: { text: string }) {
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-subtle transition-colors hover:text-fg-soft"
+        className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-fg-subtle transition-colors hover:text-fg-soft"
       >
         <Sparkles className="size-3" aria-hidden />
         {isOpen ? "Hide reasoning" : "Show reasoning"}
@@ -313,7 +313,7 @@ function AssistantFooter({
                   <button
                     type="button"
                     aria-label="Retry with a different model"
-                    className="rounded-md px-1.5 py-0.5 text-[11px] text-fg-subtle transition-colors hover:bg-glass-strong hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50"
+                    className="rounded-md px-1.5 py-0.5 text-xs text-fg-subtle transition-colors hover:bg-glass-strong hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50"
                   >
                     Switch model
                   </button>

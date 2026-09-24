@@ -158,7 +158,7 @@ export const ModelSelectorComponent = () => {
             </div>
           </Button>
         </ModelSelectorTrigger>
-        <ModelSelectorContent className="max-h-[min(70vh,520px)] overflow-hidden rounded-2xl border border-hairline bg-surface-overlay/95 text-fg-strong shadow-elevation-xl backdrop-blur-xl">
+        <ModelSelectorContent className="max-h-[min(70vh,520px)] overflow-hidden rounded-2xl border border-hairline bg-surface-overlay/95 text-fg-strong shadow-elevation-xl backdrop-blur-glass">
           <ModelSelectorInput placeholder="Search models..." />
           <ModelSelectorList>
             <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>

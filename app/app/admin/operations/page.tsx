@@ -232,7 +232,7 @@ function UserTable({ users }: { users: CostByUserDto[] }) {
           value={formatUsd(user.costUsd)}
           badge={
             user.anomaly.anomalous ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning-text">
+              <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text">
                 <Activity className="h-3 w-3" aria-hidden />
                 {user.anomaly.ratio === null
                   ? "anomaly"
@@ -335,7 +335,7 @@ function StatusPill({ status }: { status: SloEvaluationDto["status"] }) {
   return (
     <span
       className={cn(
-        "shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+        "shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium capitalize",
         tone,
       )}
     >
@@ -368,12 +368,12 @@ function Header() {
   return (
     <Card className={cn("shrink-0 rounded-2xl", brandGlassCardClass)}>
       <CardContent>
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-glass px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-fg-muted">
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-glass px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-fg-muted">
           <Gauge className="size-3 text-brand-text" aria-hidden />
           Operations
         </div>
         <h1 className="text-xl font-semibold tracking-tight text-fg-bright">Cost and reliability</h1>
-        <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-fg-muted">
+        <p className="mt-1 max-w-2xl text-base leading-relaxed text-fg-muted">
           What the product is spending, and how it is standing against its service objectives.
           Visible only to the user ids in <code className="text-fg-soft">ADMIN_USER_IDS</code>.
         </p>

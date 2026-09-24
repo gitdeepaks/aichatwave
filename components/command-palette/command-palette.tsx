@@ -263,7 +263,7 @@ export function CommandPalette() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-2xl sm:max-w-xl">
+      <DialogContent className="gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-glass-heavy sm:max-w-xl">
         <DialogHeader className="sr-only">
           <DialogTitle>Command palette</DialogTitle>
           <DialogDescription>
@@ -459,7 +459,7 @@ function PaletteRow({
         <span className="flex items-center gap-2 text-sm font-medium text-fg">
           <span className="truncate">{title}</span>
           {badge === undefined ? null : (
-            <span className="shrink-0 rounded-full border border-brand-text/25 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.12em] text-brand-text-strong/80">
+            <span className="shrink-0 rounded-full border border-brand-text/25 px-1.5 py-px text-2xs font-medium uppercase tracking-[0.12em] text-brand-text-strong/80">
               {badge}
             </span>
           )}

@@ -109,17 +109,17 @@ export function OnboardingDialog() {
         if (!next) close();
       }}
     >
-      <DialogContent className="max-w-lg gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-2xl">
+      <DialogContent className="max-w-lg gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-glass-heavy">
         <div
           className="pointer-events-none absolute inset-x-12 top-0 h-px brand-rule"
           aria-hidden
         />
 
         <DialogHeader className="space-y-3 px-7 pb-2 pt-8 text-left">
-          <DialogTitle className="text-[22px] font-semibold tracking-[-0.03em] text-fg-bright">
+          <DialogTitle className="text-2xl font-semibold tracking-[-0.03em] text-fg-bright">
             {STEP_CONTENT[step].title}
           </DialogTitle>
-          <DialogDescription className="text-[14px] leading-6 text-fg-muted">
+          <DialogDescription className="text-sm leading-6 text-fg-muted">
             {STEP_CONTENT[step].description}
           </DialogDescription>
         </DialogHeader>
@@ -136,7 +136,7 @@ export function OnboardingDialog() {
                 variant="ghost"
                 disabled={decide.isPending}
                 onClick={() => decide.mutate("declined")}
-                className="h-9 rounded-full px-4 text-[13px] text-fg-muted hover:bg-glass hover:text-fg-strong"
+                className="h-9 rounded-full px-4 text-sm text-fg-muted hover:bg-glass hover:text-fg-strong"
               >
                 Keep memory off
               </Button>
@@ -159,7 +159,7 @@ export function OnboardingDialog() {
             <Button
               type="button"
               onClick={() => setStep(STEP_ORDER[stepIndex + 1] ?? "memory")}
-              className="h-9 gap-2 rounded-full bg-glass-strong px-4 text-[13px] font-medium text-fg-strong hover:bg-glass-heavy"
+              className="h-9 gap-2 rounded-full bg-glass-strong px-4 text-sm font-medium text-fg-strong hover:bg-glass-heavy"
             >
               Next
               <ArrowRight className="size-3.5" aria-hidden />
@@ -233,12 +233,12 @@ function ModelsBody() {
             />
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
-                <span className="text-[14px] font-medium text-fg-strong">{model.name}</span>
-                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-faint">
+                <span className="text-sm font-medium text-fg-strong">{model.name}</span>
+                <span className="font-mono text-2xs uppercase tracking-[0.18em] text-fg-faint">
                   {isPro ? "Pro" : "Free"}
                 </span>
               </span>
-              <span className="mt-0.5 block text-[13px] leading-5 text-fg-subtle">
+              <span className="mt-0.5 block text-sm leading-5 text-fg-subtle">
                 {model.blurb}
               </span>
             </span>
@@ -260,7 +260,7 @@ function MemoryBody() {
         <MemoryFact>Never shared between accounts, and removed when you delete yours.</MemoryFact>
         <MemoryFact>Reversible: switching it back off stops both storage and use.</MemoryFact>
       </ul>
-      <p className="text-[13px] leading-6 text-fg-faint">
+      <p className="text-sm leading-6 text-fg-faint">
         Leave it off and the assistant still answers normally — it simply starts each conversation
         without knowing you.
       </p>
@@ -272,7 +272,7 @@ function MemoryFact({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <li className="flex items-start gap-2.5">
       <span className="mt-[9px] size-1 shrink-0 rounded-full bg-brand/70" aria-hidden />
-      <span className="text-[14px] leading-6 text-fg-soft">{children}</span>
+      <span className="text-sm leading-6 text-fg-soft">{children}</span>
     </li>
   );
 }
@@ -288,8 +288,8 @@ function OnboardingPoint({
         <Icon className="size-4 text-brand-text/85" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-medium text-fg-strong">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-5 text-fg-subtle">{children}</span>
+        <span className="block text-sm font-medium text-fg-strong">{title}</span>
+        <span className="mt-0.5 block text-sm leading-5 text-fg-subtle">{children}</span>
       </span>
     </li>
   );

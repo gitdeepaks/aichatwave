@@ -120,7 +120,7 @@ export default function ChatbotUserProfile() {
                 Upgrade to Pro
               </Button>
             ) : (
-              <Button className="rounded-xl border border-hairline bg-glass-strong text-[12px] font-medium text-fg-bright hover:bg-glass-heavy">
+              <Button className="rounded-xl border border-hairline bg-glass-strong text-xs font-medium text-fg-bright hover:bg-glass-heavy">
                 <Sparkles />
                 Pro Member
               </Button>

@@ -9,8 +9,11 @@ import unknownParseBoundary from "./eslint-rules/unknown-parse-boundary.mjs";
  * reverts any edit made to satisfy a rule — so it is exempt from the
  * type-safety rules for the same reason `.prettierignore` skips it.
  *
- * The four retained `components/ai-elements` files are typechecked but not
- * linted (see `ignores` below): they remain AI Elements CLI output.
+ * `components/ai-elements` is not on this list. It was, as AI Elements CLI
+ * output, until Phase L2 found the chat message bubble — the product's most
+ * visible surface — spelling fourteen palette literals where no rule could
+ * see them. Four files the product renders on every screen are product code
+ * (constraint C1a), and they are held to every rule below.
  */
 const VENDORED = ["components/ui/**"];
 
@@ -36,7 +39,6 @@ export default [
       "node_modules/**",
       "next-env.d.ts",
       // The four reachable AI Elements files remain generated CLI output.
-      "components/ai-elements/**",
       // k6 scripts run in k6's own JavaScript runtime, not Node: no bundler,
       // no module resolution this config knows about, and globals (`__ENV`,
       // `exec`) that only exist there.
@@ -132,6 +134,7 @@ export default [
     plugins: { design: noRawPalette },
     rules: {
       "design/no-raw-palette": ["error", { allow: UNMIGRATED_PALETTE_FILES }],
+      "design/no-arbitrary-scale": "error",
     },
   },
 
