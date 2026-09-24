@@ -17,12 +17,6 @@
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // workspace — 99 across 5 files
-  "app/app/layout.tsx", // 7
-  "app/app/memories/page.tsx", // 9
-  "app/app/memories/records.tsx", // 16
-  "app/app/profile/page.tsx", // 46
-  "app/app/success/page.tsx", // 21
   // shared components — 148 across 10 files
   "components/command-palette/command-palette.tsx", // 21
   "components/custom/message-attribution.tsx", // 1

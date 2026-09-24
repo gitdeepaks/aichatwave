@@ -51,7 +51,7 @@ export default function ChatbotUserProfile() {
 
   if (isError) {
     return (
-      <div className="mx-auto max-w-lg p-6 text-center text-sm text-red-300">
+      <div className="mx-auto max-w-lg p-6 text-center text-sm text-danger-text">
         Error: {error?.message ?? "Unable to load profile data."}
       </div>
     );
@@ -91,18 +91,18 @@ export default function ChatbotUserProfile() {
               {/* `h1`: this is the page's title and nothing sits above it, so
                   starting the outline at level 2 leaves the document without
                   one (`page-has-heading-one`). */}
-              <h1 className="text-2xl font-semibold tracking-tight text-white">{user.name}</h1>
-              <p className="text-sm text-zinc-400">{user.email}</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-fg-bright">{user.name}</h1>
+              <p className="text-sm text-fg-muted">{user.email}</p>
               <div className="flex items-center gap-3 pt-1">
                 <Badge
                   variant="secondary"
-                  className="rounded-xl border border-white/10 bg-white/[0.06] text-zinc-200"
+                  className="rounded-xl border border-hairline bg-glass text-fg"
                 >
                   {"user"}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="flex items-center gap-1 rounded-xl border-white/10 text-zinc-200"
+                  className="flex items-center gap-1 rounded-xl border-hairline text-fg"
                 >
                   <ShieldCheck className="h-3 w-3" /> {isProSubscription ? "Active" : "Inactive"}
                 </Badge>
@@ -114,13 +114,13 @@ export default function ChatbotUserProfile() {
             {!isProSubscription && isProSubscriptionSuccess ? (
               <Button
                 onClick={() => void goToBilling(billingApi.startProCheckout)}
-                className="rounded-xl bg-gradient-to-r from-orange-500 to-red-600 font-semibold text-white shadow-lg shadow-orange-950/40 hover:from-orange-400 hover:to-red-500"
+                className="rounded-xl brand-action font-semibold text-fg-on-fill shadow-lg shadow-brand-surface/40"
               >
                 <Sparkles />
                 Upgrade to Pro
               </Button>
             ) : (
-              <Button className="rounded-xl border border-white/10 bg-white/[0.08] text-[12px] font-medium text-white hover:bg-white/[0.12]">
+              <Button className="rounded-xl border border-hairline bg-glass-strong text-[12px] font-medium text-fg-bright hover:bg-glass-heavy">
                 <Sparkles />
                 Pro Member
               </Button>
@@ -129,7 +129,7 @@ export default function ChatbotUserProfile() {
             <Button
               onClick={() => void goToBilling(billingApi.openPortal)}
               variant="outline"
-              className="rounded-xl border-white/12 bg-white/[0.04] text-zinc-100 hover:bg-white/[0.08]"
+              className="rounded-xl border-hairline bg-glass text-fg-strong hover:bg-glass-strong"
             >
               Manage Billing
             </Button>
@@ -142,15 +142,15 @@ export default function ChatbotUserProfile() {
         {/* Plan Details */}
         <Card className={cn(profileCardClass, "lg:col-span-1")}>
           <CardHeader>
-            <CardTitle className="text-lg text-white">Subscription</CardTitle>
-            <CardDescription className="text-zinc-400">
+            <CardTitle className="text-lg text-fg-bright">Subscription</CardTitle>
+            <CardDescription className="text-fg-muted">
               Current plan and renewal details
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-zinc-400">Plan</span>
-              <Badge className="rounded-xl border border-white/10 bg-white/[0.06] text-zinc-100">
+              <span className="text-sm text-fg-muted">Plan</span>
+              <Badge className="rounded-xl border border-hairline bg-glass text-fg-strong">
                 {isProSubscription ? "AIChatWave Pro" : "Inactive"}
               </Badge>
             </div>
@@ -159,11 +159,11 @@ export default function ChatbotUserProfile() {
 
             <div className="space-y-4 text-sm">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-zinc-400">
+                <div className="flex items-center gap-2 text-fg-muted">
                   <CalendarDays className="h-4 w-4" /> Purchased
                 </div>
                 {isUsageDataSuccess && usageData && (
-                  <span className="text-zinc-200">
+                  <span className="text-fg">
                     {new Date(usageData.createdAt).toLocaleDateString()}
                   </span>
                 )}
@@ -175,8 +175,8 @@ export default function ChatbotUserProfile() {
         {/* Usage Overview */}
         <Card className={cn(profileCardClass, "lg:col-span-2")}>
           <CardHeader>
-            <CardTitle className="text-lg text-white">Token Usage</CardTitle>
-            <CardDescription className="text-zinc-400">
+            <CardTitle className="text-lg text-fg-bright">Token Usage</CardTitle>
+            <CardDescription className="text-fg-muted">
               Monthly AI consumption overview
             </CardDescription>
           </CardHeader>
@@ -184,25 +184,25 @@ export default function ChatbotUserProfile() {
             {isUsageDataSuccess && usageData && (
               <>
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="flex items-center gap-2 text-sm text-zinc-400">
+                  <div className="rounded-2xl border border-hairline bg-glass p-4">
+                    <div className="flex items-center gap-2 text-sm text-fg-muted">
                       <Zap className="h-4 w-4" /> Monthly Limit
                     </div>
-                    <p className="pt-2 text-xl font-semibold text-white">
+                    <p className="pt-2 text-xl font-semibold text-fg-bright">
                       {usageData.creditedUnits}
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="text-sm text-zinc-400">Current Usage</div>
-                    <p className="pt-2 text-xl font-semibold text-white">
+                  <div className="rounded-2xl border border-hairline bg-glass p-4">
+                    <div className="text-sm text-fg-muted">Current Usage</div>
+                    <p className="pt-2 text-xl font-semibold text-fg-bright">
                       {usageData.consumedUnits}
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="text-sm text-zinc-400">Remaining</div>
-                    <p className="pt-2 text-xl font-semibold text-white">{usageData.balance}</p>
+                  <div className="rounded-2xl border border-hairline bg-glass p-4">
+                    <div className="text-sm text-fg-muted">Remaining</div>
+                    <p className="pt-2 text-xl font-semibold text-fg-bright">{usageData.balance}</p>
                   </div>
                 </div>
 
@@ -219,10 +219,10 @@ export default function ChatbotUserProfile() {
                     className="h-3 rounded-xl"
                   />
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">
+                    <span className="text-fg-muted">
                       {usagePercent(usageData).toFixed(1)}% of monthly quota used
                     </span>
-                    <span className="font-medium text-zinc-200">Resets on Month End</span>
+                    <span className="font-medium text-fg">Resets on Month End</span>
                   </div>
                 </div>
               </>

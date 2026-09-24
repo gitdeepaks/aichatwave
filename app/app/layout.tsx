@@ -60,10 +60,10 @@ export default async function WorkspaceLayout({
           tabIndex={-1}
           className="min-h-0 overflow-hidden bg-transparent focus-visible:outline-none"
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden text-zinc-100">
-            <header className="relative flex h-15 shrink-0 items-center justify-between border-b border-white/10 bg-zinc-950/40 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-zinc-950/25">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden text-fg-strong">
+            <header className="relative flex h-15 shrink-0 items-center justify-between border-b border-hairline bg-surface-sunken/40 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-surface-sunken/25">
               <div className="flex md:hidden">
-                <SidebarTrigger className="text-zinc-300 hover:bg-white/10 hover:text-white" />
+                <SidebarTrigger className="text-fg-soft hover:bg-glass-strong hover:text-fg-bright" />
               </div>
               <div className="hidden items-center md:flex">
                 <AiChatWaveDropdown />

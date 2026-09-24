@@ -41,16 +41,16 @@ function SuccessContent() {
   }, [queryClient, userId]);
 
   return (
-    <Card className={cn("w-full max-w-110 text-zinc-50", brandGlassCardClass)}>
+    <Card className={cn("w-full max-w-110 text-fg-bright", brandGlassCardClass)}>
       <CardHeader className="space-y-5 pt-10 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 ring-1 ring-emerald-400/25">
-          <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success-strong/15 ring-1 ring-success/25">
+          <CheckCircle2 className="h-8 w-8 text-success" />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-[32px] font-semibold tracking-tight text-white">
+          <CardTitle className="text-[32px] font-semibold tracking-tight text-fg-bright">
             Payment Successful
           </CardTitle>
-          <CardDescription className="mx-auto max-w-80 text-[15px] leading-relaxed text-zinc-400">
+          <CardDescription className="mx-auto max-w-80 text-[15px] leading-relaxed text-fg-muted">
             Thank you for upgrading. Your transaction is complete, and your account now has access
             to premium features.
           </CardDescription>
@@ -60,18 +60,18 @@ function SuccessContent() {
       <CardContent className="flex flex-col gap-6 px-10 pb-2">
         {/* Render the Checkout ID if it exists in the URL */}
         {checkoutId && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center shadow-inner shadow-black/20">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-hairline bg-glass p-4 text-center shadow-inner shadow-shade/20">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-fg-subtle">
               Order Reference
             </span>
-            <span className="mt-1 w-full max-w-62.5 truncate font-mono text-sm text-zinc-100">
+            <span className="mt-1 w-full max-w-62.5 truncate font-mono text-sm text-fg-strong">
               {checkoutId}
             </span>
           </div>
         )}
 
         <Link href={ROUTES.app} className="block w-full">
-          <Button className="h-13 w-full rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-[16px] font-semibold text-white shadow-lg shadow-orange-950/40 transition-[transform,box-shadow] hover:from-orange-400 hover:to-red-500 active:scale-[0.98]">
+          <Button className="h-13 w-full rounded-xl brand-action text-base font-semibold text-fg-on-fill shadow-lg shadow-brand-surface/40 transition-[transform,box-shadow] active:scale-[0.98]">
             Return to Chat
             <ArrowRight className="ml-2 size-5" />
           </Button>
@@ -79,7 +79,7 @@ function SuccessContent() {
       </CardContent>
 
       <CardFooter className="flex flex-col items-center pb-8 pt-4">
-        <div className="text-sm text-zinc-500">A receipt has been sent to your email.</div>
+        <div className="text-sm text-fg-subtle">A receipt has been sent to your email.</div>
       </CardFooter>
     </Card>
   );
@@ -87,7 +87,7 @@ function SuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <div className="flex h-dvh items-center justify-center bg-zinc-950 px-4">
+    <div className="flex h-dvh items-center justify-center bg-surface-sunken px-4">
       <Suspense
         fallback={
           <Card
@@ -97,8 +97,8 @@ export default function PaymentSuccessPage() {
             )}
           >
             <div className="flex flex-col items-center gap-4">
-              <Loader2 className="size-8 animate-spin text-orange-300" />
-              <p className="text-sm text-zinc-400">Verifying payment...</p>
+              <Loader2 className="size-8 animate-spin text-brand-text" />
+              <p className="text-sm text-fg-muted">Verifying payment...</p>
             </div>
           </Card>
         }

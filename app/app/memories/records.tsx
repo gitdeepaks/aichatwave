@@ -57,19 +57,19 @@ function Records({ memories: initialMemories }: { memories: MemoryDto[] }) {
     >
       <CardHeader className="shrink-0 flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <CardTitle className="text-lg text-white">Memory Records ({memories.length})</CardTitle>
-          <CardDescription className="text-xs text-zinc-400">
+          <CardTitle className="text-lg text-fg-bright">Memory Records ({memories.length})</CardTitle>
+          <CardDescription className="text-xs text-fg-muted">
             Structured contextual entries stored by the AI system
           </CardDescription>
         </div>
 
         <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <Input
             placeholder="Search memories..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-10 rounded-xl border-white/10 bg-white/[0.04] pl-9 text-zinc-100 shadow-inner shadow-black/20 placeholder:text-zinc-500 focus-visible:border-orange-400/50 focus-visible:ring-orange-500/25"
+            className="h-10 rounded-xl border-hairline bg-glass pl-9 text-fg-strong shadow-inner shadow-shade/20 placeholder:text-fg-subtle focus-visible:border-brand/50 focus-visible:ring-brand-strong/25"
           />
         </div>
       </CardHeader>
@@ -78,13 +78,13 @@ function Records({ memories: initialMemories }: { memories: MemoryDto[] }) {
         <ScrollArea className="h-full min-h-0 pr-4">
           <div className="divide-y">
             {filtered.length === 0 && (
-              <div className="py-10 text-center text-sm text-zinc-500">
+              <div className="py-10 text-center text-sm text-fg-subtle">
                 No matching memories found.
               </div>
             )}
 
             {filtered.map((memory, index) => (
-              <div key={memory.id} className="px-4 py-4 transition-colors hover:bg-white/[0.04]">
+              <div key={memory.id} className="px-4 py-4 transition-colors hover:bg-glass">
                 <div className="flex items-start justify-between gap-6">
                   <div className="space-y-1 max-w-3xl">
                     <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ function Records({ memories: initialMemories }: { memories: MemoryDto[] }) {
                       aria-label={`Forget memory: ${memory.content}`}
                       disabled={deleteMutation.isPending}
                       onClick={() => deleteMutation.mutate(memory.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-red-500/15 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:opacity-40"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-danger/15 hover:text-danger-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 disabled:opacity-40"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
