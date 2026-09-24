@@ -8,7 +8,9 @@ import {
   LoaderCircle,
   MessageSquareText,
   Plus,
+  Rows3,
   Sparkles,
+  SunMoon,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -44,7 +46,10 @@ import { isCustomerHaveSubscription } from "@/lib/polar";
 import { subscriptionQueryKey, threadSearchQueryKey, threadsQueryKey } from "@/lib/query-keys";
 import { markInteractionStart, threadSwitchMark } from "@/lib/perf/client-latency";
 import { chatRoute, ROUTES } from "@/lib/routes";
+import { DENSITIES, THEME_PREFERENCES } from "@/lib/appearance";
+import { DENSITY_LABELS, THEME_LABELS } from "@/components/appearance/appearance-menu";
 import { useChatStore } from "@/store/chat-store";
+import { useAppearanceStore } from "@/store/appearance-store";
 import { useCommandPaletteStore } from "@/store/command-palette-store";
 import { useAuth } from "@clerk/nextjs";
 
@@ -176,6 +181,11 @@ export function CommandPalette() {
     router.push(path);
   };
 
+  const theme = useAppearanceStore((state) => state.theme);
+  const density = useAppearanceStore((state) => state.density);
+  const setTheme = useAppearanceStore((state) => state.setTheme);
+  const setDensity = useAppearanceStore((state) => state.setDensity);
+
   const actions = useMemo<PaletteAction[]>(
     () => [
       {
@@ -214,11 +224,38 @@ export function CommandPalette() {
         icon: CreditCard,
         run: () => go(ROUTES.pricing),
       },
+      // One action per preference the reader is *not* on, so the palette
+      // offers a change rather than restating the current state.
+      ...THEME_PREFERENCES.filter((preference) => preference !== theme).map(
+        (preference): PaletteAction => ({
+          id: `theme-${preference}`,
+          label: `Theme: ${THEME_LABELS[preference]}`,
+          hint: preference === "system" ? "Follow your device" : `Always ${preference}`,
+          icon: SunMoon,
+          run: () => {
+            setTheme(preference);
+            close();
+          },
+        }),
+      ),
+      ...DENSITIES.filter((option) => option !== density).map(
+        (option): PaletteAction => ({
+          id: `density-${option}`,
+          label: `Density: ${DENSITY_LABELS[option]}`,
+          hint: option === "compact" ? "More conversation per screen" : "More room to breathe",
+          icon: Rows3,
+          run: () => {
+            setDensity(option);
+            close();
+          },
+        }),
+      ),
     ],
     // `go` and `close` close over `router`/`setOpen`, both stable for the
     // component's life; listing them would re-create the array every render.
+    // The appearance setters are store actions and equally stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [router],
+    [router, theme, density],
   );
 
   const matchingActions = actions.filter((action) => matches(action.label, query));
@@ -315,11 +352,7 @@ export function CommandPalette() {
                     Fixed here rather than in `components/ui/command.tsx`:
                     that file is shadcn output and a regeneration would revert
                     it. The props spread reaches the primitive either way. */}
-                <CommandSeparator
-                  className="my-1 bg-glass"
-                  role="presentation"
-                  aria-hidden
-                />
+                <CommandSeparator className="my-1 bg-glass" role="presentation" aria-hidden />
                 <CommandGroup
                   heading={query.length === 0 ? "Recent conversations" : "Conversations"}
                 >
@@ -339,11 +372,7 @@ export function CommandPalette() {
 
             {matchingModels.length > 0 ? (
               <>
-                <CommandSeparator
-                  className="my-1 bg-glass"
-                  role="presentation"
-                  aria-hidden
-                />
+                <CommandSeparator className="my-1 bg-glass" role="presentation" aria-hidden />
                 <CommandGroup heading="Switch model">
                   {matchingModels.map((modelId) => {
                     const presentation = getModelPresentation(modelId);
@@ -367,11 +396,7 @@ export function CommandPalette() {
 
             {isSearching && messageResults.length > 0 ? (
               <>
-                <CommandSeparator
-                  className="my-1 bg-glass"
-                  role="presentation"
-                  aria-hidden
-                />
+                <CommandSeparator className="my-1 bg-glass" role="presentation" aria-hidden />
                 <CommandGroup heading="Messages">
                   {messageResults.map((result) => (
                     <PaletteRow

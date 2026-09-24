@@ -6,6 +6,7 @@ import { BadgeCheck, Bell, ChevronsUpDown, CreditCard, LogOut, Sparkles } from "
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { AppearanceMenu } from "@/components/appearance/appearance-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -140,6 +141,7 @@ export function SidebarFooterComponent() {
                   <Bell />
                   Notifications
                 </DropdownMenuItem>
+                <AppearanceMenu />
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem
