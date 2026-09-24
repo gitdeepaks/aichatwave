@@ -117,6 +117,13 @@ test("the rule rejects palette literals and accepts token roles", () => {
         code: "const c = `flex ${x} text-zinc-400`;",
         errors: [{ messageId: "namedPalette" }],
       },
+      // A hex followed by Tailwind's underscore-for-space. `\b` sees no
+      // boundary between `f` and `_`, which is how the workspace's ground
+      // gradient sat unreported in a file the ratchet called migrated.
+      {
+        code: 'const c = "bg-[radial-gradient(circle_at_50%_-10%,#31200f_0%,transparent_42%)]";',
+        errors: [{ messageId: "arbitraryColor" }],
+      },
       // JSX, the shape this actually appears in.
       {
         code: '<div className="bg-zinc-900/90 text-zinc-100" />;',

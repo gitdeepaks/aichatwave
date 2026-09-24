@@ -14,7 +14,7 @@ export function BrandAtmosphere({ children, className, fillViewport }: BrandAtmo
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden bg-[radial-gradient(circle_at_50%_-10%,#31200f_0%,#09090b_42%,#050505_100%)]",
+        "relative w-full overflow-hidden atmosphere-ground",
         fillViewport && "h-dvh min-h-0",
         className,
       )}

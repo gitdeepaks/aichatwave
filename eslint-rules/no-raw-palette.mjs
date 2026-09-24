@@ -93,7 +93,7 @@ const NAMED_COLOR = new RegExp(
 );
 
 /** The colour functions, and a bare hex. */
-const COLOR_VALUE = String.raw`(?:#[0-9a-f]{3,8}\b|(?:rgba?|hsla?|oklch|oklab|lab|lch)\()`;
+const COLOR_VALUE = String.raw`(?:#[0-9a-f]{3,8}(?![0-9a-z])|(?:rgba?|hsla?|oklch|oklab|lab|lch)\()`;
 
 /**
  * A colour written as an arbitrary value: `text-[#b4b4b4]`,

@@ -73,7 +73,7 @@ export function ChatMessageList({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] [mask-image:linear-gradient(to_bottom,transparent_0,#000_18px,#000_calc(100%-18px),transparent_100%)]"
+        className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] [mask-image:linear-gradient(to_bottom,transparent_0,black_18px,black_calc(100%-18px),transparent_100%)]"
         role="log"
         aria-label="Conversation"
         /*

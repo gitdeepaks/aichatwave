@@ -117,6 +117,16 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-text: var(--danger-text);
   --color-danger-surface: var(--danger-surface);
+  --color-rating: var(--rating);
+
+  /* Theme-invariant. Everything above follows the theme; these three are the
+     colours that must not, because what they sit on or behind does not.
+     `shade` is black — scrims over media and the colour of a cast shadow.
+     `fg-on-fill` is white — text on the filled brand action and on a scrim.
+     `media-canvas` is the white lightbox a product photo is shot against. */
+  --color-shade: var(--shade);
+  --color-fg-on-fill: var(--fg-on-fill);
+  --color-media-canvas: var(--media-canvas);
 
   /* ── Design system, Phase L2 item 5 ─────────────────────────────────────
      Type, radius, elevation, blur and motion, each a named scale.
@@ -323,6 +333,17 @@
   --crimson-500: oklch(63.7% 0.237 25.331);
   --crimson-600: oklch(57.7% 0.245 27.325);
   --crimson-950: oklch(25.8% 0.092 26.042);
+  --yellow-400: oklch(85.2% 0.199 91.936);
+
+  /* ── Ramp: sky ────────────────────────────────────────────────────────── */
+  /* The weather card's two skies, and nothing else. Read only by the
+     `weather-sky-*` utilities below. */
+  --sky-500: oklch(68.5% 0.169 237.323);
+  --cyan-500: oklch(71.5% 0.143 215.221);
+  --blue-600: oklch(54.6% 0.245 262.881);
+  --indigo-600: oklch(51.1% 0.262 276.966);
+  --slate-800: oklch(27.9% 0.041 260.031);
+  --slate-950: oklch(12.9% 0.042 264.695);
 
   /* ── Role: brand ──────────────────────────────────────────────────────── */
   /* The action colour. ADR-0010 reserves it for the primary action, the focus
@@ -397,6 +418,16 @@
      the workspace. Written as `rgba(0, 0, 0, 0.52)` and `rgba(0, 0, 0, 0.55)`
      in the two places that draw the same vignette. */
   --vignette: oklch(0% 0 0 / 54%);
+  /* The auth screen's heavier edge: it frames one panel rather than a
+     workspace, and was written as `rgba(0, 0, 0, 0.65)`. */
+  --vignette-deep: oklch(0% 0 0 / 65%);
+
+  /* The ground under the atmosphere: an ember-tinted core above the fold,
+     falling to the page and then to near-black at the edges. Written as
+     `#31200f`, `#09090b` and `#050505` in both places that draw it. */
+  --atmosphere-core: oklch(26% 0.0385 64.72);
+  --atmosphere-mid: var(--ink-950);
+  --atmosphere-edge: oklch(11.49% 0 0);
 
   /* ── Role: state ──────────────────────────────────────────────────────── */
   /* The colour of "a reply is arriving": the composer's spinner, the
@@ -416,6 +447,14 @@
   --danger-foreground: var(--ink-50);
   --danger-text: var(--crimson-300);
   --danger-surface: var(--crimson-950);
+  /* The filled star on a product rating. Not `--warning`: a five-star
+     product is not a caution. */
+  --rating: var(--yellow-400);
+
+  /* ── Role: theme-invariant ────────────────────────────────────────────── */
+  --shade: oklch(0% 0 0);
+  --fg-on-fill: oklch(100% 0 0);
+  --media-canvas: oklch(100% 0 0);
 }
 
 /* ── The glass panel, spelled once (Phase L2 item 5) ─────────────────────────
@@ -548,6 +587,42 @@
    would be the accent on the furniture ADR-0010 warns about. */
 @utility hairline-rule {
   background-image: linear-gradient(to right, transparent, var(--hairline), transparent);
+}
+
+/* The ground the atmosphere is lit on. `BrandAtmosphere` and the error
+   surfaces layer blooms, grid and vignette over it. */
+@utility atmosphere-ground {
+  background-image: radial-gradient(
+    circle at 50% -10%,
+    var(--atmosphere-core) 0%,
+    var(--atmosphere-mid) 42%,
+    var(--atmosphere-edge) 100%
+  );
+}
+
+/* The weather card's sky, by day and by night, and the panel the reading sits
+   on. They are the one place the product uses blue: the card is a picture of
+   the weather, not a surface of the product. */
+@utility weather-sky-day {
+  background-image: linear-gradient(
+    to bottom right in oklab,
+    color-mix(in oklab, var(--sky-500) 20%, transparent),
+    color-mix(in oklab, var(--cyan-500) 10%, transparent),
+    color-mix(in oklab, var(--blue-600) 20%, transparent)
+  );
+}
+
+@utility weather-sky-night {
+  background-image: linear-gradient(
+    to bottom right in oklab,
+    color-mix(in oklab, var(--indigo-600) 25%, transparent),
+    color-mix(in oklab, var(--slate-800) 25%, transparent),
+    color-mix(in oklab, var(--slate-950) 25%, transparent)
+  );
+}
+
+@utility weather-panel {
+  background-color: color-mix(in oklab, var(--slate-950) 55%, transparent);
 }
 
 /* The hairline that fades in from both ends — a divider that is brightest in
