@@ -57,7 +57,9 @@ function Records({ memories: initialMemories }: { memories: MemoryDto[] }) {
     >
       <CardHeader className="shrink-0 flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <CardTitle className="text-lg text-fg-bright">Memory Records ({memories.length})</CardTitle>
+          <CardTitle className="text-lg text-fg-bright">
+            Memory Records ({memories.length})
+          </CardTitle>
           <CardDescription className="text-xs text-fg-muted">
             Structured contextual entries stored by the AI system
           </CardDescription>

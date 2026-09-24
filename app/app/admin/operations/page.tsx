@@ -372,7 +372,9 @@ function Header() {
           <Gauge className="size-3 text-brand-text" aria-hidden />
           Operations
         </div>
-        <h1 className="text-xl font-semibold tracking-tight text-fg-bright">Cost and reliability</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-fg-bright">
+          Cost and reliability
+        </h1>
         <p className="mt-1 max-w-2xl text-base leading-relaxed text-fg-muted">
           What the product is spending, and how it is standing against its service objectives.
           Visible only to the user ids in <code className="text-fg-soft">ADMIN_USER_IDS</code>.

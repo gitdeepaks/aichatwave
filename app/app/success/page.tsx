@@ -71,7 +71,7 @@ function SuccessContent() {
         )}
 
         <Link href={ROUTES.app} className="block w-full">
-          <Button className="h-13 w-full rounded-xl brand-action text-base font-semibold text-fg-on-fill shadow-lg shadow-brand-surface/40 transition-[transform,box-shadow] active:scale-[0.98]">
+          <Button className="h-13 w-full rounded-xl brand-action text-base font-semibold text-action-foreground shadow-lg shadow-brand-surface/40 transition-[transform,box-shadow] active:scale-[0.98]">
             Return to Chat
             <ArrowRight className="ml-2 size-5" />
           </Button>

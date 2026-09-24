@@ -30,7 +30,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="bg-surface-sunken text-fg-strong antialiased">
         <ErrorSurface
           title="The app failed to load"

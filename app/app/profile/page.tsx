@@ -114,7 +114,7 @@ export default function ChatbotUserProfile() {
             {!isProSubscription && isProSubscriptionSuccess ? (
               <Button
                 onClick={() => void goToBilling(billingApi.startProCheckout)}
-                className="rounded-xl brand-action font-semibold text-fg-on-fill shadow-lg shadow-brand-surface/40"
+                className="rounded-xl brand-action font-semibold text-action-foreground shadow-lg shadow-brand-surface/40"
               >
                 <Sparkles />
                 Upgrade to Pro
