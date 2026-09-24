@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Sora } from "next/font/google";
+import { cookies } from "next/headers";
 
 import "streamdown/styles.css";
 import "./globals.css";
@@ -10,6 +11,15 @@ import { shadcn } from "@clerk/ui/themes";
 
 import QueryProvider from "@/components/custom/query-provider";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  DENSITY_COOKIE,
+  THEME_COLOR,
+  THEME_COOKIE,
+  densityAttribute,
+  parseDensity,
+  parseThemePreference,
+  themeClassName,
+} from "@/lib/appearance";
 import { appUrl } from "@/lib/env";
 import { ROUTES } from "@/lib/routes";
 import {
@@ -112,18 +122,21 @@ export const metadata: Metadata = {
 };
 
 /**
- * Dark, and only dark.
+ * Both themes, following the operating system unless the reader pinned one.
  *
- * `colorScheme` is the declaration that used to be missing: `<html class="dark">`
- * styled this app's own surfaces and left the browser's — scrollbars, the
- * overscroll canvas, native form controls — rendering light. `themeColor`
- * paints the mobile browser chrome the same zinc as the page behind it. Both
- * restate one decision, recorded in `docs/adr/0005-dark-theme-only.md` and in
- * the header of `app/globals.css`: this product ships one theme.
+ * `colorScheme` tells the browser its own surfaces — scrollbars, the
+ * overscroll canvas, native form controls — may be either. `themeColor` paints
+ * the mobile browser chrome the colour of the page behind it, per scheme. A
+ * reader who pinned the opposite of their OS gets chrome in the OS's colour;
+ * reading the cookie here would make every page's metadata dynamic to fix a
+ * strip of address bar, and the page itself is already right. See ADR-0011.
  */
 export const viewport: Viewport = {
-  colorScheme: "dark",
-  themeColor: "#09090b",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
+  ],
 };
 
 /**
@@ -140,16 +153,24 @@ export const viewport: Viewport = {
  * the <html> className strips them); the pass-through `ThemeProvider` that
  * once stood in for such a library is gone, because a provider that renders
  * `<div class="contents">` and nothing else is a comment pretending to be
- * code. The class stays on <html> because Tailwind's `dark:` variant resolves
- * through it.
+ * code. The theme class, when there is one, is on <html> because both
+ * `color-scheme` and Tailwind's `dark:` variant resolve through it.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read on the server so the first paint is already in the reader's theme
+  // and density. `system` renders no class; see `lib/appearance.ts`. The
+  // layout is dynamic already — the CSP nonce requires it — so this costs no
+  // static rendering.
+  const jar = await cookies();
+  const theme = themeClassName(parseThemePreference(jar.get(THEME_COOKIE)?.value));
+  const density = densityAttribute(parseDensity(jar.get(DENSITY_COOKIE)?.value));
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={theme} data-density={density} suppressHydrationWarning>
       <body
         className={`${sora.variable} ${geistMono.variable} bg-surface-sunken font-sans text-fg-strong antialiased`}
         suppressHydrationWarning
