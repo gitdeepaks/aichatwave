@@ -126,14 +126,27 @@ export default [
   // Phase L2 item 4: a colour is named once, in the token layer. The `allow`
   // list is the migration's ratchet — a file leaves it when it is migrated and
   // can never regress afterwards. It reaching `[]` is the phase's exit
-  // criterion. `components/ui/` is exempt for the same reason it is exempt
-  // from the type rules: it is shadcn output a regeneration would revert.
+  // criterion. `components/ui/` is *not* exempt: a regeneration that brings
+  // back a palette literal should fail here, because the literal will not
+  // follow the theme.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    plugins: { design: noRawPalette },
+    rules: {
+      "design/no-raw-palette": ["error", { allow: UNMIGRATED_PALETTE_FILES }],
+    },
+  },
+
+  // The scale rule stops at `components/ui/`; the colour rule above does not.
+  // shadcn's own motion and radius steps are the framework's and move with a
+  // regeneration, but a colour there is what the theme reads — a hand-edited
+  // `bg-zinc-900` in the vendored sidebar was invisible to the rule and
+  // painted a dark sidebar into the light theme.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
     ignores: VENDORED,
     plugins: { design: noRawPalette },
     rules: {
-      "design/no-raw-palette": ["error", { allow: UNMIGRATED_PALETTE_FILES }],
       "design/no-arbitrary-scale": "error",
     },
   },

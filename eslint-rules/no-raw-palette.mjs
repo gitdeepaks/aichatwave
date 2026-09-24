@@ -13,8 +13,11 @@
  * `border-orange-300/25`) and any arbitrary colour (`text-[#b4b4b4]`,
  * `bg-[rgb(24_24_27)]`).
  *
- * Exempt: `components/ui/`, which is shadcn CLI output that a regeneration
- * would revert, and the files still listed in `allow` — see below.
+ * Exempt: the files still listed in `allow` — see below. `components/ui/` is
+ * not exempt. It is shadcn output, but it was also hand-edited, and a colour
+ * written there does not follow the theme any more than one written anywhere
+ * else: the floating sidebar's `bg-zinc-900/88` painted a dark panel into the
+ * light theme from a directory this rule was not reading.
  *
  * ## The `allow` list is a ratchet
  *

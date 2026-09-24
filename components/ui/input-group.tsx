@@ -98,7 +98,7 @@ function InputGroupInput({
 /**
  * ChatGPT-style Input Container
  * Removes all standard borders, rings, and boxy shapes.
- * Forces a capsule/pill shape with a specific dark background.
+ * Forces a capsule/pill shape on a glass fill that follows the theme.
  */
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
@@ -106,10 +106,10 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 			data-slot="input-group"
 			role="group"
 			className={cn(
-				// Background #2f2f2f is the signature ChatGPT dark mode color
-				// rounded-[32px] creates the perfect capsule ends
-				"relative flex w-full items-center gap-1 bg-[#2f2f2f] px-2 py-2",
-				"rounded-[32px] border-none shadow-none transition-all outline-none",
+				// A glass pill: the ChatGPT-style capsule this was, as a role, so it
+				// is a lighter step of the panel in dark and a darker one in light.
+				"relative flex w-full items-center gap-1 bg-glass-strong px-2 py-2",
+				"rounded-5xl border-none shadow-none transition-all outline-none",
 				"focus-within:ring-0 focus-within:outline-none",
 				"min-h-[52px] max-w-full overflow-hidden",
 				className
@@ -132,9 +132,9 @@ function InputGroupButton({
 		<Button
 			variant={variant}
 			className={cn(
-				"h-10 w-10 shrink-0 rounded-full p-0 text-[#b4b4b4] hover:bg-[#3f3f3f] hover:text-white transition-colors",
+				"h-10 w-10 shrink-0 rounded-full p-0 text-fg-muted hover:bg-glass-heavy hover:text-fg-bright transition-colors",
 				// Specific styling for the "Submit" white button variant
-				"data-[submit=true]:bg-white data-[submit=true]:text-black data-[submit=true]:hover:bg-[#ececec]",
+				"data-[submit=true]:bg-fg-bright data-[submit=true]:text-surface-sunken data-[submit=true]:hover:bg-fg-strong",
 				className
 			)}
 			{...props}
@@ -156,8 +156,8 @@ function InputGroupTextarea({
 			data-slot="input-group-control"
 			rows={1}
 			className={cn(
-				"flex-1 min-w-0 bg-transparent border-none px-2 py-3 text-[18px]",
-				"text-zinc-100 placeholder:text-[#676767] leading-tight resize-none",
+				"flex-1 min-w-0 bg-transparent border-none px-2 py-3 text-lg",
+				"text-fg-strong placeholder:text-fg-subtle leading-tight resize-none",
 				"focus:ring-0 focus:outline-none focus-visible:ring-0",
 				"max-h-[200px] scrollbar-none",
 				className

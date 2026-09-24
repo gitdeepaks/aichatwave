@@ -32,8 +32,10 @@ light mode.
 
 A component names a **role**. It never names a ramp step (`--ember-400`), never a Tailwind palette
 literal (`zinc-400`, `white/10`), and never an arbitrary colour (`text-[#b4b4b4]`).
-`design/no-raw-palette` fails the build on all three. `components/ui/` is exempt, because it is
-shadcn output a regeneration would revert.
+`design/no-raw-palette` fails the build on all three, including in `components/ui/`: shadcn output
+is still code the theme has to reach, and a hand-edited dark sidebar there was the first thing the
+light theme exposed. `design/no-arbitrary-scale` does exempt `components/ui/`, whose motion and
+radius steps are shadcn's own.
 
 Two layers, and only the first is raw:
 

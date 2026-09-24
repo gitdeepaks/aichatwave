@@ -175,9 +175,9 @@ test("every path on the ratchet is a repo-relative file that exists", () => {
 /**
  * Every file under `app/` and `components/` that still spells a colour, found
  * by running the rule itself rather than by a second regex that could disagree
- * with it. `components/ui/` is excluded for the reason `eslint.config.mjs`
- * excludes it: it is shadcn output. `components/ai-elements/` is not — it
- * held the message bubble's fourteen literals until Phase L2 looked.
+ * with it. Nothing is excluded: `components/ai-elements/` held the message
+ * bubble's fourteen literals, and `components/ui/` a hand-edited dark sidebar
+ * that the light theme exposed, each in a directory the rule was not reading.
  */
 function offendingFiles(): string[] {
   const linter = new Linter();
@@ -212,7 +212,6 @@ function sourceFiles(): string[] {
     for (const entry of readdirSync(resolve(REPO, relative), { withFileTypes: true })) {
       const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) {
-        if (child === "components/ui") continue;
         walk(child);
       } else if (entry.name.endsWith(".tsx")) {
         found.push(child);
