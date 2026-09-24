@@ -16,9 +16,7 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     <Sidebar
       variant="floating"
       collapsible="icon"
-      className={cn(
-        "transition-[left,right,width] duration-slow ease-emphasis",
-      )}
+      className={cn("transition-[left,right,width] duration-slow ease-emphasis")}
       {...props}
     >
       <MacosSidebarNav view={view} onViewChange={setView} />

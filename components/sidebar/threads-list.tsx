@@ -48,7 +48,7 @@ type ThreadsListProps = {
 };
 
 const listItemClass = cn(
-  "h-9 w-full rounded-lg px-2.5 text-left text-sm font-medium transition-all duration-base ease-emphasis",
+  "h-row w-full rounded-lg px-2.5 text-left text-sm font-medium transition-all duration-base ease-emphasis",
   "text-fg-muted hover:bg-glass hover:text-fg-strong",
   "data-[active=true]:brand-wash data-[active=true]:text-fg-bright",
   "data-[active=true]:inset-shadow-hairline",
@@ -229,7 +229,7 @@ export function ThreadsList({ view, pinned, label }: ThreadsListProps) {
                           if (event.key === "Escape") setRenamingId(null);
                         }}
                         aria-label="Conversation title"
-                        className="h-9 w-full rounded-lg border border-brand-text/40 bg-surface-raised/80 px-2.5 text-sm text-fg-strong outline-none"
+                        className="h-row w-full rounded-lg border border-brand-text/40 bg-surface-raised/80 px-2.5 text-sm text-fg-strong outline-none"
                       />
                     </SidebarMenuItem>
                   );

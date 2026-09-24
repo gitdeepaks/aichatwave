@@ -51,7 +51,7 @@ const primaryNav = [
 }>;
 
 const macosItemClass =
-  "h-9 rounded-lg px-2.5 text-sm font-medium text-fg-soft transition-colors duration-base ease-emphasis " +
+  "h-row rounded-lg px-2.5 text-sm font-medium text-fg-soft transition-colors duration-base ease-emphasis " +
   "hover:bg-glass-strong hover:text-fg-bright " +
   "data-[active=true]:brand-wash data-[active=true]:text-fg-bright " +
   "data-[active=true]:inset-shadow-hairline " +
