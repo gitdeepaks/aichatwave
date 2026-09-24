@@ -91,7 +91,7 @@ export const panelClass =
   "rounded-3xl border border-hairline bg-surface-sunken/50 shadow-elevation-xl inset-shadow-highlight backdrop-blur-glass-heavy supports-[backdrop-filter]:bg-surface-sunken/35";
 
 export const primaryButtonClass =
-  "brand-action inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-base font-semibold text-fg-bright shadow-glow-md transition-[transform,box-shadow,background-position] active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100";
+  "brand-action inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-base font-semibold text-action-foreground shadow-glow-md transition-[transform,box-shadow,background-position] active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100";
 
 export const secondaryButtonClass =
   "inline-flex h-12 items-center justify-center gap-2 rounded-full border border-hairline bg-glass px-7 text-base font-medium text-fg transition-colors hover:border-brand-text-strong/30 hover:bg-glass-strong hover:text-fg-bright motion-reduce:transition-none";

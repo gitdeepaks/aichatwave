@@ -58,7 +58,9 @@ export function ErrorSurface({
           "supports-[backdrop-filter]:bg-surface-raised/55",
         )}
       >
-        <h1 className="text-2xl font-semibold tracking-tight text-fg-bright sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-fg-bright sm:text-3xl">
+          {title}
+        </h1>
         <p className="mt-3 text-sm leading-relaxed text-fg-muted">{description}</p>
 
         {digest ? <DigestBlock digest={digest} /> : null}

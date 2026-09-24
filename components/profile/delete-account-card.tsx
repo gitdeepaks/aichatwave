@@ -74,9 +74,8 @@ export function DeleteAccountCard() {
               <DialogTitle>Delete your account permanently?</DialogTitle>
               <DialogDescription className="leading-6 text-fg-muted">
                 Export first if you need a copy. Active replies must finish before deletion can
-                complete. Type{" "}
-                <strong className="text-fg">{ACCOUNT_DELETION_CONFIRMATION}</strong> exactly
-                to confirm.
+                complete. Type <strong className="text-fg">{ACCOUNT_DELETION_CONFIRMATION}</strong>{" "}
+                exactly to confirm.
               </DialogDescription>
             </DialogHeader>
             <Input

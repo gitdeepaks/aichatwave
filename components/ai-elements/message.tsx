@@ -47,8 +47,8 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
   <div
     className={cn(
       "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-base leading-relaxed shadow-elevation-md",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-3xl group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-brand-text-bright/15 group-[.is-user]:brand-bubble group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-fg-bright",
-      "group-[.is-assistant]:rounded-3xl group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-hairline group-[.is-assistant]:bg-surface-raised/68 group-[.is-assistant]:px-4 group-[.is-assistant]:py-3 group-[.is-assistant]:text-fg-strong group-[.is-assistant]:inset-shadow-highlight group-[.is-assistant]:backdrop-blur-glass-light",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-3xl group-[.is-user]:rounded-br-md group-[.is-user]:border group-[.is-user]:border-brand-text-bright/15 group-[.is-user]:brand-bubble group-[.is-user]:px-bubble-x group-[.is-user]:py-bubble-y group-[.is-user]:text-fg-bright",
+      "group-[.is-assistant]:rounded-3xl group-[.is-assistant]:rounded-bl-md group-[.is-assistant]:border group-[.is-assistant]:border-hairline group-[.is-assistant]:bg-surface-raised/68 group-[.is-assistant]:px-bubble-x group-[.is-assistant]:py-bubble-y group-[.is-assistant]:text-fg-strong group-[.is-assistant]:inset-shadow-highlight group-[.is-assistant]:backdrop-blur-glass-light",
       className,
     )}
     {...props}

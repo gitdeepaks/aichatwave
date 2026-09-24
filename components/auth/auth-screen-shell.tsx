@@ -126,9 +126,7 @@ export function AuthScreenShell({
                   <p className="mt-2 text-base font-medium leading-5 text-fg-strong">
                     {item.title}
                   </p>
-                  <p className="mt-1.5 max-w-[42ch] text-sm leading-6 text-fg-muted">
-                    {item.body}
-                  </p>
+                  <p className="mt-1.5 max-w-[42ch] text-sm leading-6 text-fg-muted">{item.body}</p>
                 </li>
               ))}
             </ul>
@@ -156,10 +154,7 @@ export function AuthScreenShell({
                 </div>
 
                 <span className="flex items-center gap-2 font-mono text-2xs uppercase tracking-[0.3em] text-brand-text-strong/65">
-                  <span
-                    className="size-1 rounded-full bg-brand/80 shadow-glow-ring"
-                    aria-hidden
-                  />
+                  <span className="size-1 rounded-full bg-brand/80 shadow-glow-ring" aria-hidden />
                   {eyebrow}
                 </span>
 

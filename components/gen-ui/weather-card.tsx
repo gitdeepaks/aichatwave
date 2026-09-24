@@ -61,9 +61,7 @@ export function WeatherCard({
   const roundedWindMph = Math.round(windSpeed);
   const roundedWindKmh = Math.round(mphToKmh(windSpeed));
   const roundedHumidity = Math.round(humidity);
-  const cardBg = isDay
-    ? "weather-sky-day"
-    : "weather-sky-night";
+  const cardBg = isDay ? "weather-sky-day" : "weather-sky-night";
   const AccentIcon = isDay ? CloudSun : CloudMoon;
   const highLowText =
     typeof todayHigh === "number" &&

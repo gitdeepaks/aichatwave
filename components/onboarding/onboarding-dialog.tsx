@@ -144,7 +144,7 @@ export function OnboardingDialog() {
                 type="button"
                 disabled={decide.isPending}
                 onClick={() => decide.mutate("granted")}
-                className="h-9 gap-2 rounded-full brand-action px-4 text-sm font-semibold text-fg-on-fill"
+                className="h-9 gap-2 rounded-full brand-action px-4 text-sm font-semibold text-action-foreground"
               >
                 {decide.isPending ? (
                   <LoaderCircle
@@ -238,9 +238,7 @@ function ModelsBody() {
                   {isPro ? "Pro" : "Free"}
                 </span>
               </span>
-              <span className="mt-0.5 block text-sm leading-5 text-fg-subtle">
-                {model.blurb}
-              </span>
+              <span className="mt-0.5 block text-sm leading-5 text-fg-subtle">{model.blurb}</span>
             </span>
           </li>
         );

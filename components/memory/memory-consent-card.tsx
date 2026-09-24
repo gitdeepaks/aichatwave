@@ -90,7 +90,7 @@ export function MemoryConsentCard() {
               "h-9 gap-2 rounded-full px-4 text-sm font-semibold",
               isOn
                 ? "border border-hairline bg-glass text-fg hover:bg-glass-strong"
-                : "brand-action text-fg-on-fill",
+                : "brand-action text-action-foreground",
             )}
           >
             {decide.isPending ? (

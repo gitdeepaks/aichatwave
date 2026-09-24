@@ -88,7 +88,7 @@ export function ChatMessageList({
          */
         aria-live="off"
       >
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-3 py-6 pb-[calc(var(--chat-composer-height,6rem)+1.5rem)] sm:px-5">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-transcript px-3 pt-transcript pb-[calc(var(--chat-composer-height,6rem)+1.5rem)] sm:px-5">
           {hasEarlierMessages ? (
             <button
               type="button"

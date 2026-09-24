@@ -40,7 +40,7 @@ export function ProUpgradeCta() {
         onClick={() => void startCheckout()}
         disabled={isStarting}
         variant="default"
-        className="h-8 rounded-full border border-hairline brand-action px-4 text-xs font-semibold text-fg-on-fill shadow-lg shadow-brand-surface/40 transition-[transform,box-shadow] hover:shadow-danger-surface/30 active:scale-[0.98] disabled:opacity-60"
+        className="h-8 rounded-full border border-hairline brand-action px-4 text-xs font-semibold text-action-foreground shadow-lg shadow-brand-surface/40 transition-[transform,box-shadow] hover:shadow-danger-surface/30 active:scale-[0.98] disabled:opacity-60"
       >
         ✦ Get Pro
       </Button>
