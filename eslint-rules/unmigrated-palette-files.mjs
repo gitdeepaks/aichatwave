@@ -11,19 +11,13 @@
  * list reaching `[]` is Phase L2's first exit criterion.
  *
  * Baseline at the token layer commit: 619 literals across 40 files.
- * Migrated so far: sidebar (52/4), chat (114/9), marketing shell and
- * atmosphere (52/5), the marketing pages (54/2).
- * The trailing number on each line is that file's count when the list was
- * written, so a migration commit can be checked against it.
+ * Migrated: sidebar (52/4), chat (114/9), marketing shell and atmosphere
+ * (52/5), the marketing pages (54/2), and then auth, gen-UI, admin,
+ * workspace, the shared components and the app shell (360/20).
+ *
+ * Empty, and it stays empty: nothing is ever added. It is kept rather than
+ * deleted so the test that pins it to the rule's own findings keeps running,
+ * which is what makes a new literal fail two gates rather than one.
  */
-export const UNMIGRATED_PALETTE_FILES = [
-  // shared components — 148 across 10 files
-  "components/command-palette/command-palette.tsx", // 21
-  "components/custom/message-attribution.tsx", // 1
-  "components/custom/message-renderer.tsx", // 19
-  "components/memory/memory-consent-card.tsx", // 20
-  "components/model-selector.tsx", // 8
-  "components/onboarding/onboarding-dialog.tsx", // 33
-  "components/pro-upgrade-cta.tsx", // 8
-  "components/profile/delete-account-card.tsx", // 12
-];
+/** @type {string[]} */
+export const UNMIGRATED_PALETTE_FILES = [];

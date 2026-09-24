@@ -61,12 +61,12 @@ const ToolResultCard = ({ toolResult }: { toolResult: ToolResult }): ReactElemen
  */
 function ToolProgress({ toolName, interrupted }: { toolName: string; interrupted: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-zinc-400">
+    <div className="flex items-center gap-2 text-xs text-fg-muted">
       {interrupted ? (
-        <AlertTriangle className="size-3.5 text-amber-300" aria-hidden />
+        <AlertTriangle className="size-3.5 text-warning" aria-hidden />
       ) : (
         <Loader2
-          className="size-3.5 animate-spin text-orange-200 motion-reduce:animate-none"
+          className="size-3.5 animate-spin text-brand-text-strong motion-reduce:animate-none"
           aria-hidden
         />
       )}
@@ -87,18 +87,18 @@ function ReasoningBlock({ text }: { text: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
+    <div className="rounded-xl border border-hairline bg-glass px-3 py-2">
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
-        className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500 transition-colors hover:text-zinc-300"
+        className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-subtle transition-colors hover:text-fg-soft"
       >
         <Sparkles className="size-3" aria-hidden />
         {isOpen ? "Hide reasoning" : "Show reasoning"}
       </button>
       {isOpen ? (
-        <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-zinc-400">{text}</p>
+        <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-fg-muted">{text}</p>
       ) : null}
     </div>
   );
@@ -126,7 +126,7 @@ function AttachmentPreview({
       <img
         src={url}
         alt={label}
-        className="max-h-64 w-auto rounded-xl border border-white/10 object-contain"
+        className="max-h-64 w-auto rounded-xl border border-hairline object-contain"
       />
     );
   }
@@ -136,9 +136,9 @@ function AttachmentPreview({
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-200 transition-colors hover:bg-white/[0.1]"
+      className="flex items-center gap-2 rounded-xl border border-hairline bg-glass px-3 py-2 text-xs text-fg transition-colors hover:bg-glass-strong"
     >
-      <FileText className="size-4 text-zinc-400" aria-hidden />
+      <FileText className="size-4 text-fg-muted" aria-hidden />
       <span className="max-w-48 truncate">{label}</span>
     </a>
   );
@@ -210,7 +210,7 @@ export const MessageRenderer = ({
                     return (
                       <Message from={message.role} key={`${part.toolCallId}-${index}`}>
                         <MessageContent>
-                          <div className="flex items-center gap-2 text-xs text-red-300">
+                          <div className="flex items-center gap-2 text-xs text-danger-text">
                             <AlertTriangle className="size-3.5" aria-hidden />
                             <span>{part.errorText || `${part.toolName} failed`}</span>
                           </div>
@@ -313,7 +313,7 @@ function AssistantFooter({
                   <button
                     type="button"
                     aria-label="Retry with a different model"
-                    className="rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 transition-colors hover:bg-white/8 hover:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/50"
+                    className="rounded-md px-1.5 py-0.5 text-[11px] text-fg-subtle transition-colors hover:bg-glass-strong hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text/50"
                   >
                     Switch model
                   </button>

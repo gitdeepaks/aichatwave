@@ -109,24 +109,24 @@ export function OnboardingDialog() {
         if (!next) close();
       }}
     >
-      <DialogContent className="max-w-lg gap-0 overflow-hidden border-white/10 bg-zinc-950/95 p-0 shadow-2xl backdrop-blur-2xl">
+      <DialogContent className="max-w-lg gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-2xl">
         <div
-          className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/50 to-transparent"
+          className="pointer-events-none absolute inset-x-12 top-0 h-px brand-rule"
           aria-hidden
         />
 
         <DialogHeader className="space-y-3 px-7 pb-2 pt-8 text-left">
-          <DialogTitle className="text-[22px] font-semibold tracking-[-0.03em] text-white">
+          <DialogTitle className="text-[22px] font-semibold tracking-[-0.03em] text-fg-bright">
             {STEP_CONTENT[step].title}
           </DialogTitle>
-          <DialogDescription className="text-[14px] leading-6 text-zinc-400">
+          <DialogDescription className="text-[14px] leading-6 text-fg-muted">
             {STEP_CONTENT[step].description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-7 py-5">{STEP_CONTENT[step].body}</div>
 
-        <DialogFooter className="flex-row items-center justify-between gap-4 border-t border-white/[0.06] px-7 py-5 sm:justify-between">
+        <DialogFooter className="flex-row items-center justify-between gap-4 border-t border-hairline-subtle px-7 py-5 sm:justify-between">
           <StepDots activeIndex={stepIndex} />
 
           {isLastStep ? (
@@ -136,7 +136,7 @@ export function OnboardingDialog() {
                 variant="ghost"
                 disabled={decide.isPending}
                 onClick={() => decide.mutate("declined")}
-                className="h-9 rounded-full px-4 text-[13px] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                className="h-9 rounded-full px-4 text-[13px] text-fg-muted hover:bg-glass hover:text-fg-strong"
               >
                 Keep memory off
               </Button>
@@ -144,7 +144,7 @@ export function OnboardingDialog() {
                 type="button"
                 disabled={decide.isPending}
                 onClick={() => decide.mutate("granted")}
-                className="h-9 gap-2 rounded-full bg-gradient-to-r from-orange-500 to-red-600 px-4 text-[13px] font-semibold text-white hover:from-orange-400 hover:to-red-500"
+                className="h-9 gap-2 rounded-full brand-action px-4 text-sm font-semibold text-fg-on-fill"
               >
                 {decide.isPending ? (
                   <LoaderCircle
@@ -159,7 +159,7 @@ export function OnboardingDialog() {
             <Button
               type="button"
               onClick={() => setStep(STEP_ORDER[stepIndex + 1] ?? "memory")}
-              className="h-9 gap-2 rounded-full bg-white/[0.08] px-4 text-[13px] font-medium text-zinc-100 hover:bg-white/[0.14]"
+              className="h-9 gap-2 rounded-full bg-glass-strong px-4 text-[13px] font-medium text-fg-strong hover:bg-glass-heavy"
             >
               Next
               <ArrowRight className="size-3.5" aria-hidden />
@@ -218,7 +218,7 @@ function WelcomeBody() {
  */
 function ModelsBody() {
   return (
-    <ul className="flex flex-col divide-y divide-white/[0.06]">
+    <ul className="flex flex-col divide-y divide-hairline-subtle">
       {MODEL_IDS.map((modelId) => {
         const model = getModelPresentation(modelId);
         const isPro = MODEL_REGISTRY[modelId].tier === "subscription";
@@ -227,18 +227,18 @@ function ModelsBody() {
             <span
               className={cn(
                 "mt-1.5 size-1.5 shrink-0 rounded-full",
-                isPro ? "bg-zinc-700" : "bg-orange-400/80",
+                isPro ? "bg-fg-faint" : "bg-brand/80",
               )}
               aria-hidden
             />
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline gap-2">
-                <span className="text-[14px] font-medium text-zinc-100">{model.name}</span>
-                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-zinc-600">
+                <span className="text-[14px] font-medium text-fg-strong">{model.name}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-faint">
                   {isPro ? "Pro" : "Free"}
                 </span>
               </span>
-              <span className="mt-0.5 block text-[13px] leading-5 text-zinc-500">
+              <span className="mt-0.5 block text-[13px] leading-5 text-fg-subtle">
                 {model.blurb}
               </span>
             </span>
@@ -260,7 +260,7 @@ function MemoryBody() {
         <MemoryFact>Never shared between accounts, and removed when you delete yours.</MemoryFact>
         <MemoryFact>Reversible: switching it back off stops both storage and use.</MemoryFact>
       </ul>
-      <p className="text-[13px] leading-6 text-zinc-600">
+      <p className="text-[13px] leading-6 text-fg-faint">
         Leave it off and the assistant still answers normally — it simply starts each conversation
         without knowing you.
       </p>
@@ -271,8 +271,8 @@ function MemoryBody() {
 function MemoryFact({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <li className="flex items-start gap-2.5">
-      <span className="mt-[9px] size-1 shrink-0 rounded-full bg-orange-400/70" aria-hidden />
-      <span className="text-[14px] leading-6 text-zinc-300">{children}</span>
+      <span className="mt-[9px] size-1 shrink-0 rounded-full bg-brand/70" aria-hidden />
+      <span className="text-[14px] leading-6 text-fg-soft">{children}</span>
     </li>
   );
 }
@@ -284,12 +284,12 @@ function OnboardingPoint({
 }: Readonly<{ icon: typeof Layers; title: string; children: ReactNode }>) {
   return (
     <li className="flex items-start gap-3">
-      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
-        <Icon className="size-4 text-orange-300/85" aria-hidden />
+      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl border border-hairline bg-glass">
+        <Icon className="size-4 text-brand-text/85" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-medium text-zinc-100">{title}</span>
-        <span className="mt-0.5 block text-[13px] leading-5 text-zinc-500">{children}</span>
+        <span className="block text-[14px] font-medium text-fg-strong">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-5 text-fg-subtle">{children}</span>
       </span>
     </li>
   );
@@ -306,7 +306,7 @@ function StepDots({ activeIndex }: Readonly<{ activeIndex: number }>) {
           key={step}
           className={cn(
             "h-1 rounded-full transition-all motion-reduce:transition-none",
-            index === activeIndex ? "w-5 bg-orange-400/85" : "w-1.5 bg-white/15",
+            index === activeIndex ? "w-5 bg-brand/85" : "w-1.5 bg-glass-heavy",
           )}
           aria-hidden
         />

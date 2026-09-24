@@ -263,25 +263,25 @@ export function CommandPalette() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="gap-0 overflow-hidden border-white/10 bg-zinc-950/95 p-0 shadow-2xl backdrop-blur-2xl sm:max-w-xl">
+      <DialogContent className="gap-0 overflow-hidden border-hairline bg-surface-sunken/95 p-0 shadow-2xl backdrop-blur-2xl sm:max-w-xl">
         <DialogHeader className="sr-only">
           <DialogTitle>Command palette</DialogTitle>
           <DialogDescription>
             Jump to a conversation, switch model, or search your message history.
           </DialogDescription>
         </DialogHeader>
-        <Command shouldFilter={false} className="bg-transparent text-zinc-100" loop>
+        <Command shouldFilter={false} className="bg-transparent text-fg-strong" loop>
           <CommandInput
             autoFocus
             value={input}
             onValueChange={setInput}
             placeholder="Search conversations, switch model, run a command..."
             aria-label="Command palette search"
-            className="text-zinc-100 placeholder:text-zinc-600"
+            className="text-fg-strong placeholder:text-fg-faint"
           />
           <CommandList className="max-h-[min(65dvh,32rem)] px-2 py-2">
             {!hasAnything && !isBusy ? (
-              <CommandEmpty className="py-12 text-zinc-500">Nothing matches that.</CommandEmpty>
+              <CommandEmpty className="py-12 text-fg-subtle">Nothing matches that.</CommandEmpty>
             ) : null}
 
             {matchingActions.length > 0 ? (
@@ -316,7 +316,7 @@ export function CommandPalette() {
                     that file is shadcn output and a regeneration would revert
                     it. The props spread reaches the primitive either way. */}
                 <CommandSeparator
-                  className="my-1 bg-white/[0.06]"
+                  className="my-1 bg-glass"
                   role="presentation"
                   aria-hidden
                 />
@@ -340,7 +340,7 @@ export function CommandPalette() {
             {matchingModels.length > 0 ? (
               <>
                 <CommandSeparator
-                  className="my-1 bg-white/[0.06]"
+                  className="my-1 bg-glass"
                   role="presentation"
                   aria-hidden
                 />
@@ -368,7 +368,7 @@ export function CommandPalette() {
             {isSearching && messageResults.length > 0 ? (
               <>
                 <CommandSeparator
-                  className="my-1 bg-white/[0.06]"
+                  className="my-1 bg-glass"
                   role="presentation"
                   aria-hidden
                 />
@@ -400,9 +400,9 @@ export function CommandPalette() {
               ordinary text, and `role="status"` announces the search finishing
               without pretending to be a result. */}
           {isSearching && (isBusy || messages.isError || messageResults.length === 0) ? (
-            <div className="border-t border-white/[0.06] px-4 py-3">
+            <div className="border-t border-hairline-subtle px-4 py-3">
               {isBusy ? (
-                <p className="flex items-center gap-2 text-sm text-zinc-400" role="status">
+                <p className="flex items-center gap-2 text-sm text-fg-muted" role="status">
                   <LoaderCircle
                     className="h-4 w-4 animate-spin motion-reduce:animate-none"
                     aria-hidden
@@ -410,11 +410,11 @@ export function CommandPalette() {
                   Searching your history
                 </p>
               ) : messages.isError ? (
-                <p className="text-sm text-red-400" role="alert">
+                <p className="text-sm text-destructive" role="alert">
                   {messages.error.message || "Search failed."}
                 </p>
               ) : (
-                <p className="text-sm text-zinc-400" role="status">
+                <p className="text-sm text-fg-muted" role="status">
                   No messages match that.
                 </p>
               )}
@@ -449,27 +449,27 @@ function PaletteRow({
     <CommandItem
       value={value}
       onSelect={onSelect}
-      className="mb-0.5 flex items-start gap-3 rounded-xl px-3 py-2.5 data-[selected=true]:bg-white/[0.07]"
+      className="mb-0.5 flex items-start gap-3 rounded-xl px-3 py-2.5 data-[selected=true]:bg-glass-strong"
     >
       <Icon
-        className={`mt-0.5 h-4 w-4 shrink-0 ${muted === true ? "text-zinc-600" : "text-orange-300/80"}`}
+        className={`mt-0.5 h-4 w-4 shrink-0 ${muted === true ? "text-fg-faint" : "text-brand-text/80"}`}
         aria-hidden
       />
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+        <span className="flex items-center gap-2 text-sm font-medium text-fg">
           <span className="truncate">{title}</span>
           {badge === undefined ? null : (
-            <span className="shrink-0 rounded-full border border-orange-300/25 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.12em] text-orange-200/80">
+            <span className="shrink-0 rounded-full border border-brand-text/25 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.12em] text-brand-text-strong/80">
               {badge}
             </span>
           )}
         </span>
-        <span className="mt-0.5 line-clamp-2 block text-xs leading-5 text-zinc-500">
+        <span className="mt-0.5 line-clamp-2 block text-xs leading-5 text-fg-subtle">
           {subtitle}
         </span>
       </span>
       {shortcut === undefined ? null : (
-        <CommandShortcut className="text-zinc-600">{shortcut}</CommandShortcut>
+        <CommandShortcut className="text-fg-faint">{shortcut}</CommandShortcut>
       )}
     </CommandItem>
   );

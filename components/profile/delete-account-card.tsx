@@ -49,17 +49,17 @@ export function DeleteAccountCard() {
   };
 
   return (
-    <Card className={cn("rounded-2xl border-red-500/25", brandGlassCardClass)}>
+    <Card className={cn("rounded-2xl border-danger/25", brandGlassCardClass)}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg text-red-300">
+        <CardTitle className="flex items-center gap-2 text-lg text-danger-text">
           <AlertTriangle className="h-5 w-5" /> Danger zone
         </CardTitle>
-        <CardDescription className="text-zinc-400">
+        <CardDescription className="text-fg-muted">
           Permanently delete your account, conversations, memories, usage, and subscription access.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+        <p className="max-w-2xl text-sm leading-6 text-fg-muted">
           This cannot be undone. Export conversations you want to keep from each conversation&apos;s
           sidebar menu before continuing.
         </p>
@@ -69,13 +69,13 @@ export function DeleteAccountCard() {
               <Trash2 /> Delete account
             </Button>
           </DialogTrigger>
-          <DialogContent className="border-red-500/25 bg-zinc-950 text-zinc-100">
+          <DialogContent className="border-danger/25 bg-surface-sunken text-fg-strong">
             <DialogHeader>
               <DialogTitle>Delete your account permanently?</DialogTitle>
-              <DialogDescription className="leading-6 text-zinc-400">
+              <DialogDescription className="leading-6 text-fg-muted">
                 Export first if you need a copy. Active replies must finish before deletion can
                 complete. Type{" "}
-                <strong className="text-zinc-200">{ACCOUNT_DELETION_CONFIRMATION}</strong> exactly
+                <strong className="text-fg">{ACCOUNT_DELETION_CONFIRMATION}</strong> exactly
                 to confirm.
               </DialogDescription>
             </DialogHeader>
@@ -89,10 +89,10 @@ export function DeleteAccountCard() {
               aria-label="Account deletion confirmation"
               autoComplete="off"
               placeholder={ACCOUNT_DELETION_CONFIRMATION}
-              className="border-red-500/25 bg-black/20"
+              className="border-danger/25 bg-shade/20"
             />
             {state === "error" ? (
-              <p role="alert" className="text-sm text-red-300">
+              <p role="alert" className="text-sm text-danger-text">
                 {error}
               </p>
             ) : null}
