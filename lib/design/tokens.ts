@@ -16,7 +16,14 @@
  *
  * Pure, and deliberately so — it takes CSS text, not a path. Reading the file
  * belongs to the caller (a test, or a CI script).
+ *
+ * Two themes, one declaration per role. A role that differs between them is
+ * written `light-dark(<light>, <dark>)`, and every resolution below names the
+ * theme it is resolving for — a colour is no longer a property of a token
+ * alone but of a token in a theme.
  */
+
+import type { Theme } from "@/lib/appearance";
 
 /** A colour in the OKLCH space, with every component resolved to a number. */
 export type OklchColor = {
@@ -40,6 +47,15 @@ export type OklchColor = {
 export type TokenValue =
   | { readonly kind: "color"; readonly color: OklchColor }
   | { readonly kind: "reference"; readonly target: string }
+  /** `light-dark(<light>, <dark>)`: one value per theme. */
+  | { readonly kind: "themed"; readonly light: TokenValue; readonly dark: TokenValue }
+  /**
+   * `color-mix(in oklab, <colour> N%, transparent)` — the colour at N% of its
+   * own alpha. It is the only `color-mix` this layer uses for a role, and it
+   * is exactly an alpha multiply, so it resolves without a colour-space
+   * conversion.
+   */
+  | { readonly kind: "faded"; readonly base: TokenValue; readonly weight: number }
   | { readonly kind: "other"; readonly raw: string };
 
 /** One custom property declared in the token layer. */
@@ -76,6 +92,9 @@ const DECLARATION = /(--[a-z0-9-]+)\s*:\s*([^;}]+)[;}]/giu;
 
 /** A value that is nothing but one `var()`, with no fallback and no calc. */
 const SOLE_VAR = /^var\(\s*(--[a-z0-9-]+)\s*\)$/iu;
+
+/** `color-mix(in oklab, <colour> N%, transparent)`, with the colour captured whole. */
+const FADED = /^color-mix\(\s*in\s+oklab\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*transparent\s*\)$/iu;
 
 const OKLCH = /^oklch\(\s*([^\s/]+)\s+([^\s/]+)\s+([^\s/]+)\s*(?:\/\s*([^\s/]+)\s*)?\)$/iu;
 
@@ -133,8 +152,50 @@ export function parseOklch(raw: string): OklchColor | undefined {
   return { lightness, chroma, hue, alpha };
 }
 
+/**
+ * Splits a function's arguments on the commas at depth zero, so that
+ * `light-dark(var(--a), oklch(0% 0 0 / 5%))` yields two arguments rather than
+ * being cut inside the `oklch()`.
+ */
+function topLevelArguments(inner: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+
+  for (let index = 0; index < inner.length; index += 1) {
+    const char = inner[index];
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    else if (char === "," && depth === 0) {
+      parts.push(inner.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  parts.push(inner.slice(start).trim());
+  return parts;
+}
+
 function parseValue(raw: string): TokenValue {
   const trimmed = raw.trim();
+
+  if (trimmed.startsWith("light-dark(") && trimmed.endsWith(")")) {
+    const [light, dark, ...rest] = topLevelArguments(trimmed.slice("light-dark(".length, -1));
+    if (light !== undefined && dark !== undefined && rest.length === 0) {
+      return { kind: "themed", light: parseValue(light), dark: parseValue(dark) };
+    }
+  }
+
+  const faded = FADED.exec(trimmed);
+  const fadedBase = faded?.[1];
+  const fadedWeight = faded?.[2];
+  if (fadedBase !== undefined && fadedWeight !== undefined) {
+    return {
+      kind: "faded",
+      base: parseValue(fadedBase),
+      weight: Number.parseFloat(fadedWeight) / 100,
+    };
+  }
 
   const reference = SOLE_VAR.exec(trimmed);
   const target = reference?.[1];
@@ -203,34 +264,67 @@ export function parseTokenLayer(css: string): TokenLayer {
 }
 
 /**
- * Follows a token through its `var()` chain to the colour at the end of it.
+ * Follows a token through its `var()` chain to the colour at the end of it,
+ * in one theme.
  *
  * Failure is returned rather than thrown because every caller is a report:
- * a contract test names the token that broke, and the contrast script lists
+ * a contract test names the token that broke, and the contrast check lists
  * the pairs it could not evaluate instead of stopping at the first one.
+ *
+ * `theme` defaults to dark only because dark was the product's single theme
+ * when most of the callers were written; a caller that cares about both asks
+ * for both.
  */
-export function resolveColor(layer: TokenLayer, name: string): ColorResolution {
-  const seen = new Set<string>();
-  let current = name;
+export function resolveColor(
+  layer: TokenLayer,
+  name: string,
+  theme: Theme = "dark",
+): ColorResolution {
+  return resolveValue(layer, { kind: "reference", target: name }, theme, new Set(), name);
+}
 
-  for (let hop = 0; hop < MAX_HOPS; hop += 1) {
-    if (seen.has(current)) return { ok: false, failure: { reason: "cycle", name: current } };
-    seen.add(current);
+function resolveValue(
+  layer: TokenLayer,
+  value: TokenValue,
+  theme: Theme,
+  seen: Set<string>,
+  current: string,
+): ColorResolution {
+  if (seen.size > MAX_HOPS) return { ok: false, failure: { reason: "cycle", name: current } };
 
-    const token = layer.tokens.get(current);
-    if (token === undefined) return { ok: false, failure: { reason: "missing", name: current } };
-
-    const { value } = token;
-    switch (value.kind) {
-      case "color":
-        return { ok: true, color: value.color };
-      case "reference":
-        current = value.target;
-        break;
-      case "other":
-        return { ok: false, failure: { reason: "not-a-color", name: current, raw: value.raw } };
+  switch (value.kind) {
+    case "color":
+      return { ok: true, color: value.color };
+    case "themed":
+      return resolveValue(
+        layer,
+        theme === "light" ? value.light : value.dark,
+        theme,
+        seen,
+        current,
+      );
+    case "faded": {
+      const base = resolveValue(layer, value.base, theme, seen, current);
+      if (!base.ok) return base;
+      return { ok: true, color: { ...base.color, alpha: base.color.alpha * value.weight } };
     }
+    case "reference": {
+      if (seen.has(value.target)) {
+        return { ok: false, failure: { reason: "cycle", name: value.target } };
+      }
+      const token = layer.tokens.get(value.target);
+      if (token === undefined) {
+        return { ok: false, failure: { reason: "missing", name: value.target } };
+      }
+      return resolveValue(
+        layer,
+        token.value,
+        theme,
+        new Set([...seen, value.target]),
+        value.target,
+      );
+    }
+    case "other":
+      return { ok: false, failure: { reason: "not-a-color", name: current, raw: value.raw } };
   }
-
-  return { ok: false, failure: { reason: "cycle", name: current } };
 }

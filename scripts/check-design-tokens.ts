@@ -48,6 +48,10 @@ const NAMESPACES = [
   "shade",
   "media",
   "rating",
+  "action",
+  "transcript",
+  "bubble",
+  "row",
 ];
 
 /**
@@ -70,7 +74,7 @@ const CANDIDATE = new RegExp(
   String.raw`(?<![\w-])(` +
     VARIANT +
     String.raw`-?` +
-    String.raw`(?:bg|text|border|ring|inset-ring|outline|divide|placeholder|caret|accent|decoration|fill|stroke|shadow|inset-shadow|from|via|to|blur|backdrop-blur|duration|ease|rounded)-` +
+    String.raw`(?:bg|text|border|ring|inset-ring|outline|divide|placeholder|caret|accent|decoration|fill|stroke|shadow|inset-shadow|from|via|to|blur|backdrop-blur|duration|ease|rounded|gap|pt|px|py|h)-` +
     String.raw`(?:${NAMESPACES.join("|")})(?:-[a-z0-9]+)*(?:\/(?:\d{1,3}|\[[^\]\s]*\]))?)(?![\w-])`,
   "gu",
 );

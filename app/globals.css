@@ -3,7 +3,19 @@
 @import "shadcn/tailwind.css";
 @import "@clerk/ui/themes/shadcn.css";
 
-@custom-variant dark (&:is(.dark *));
+/* `dark:` matches under a pinned `.dark`, and under no pin at all when the
+   operating system is dark — the same three states `color-scheme` has below.
+   Only `components/ui/` uses it; the product's own surfaces read roles. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -118,6 +130,10 @@
   --color-danger-text: var(--danger-text);
   --color-danger-surface: var(--danger-surface);
   --color-rating: var(--rating);
+  /* The label on a `brand-action` fill. Set at the call site rather than in
+     the utility, so `cn()` can resolve it against a Button variant's own
+     text colour instead of leaving two utilities to fight over source order. */
+  --color-action-foreground: var(--action-foreground);
 
   /* Theme-invariant. Everything above follows the theme; these three are the
      colours that must not, because what they sit on or behind does not.
@@ -157,12 +173,18 @@
 
   /* Elevation. Four lifts, and every one of them is black — a shadow is the
      absence of light, and a coloured one is a glow, which is the next scale.
+     How black is `--elevation-shade`'s business: a lift at 90% black reads as
+     depth on a near-black page and as a smudge on a white one.
      The inset highlight that the glass surfaces pair with a lift is a separate
      token, below, because the two are composed independently. */
-  --shadow-elevation-sm: 0 12px 36px -22px oklch(0% 0 0 / 0.7);
-  --shadow-elevation-md: 0 18px 48px -30px oklch(0% 0 0 / 0.9);
-  --shadow-elevation-lg: 0 24px 72px -38px oklch(0% 0 0 / 0.95);
-  --shadow-elevation-xl: 0 40px 120px -52px oklch(0% 0 0 / 1);
+  --shadow-elevation-sm: 0 12px 36px -22px
+    color-mix(in oklab, var(--elevation-shade) 70%, transparent);
+  --shadow-elevation-md: 0 18px 48px -30px
+    color-mix(in oklab, var(--elevation-shade) 90%, transparent);
+  --shadow-elevation-lg: 0 24px 72px -38px
+    color-mix(in oklab, var(--elevation-shade) 95%, transparent);
+  --shadow-elevation-xl: 0 40px 120px -52px
+    color-mix(in oklab, var(--elevation-shade) 100%, transparent);
 
   /* Glow. The brand, thrown. ADR-0010 reserves it for the primary action, the
      focus ring and active state, so these are the shadows those three wear.
@@ -197,81 +219,98 @@
   --duration-slow: 320ms;
   --duration-slower: 520ms;
   --ease-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Density (Phase L2 item 8). Four spacing steps that are the difference
+     between comfortable and compact, and nothing else is: no type size, no
+     radius, no colour, so switching cannot clip a line or reflow a layout into
+     a different shape. `transcript` is the gap between messages and above the
+     first; `bubble-x`/`-y` pad a message; `row` is the height of a sidebar row.
+     The values live in `:root` and `[data-density="compact"]` below. */
+  --spacing-transcript: var(--density-transcript);
+  --spacing-bubble-x: var(--density-bubble-x);
+  --spacing-bubble-y: var(--density-bubble-y);
+  --spacing-row: var(--density-row);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   One theme: dark.
+   Two themes, one declaration per role (Phase L2 item 6, ADR-0011).
 
-   Decision (Phase J, owner, 2026-09-19). The app previously hardcoded
-   `class="dark"` on <html> while a provider advertised system-preference
-   support, so the system setting could never win and the code contradicted
-   itself. It is resolved in favour of dark rather than by shipping a light
-   theme, because "light theme" here is not a token swap: the glass shells, the
-   ember atmosphere, `bg-zinc-950` on <body>, and some sixty `white/…` and
-   `zinc-…` literals across the components are all written for a dark canvas.
-   A light mode means auditing every one of them for contrast, which is a
-   project, not a polish item. See `docs/adr/0005-dark-theme-only.md`.
+   Every role that differs between the themes is written once, as
+   `light-dark(<light>, <dark>)`. There is no second block of declarations to
+   drift from the first: a role added without a light value is a role with the
+   same value in both, which the contrast check in `tests/design-contrast.test.ts`
+   then holds to WCAG AA in both.
 
-   So the tokens below are declared once, for both `:root` and `.dark`, and
-   there is no second palette to drift. `<html>` still carries `class="dark"`
-   so Tailwind's `dark:` variants — which resolve through
-   `@custom-variant dark (&:is(.dark *))` above — keep matching.
+   `color-scheme` is what `light-dark()` reads, and it is set three ways:
 
-   `color-scheme: dark` is the part a stylesheet cannot express: it is what
-   makes the browser's own surfaces — scrollbars, form controls, the overscroll
-   canvas, `<input type="date">` pickers — render dark. Without it a scroll
-   past the end of a thread flashes white.
+   - `:root` carries `light dark`, so with no preference the browser follows
+     the operating system — live, including a change made while the page is
+     open, with no script involved.
+   - `.light` and `.dark` on <html> pin one. The root layout renders the class
+     from the reader's cookie (`lib/appearance.ts`), so the first paint is
+     already in the chosen theme rather than corrected after it.
 
-   To reintroduce light later: split this block back into `:root` (light) and
-   `.dark`, set `color-scheme: light dark`, and audit the literals above.
+   It is also what makes the browser's own surfaces — scrollbars, form
+   controls, the overscroll canvas, date pickers — match. Without it a scroll
+   past the end of a thread flashes the other theme.
+
+   ADR-0005 recorded dark-only because "light" was then an audit of some sixty
+   literals — the real figure was 467, now zero. ADR-0011 supersedes it.
    ─────────────────────────────────────────────────────────────────────────── */
 
-:root,
-.dark {
-  color-scheme: dark;
+:root {
+  color-scheme: light dark;
 
   --radius: 0.625rem;
 
   /* Deep zinc base with warm, accent-friendly neutrals. */
-  --background: oklch(0.13 0.006 75);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: light-dark(oklch(98.5% 0.003 75), oklch(0.13 0.006 75));
+  --foreground: light-dark(var(--ink-950), oklch(0.985 0 0));
+  --card: light-dark(oklch(100% 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(var(--ink-950), oklch(0.985 0 0));
+  --popover: light-dark(oklch(100% 0 0), oklch(0.205 0 0));
+  --popover-foreground: light-dark(var(--ink-950), oklch(0.985 0 0));
   /* Repointed at the brand. `--primary` means "the primary action colour",
      and the primary action in this product has always been ember — it was
      just written as `orange-…` in every component instead of here, while
      this token kept the stock shadcn grey nothing had revisited. */
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --secondary: light-dark(var(--ink-100), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(var(--ink-900), oklch(0.985 0 0));
+  --muted: light-dark(var(--ink-100), oklch(0.269 0 0));
+  --muted-foreground: light-dark(var(--ink-600), oklch(0.708 0 0));
+  --accent: light-dark(var(--ink-100), oklch(0.269 0 0));
+  --accent-foreground: light-dark(var(--ink-900), oklch(0.985 0 0));
   /* shadcn's own role, kept at the value it already had (crimson-400) and
      now sourced from the ramp. It is deliberately not `var(--danger)`:
      `destructive` is the button variant, `--danger` is the product's error
      surface, and they sit at different weights on the same ramp. */
-  --destructive: var(--crimson-400);
+  --destructive: light-dark(var(--crimson-600), var(--crimson-400));
   --border: var(--hairline);
-  --input: oklch(1 0 0 / 15%);
+  --input: light-dark(oklch(0% 0 0 / 14%), oklch(1 0 0 / 15%));
   /* The focus ring is one of the three places ADR-0010 reserves for the
      brand. It was a grey that `:focus-visible` below already overrode. */
   --ring: var(--brand);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.17 0.012 55);
-  --sidebar-foreground: oklch(0.96 0.01 75);
+  /* The data-viz ramp (Phase L2 item 9). The stock shadcn values it replaces
+     were declared and read by nothing; Phases R and S add the dashboards that
+     will read these. Series one is the brand. The other four were placed by a
+     search, not by eye: each clears 3:1 against the page in its theme, sits
+     inside sRGB, and stays at least 0.1 apart in OKLab from every other series
+     for typical vision and for protanopia, deuteranopia and tritanopia —
+     `tests/design-charts.test.ts` holds all three. Hue alone does not survive
+     a dichromacy, so the series also step in lightness. */
+  --chart-1: var(--brand);
+  --chart-2: light-dark(oklch(42% 0.103 263), oklch(63% 0.19 266));
+  --chart-3: light-dark(oklch(59% 0.064 178), oklch(76% 0.128 184));
+  --chart-4: light-dark(oklch(64% 0.198 303), oklch(57% 0.188 338));
+  --chart-5: light-dark(oklch(42% 0.087 76), oklch(91% 0.188 103));
+  --sidebar: light-dark(oklch(96.5% 0.006 75), oklch(0.17 0.012 55));
+  --sidebar-foreground: light-dark(var(--ink-900), oklch(0.96 0.01 75));
   --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: light-dark(var(--ink-100), oklch(0.269 0 0));
+  --sidebar-accent-foreground: light-dark(var(--ink-900), oklch(0.985 0 0));
   --sidebar-border: var(--hairline);
   --sidebar-ring: var(--brand);
 
@@ -312,7 +351,14 @@
   --ink-200: oklch(92% 0.004 286.32);
   --ink-300: oklch(87.1% 0.006 286.286);
   --ink-400: oklch(70.5% 0.015 286.067);
+  /* Two half-steps Tailwind does not have, placed by the contrast check
+     rather than by eye: `450` is the darkest grey that still reads as body
+     text at 4.5:1 on every dark surface, and `550` the mirror of it on the
+     light ones. `zinc-500`, which placeholders used before, measured 3.5–4.2
+     on the dark surfaces it sat on. */
+  --ink-450: oklch(62% 0.016 286);
   --ink-500: oklch(55.2% 0.016 285.938);
+  --ink-550: oklch(51% 0.017 286);
   --ink-600: oklch(44.2% 0.017 285.786);
   --ink-700: oklch(37% 0.013 285.805);
   --ink-800: oklch(27.4% 0.006 286.033);
@@ -320,18 +366,28 @@
   --ink-950: oklch(14.1% 0.005 285.823);
 
   /* ── Ramp: status ─────────────────────────────────────────────────────── */
+  --emerald-50: oklch(97.9% 0.021 166.113);
   --emerald-200: oklch(90.5% 0.093 164.15);
   --emerald-400: oklch(76.5% 0.177 163.223);
   --emerald-500: oklch(69.6% 0.17 162.48);
+  --emerald-600: oklch(59.6% 0.145 163.225);
+  --emerald-700: oklch(50.8% 0.118 165.612);
+  --emerald-800: oklch(43.2% 0.095 166.913);
   --emerald-950: oklch(26.2% 0.051 172.552);
+  --amber-50: oklch(98.7% 0.022 95.277);
   --amber-200: oklch(92.4% 0.12 95.746);
   --amber-400: oklch(82.8% 0.189 84.429);
   --amber-500: oklch(76.9% 0.188 70.08);
+  --amber-600: oklch(66.6% 0.179 58.318);
+  --amber-700: oklch(55.5% 0.163 48.998);
+  --amber-800: oklch(47.3% 0.137 46.201);
   --amber-950: oklch(27.9% 0.077 45.635);
+  --crimson-50: oklch(97.1% 0.013 17.38);
   --crimson-300: oklch(80.8% 0.114 19.571);
   --crimson-400: oklch(70.4% 0.191 22.216);
   --crimson-500: oklch(63.7% 0.237 25.331);
   --crimson-600: oklch(57.7% 0.245 27.325);
+  --crimson-700: oklch(50.5% 0.213 27.518);
   --crimson-950: oklch(25.8% 0.092 26.042);
   --yellow-400: oklch(85.2% 0.199 91.936);
 
@@ -348,31 +404,31 @@
   /* ── Role: brand ──────────────────────────────────────────────────────── */
   /* The action colour. ADR-0010 reserves it for the primary action, the focus
      ring, and active state — furniture stays neutral. */
-  --brand: var(--ember-400);
+  --brand: light-dark(var(--ember-600), var(--ember-400));
   --brand-strong: var(--ember-500);
   --brand-foreground: var(--ink-950);
-  --brand-text: var(--ember-300);
-  --brand-text-strong: var(--ember-200);
-  --brand-text-bright: var(--ember-100);
-  --brand-surface: var(--ember-950);
+  --brand-text: light-dark(var(--ember-700), var(--ember-300));
+  --brand-text-strong: light-dark(var(--ember-800), var(--ember-200));
+  --brand-text-bright: light-dark(var(--ember-900), var(--ember-100));
+  --brand-surface: light-dark(var(--ember-100), var(--ember-950));
 
   /* ── Role: text ───────────────────────────────────────────────────────── */
-  --fg-bright: var(--ink-50);
-  --fg-strong: var(--ink-100);
-  --fg: var(--ink-200);
-  --fg-soft: var(--ink-300);
-  --fg-muted: var(--ink-400);
-  --fg-subtle: var(--ink-500);
-  --fg-faint: var(--ink-600);
+  --fg-bright: light-dark(var(--ink-950), var(--ink-50));
+  --fg-strong: light-dark(var(--ink-900), var(--ink-100));
+  --fg: light-dark(var(--ink-800), var(--ink-200));
+  --fg-soft: light-dark(var(--ink-700), var(--ink-300));
+  --fg-muted: light-dark(var(--ink-600), var(--ink-400));
+  --fg-subtle: light-dark(var(--ink-550), var(--ink-450));
+  --fg-faint: light-dark(var(--ink-450), var(--ink-550));
 
   /* ── Role: surface ────────────────────────────────────────────────────── */
   /* `--surface` is `--background` by definition, not by coincidence: the page
      is elevation zero. The other three are the zinc steps the product already
      used, given the names that say what they are for. */
-  --surface-sunken: var(--ink-950);
+  --surface-sunken: light-dark(var(--ink-100), var(--ink-950));
   --surface: var(--background);
-  --surface-raised: var(--ink-900);
-  --surface-overlay: var(--ink-900);
+  --surface-raised: light-dark(oklch(100% 0 0), var(--ink-900));
+  --surface-overlay: light-dark(oklch(100% 0 0), var(--ink-900));
 
   /* ── Role: glass ──────────────────────────────────────────────────────── */
   /* Fill, border and inset highlight of the translucent panel. The blur radius
@@ -383,20 +439,20 @@
      to these; the largest move any of them makes is 1.5 percentage points
      of white over a near-black ground, which is under two levels per
      channel. */
-  --glass-fill: oklch(100% 0 0 / 4.5%);
-  --glass-fill-strong: oklch(100% 0 0 / 8.5%);
-  --glass-fill-heavy: oklch(100% 0 0 / 14%);
-  --glass-fill-solid: oklch(100% 0 0 / 20%);
-  --glass-border: oklch(100% 0 0 / 10%);
+  --glass-fill: light-dark(oklch(0% 0 0 / 3%), oklch(100% 0 0 / 4.5%));
+  --glass-fill-strong: light-dark(oklch(0% 0 0 / 5.5%), oklch(100% 0 0 / 8.5%));
+  --glass-fill-heavy: light-dark(oklch(0% 0 0 / 9%), oklch(100% 0 0 / 14%));
+  --glass-fill-solid: light-dark(oklch(0% 0 0 / 14%), oklch(100% 0 0 / 20%));
+  --glass-border: light-dark(oklch(0% 0 0 / 9%), oklch(100% 0 0 / 10%));
   /* 6.5%, the centre of the 5–8% the composer, the shells and the auth
      panel each picked separately. No call site moves by more than 1.5
      percentage points of white on a one-pixel line. */
-  --glass-highlight: oklch(100% 0 0 / 6.5%);
+  --glass-highlight: light-dark(oklch(100% 0 0 / 70%), oklch(100% 0 0 / 6.5%));
 
   /* ── Role: hairline ───────────────────────────────────────────────────── */
-  --hairline-subtle: oklch(100% 0 0 / 6%);
-  --hairline: oklch(100% 0 0 / 10%);
-  --hairline-strong: oklch(100% 0 0 / 18%);
+  --hairline-subtle: light-dark(oklch(0% 0 0 / 6%), oklch(100% 0 0 / 6%));
+  --hairline: light-dark(oklch(0% 0 0 / 10%), oklch(100% 0 0 / 10%));
+  --hairline-strong: light-dark(oklch(0% 0 0 / 16%), oklch(100% 0 0 / 18%));
 
   /* ── Role: bloom ──────────────────────────────────────────────────────── */
   /* The three radial washes that light the page from above. They are colours
@@ -407,54 +463,106 @@
      inside brackets. One set, not two: the marketing page and the
      workspace drew the same three washes at figures four points apart
      that nobody chose, and they are never seen side by side. */
-  --bloom-ember: color-mix(in oklab, var(--ember-500) 30%, transparent);
+  --bloom-ember: light-dark(
+    color-mix(in oklab, var(--ember-500) 16%, transparent),
+    color-mix(in oklab, var(--ember-500) 30%, transparent)
+  );
   /* The same wash at card scale rather than page scale, on the featured
      plan. A page-sized bloom put on a 400px card reads as a stain. */
-  --bloom-ember-soft: color-mix(in oklab, var(--ember-500) 14%, transparent);
-  --bloom-crimson: color-mix(in oklab, var(--crimson-600) 15%, transparent);
-  --bloom-amber: color-mix(in oklab, var(--amber-400) 11%, transparent);
+  --bloom-ember-soft: light-dark(
+    color-mix(in oklab, var(--ember-500) 8%, transparent),
+    color-mix(in oklab, var(--ember-500) 14%, transparent)
+  );
+  --bloom-crimson: light-dark(
+    color-mix(in oklab, var(--crimson-600) 7%, transparent),
+    color-mix(in oklab, var(--crimson-600) 15%, transparent)
+  );
+  --bloom-amber: light-dark(
+    color-mix(in oklab, var(--amber-400) 12%, transparent),
+    color-mix(in oklab, var(--amber-400) 11%, transparent)
+  );
 
   /* The edge darkening under both atmospheres, and the diagonal sheen across
      the workspace. Written as `rgba(0, 0, 0, 0.52)` and `rgba(0, 0, 0, 0.55)`
      in the two places that draw the same vignette. */
-  --vignette: oklch(0% 0 0 / 54%);
+  --vignette: light-dark(oklch(0% 0 0 / 5%), oklch(0% 0 0 / 54%));
   /* The auth screen's heavier edge: it frames one panel rather than a
      workspace, and was written as `rgba(0, 0, 0, 0.65)`. */
-  --vignette-deep: oklch(0% 0 0 / 65%);
+  --vignette-deep: light-dark(oklch(0% 0 0 / 8%), oklch(0% 0 0 / 65%));
 
   /* The ground under the atmosphere: an ember-tinted core above the fold,
      falling to the page and then to near-black at the edges. Written as
      `#31200f`, `#09090b` and `#050505` in both places that draw it. */
-  --atmosphere-core: oklch(26% 0.0385 64.72);
-  --atmosphere-mid: var(--ink-950);
-  --atmosphere-edge: oklch(11.49% 0 0);
+  --atmosphere-core: light-dark(oklch(96.5% 0.022 70), oklch(26% 0.0385 64.72));
+  --atmosphere-mid: light-dark(var(--background), var(--ink-950));
+  --atmosphere-edge: light-dark(oklch(95.5% 0.004 75), oklch(11.49% 0 0));
 
   /* ── Role: state ──────────────────────────────────────────────────────── */
   /* The colour of "a reply is arriving": the composer's spinner, the
      upload indicator, the streaming halo. A step lighter than the action
      colour, because it reports rather than invites. */
-  --streaming: var(--ember-200);
-  --success: var(--emerald-400);
-  --success-strong: var(--emerald-500);
-  --success-text: var(--emerald-200);
-  --success-surface: var(--emerald-950);
-  --warning: var(--amber-400);
-  --warning-strong: var(--amber-500);
-  --warning-text: var(--amber-200);
-  --warning-surface: var(--amber-950);
-  --danger: var(--crimson-500);
-  --danger-strong: var(--crimson-600);
+  --streaming: light-dark(var(--ember-600), var(--ember-200));
+  --success: light-dark(var(--emerald-600), var(--emerald-400));
+  --success-strong: light-dark(var(--emerald-700), var(--emerald-500));
+  --success-text: light-dark(var(--emerald-800), var(--emerald-200));
+  --success-surface: light-dark(var(--emerald-50), var(--emerald-950));
+  --warning: light-dark(var(--amber-600), var(--amber-400));
+  --warning-strong: light-dark(var(--amber-700), var(--amber-500));
+  --warning-text: light-dark(var(--amber-800), var(--amber-200));
+  --warning-surface: light-dark(var(--amber-50), var(--amber-950));
+  --danger: var(--crimson-600);
+  --danger-strong: var(--crimson-700);
   --danger-foreground: var(--ink-50);
-  --danger-text: var(--crimson-300);
-  --danger-surface: var(--crimson-950);
+  --danger-text: light-dark(var(--crimson-700), var(--crimson-300));
+  --danger-surface: light-dark(var(--crimson-50), var(--crimson-950));
   /* The filled star on a product rating. Not `--warning`: a five-star
      product is not a caution. */
   --rating: var(--yellow-400);
+
+  /* ── Role: action ─────────────────────────────────────────────────────── */
+  /* The filled call to action: the two stops of its gradient at rest and on
+     hover, and its label. Roles rather than ramp steps inside the utility so
+     the contrast check can read them — a gradient's label is only as legible
+     as its worst stop. */
+  --action-from: var(--ember-400);
+  --action-to: var(--crimson-500);
+  --action-from-hover: var(--ember-300);
+  --action-to-hover: var(--crimson-400);
+  --action-foreground: var(--brand-foreground);
+
+  /* ── Density: comfortable ─────────────────────────────────────────────── */
+  /* The values the product already used — `gap-6`, `px-4 py-3`, `h-9` — so
+     comfortable is exactly the layout that shipped before item 8. */
+  --density-transcript: 1.5rem;
+  --density-bubble-x: 1rem;
+  --density-bubble-y: 0.75rem;
+  --density-row: 2.25rem;
+
+  /* How dark a cast shadow is. The elevation scale mixes it per step. */
+  --elevation-shade: light-dark(oklch(0% 0 0 / 22%), oklch(0% 0 0));
 
   /* ── Role: theme-invariant ────────────────────────────────────────────── */
   --shade: oklch(0% 0 0);
   --fg-on-fill: oklch(100% 0 0);
   --media-canvas: oklch(100% 0 0);
+}
+
+:root.light {
+  color-scheme: light;
+}
+
+/* Compact. Roughly a third more conversation per screen: t3.chat's density is
+   part of why it reads as fast, and this is the answer to that comparison
+   without making comfortable, the default, any tighter. */
+:root[data-density="compact"] {
+  --density-transcript: 0.75rem;
+  --density-bubble-x: 0.75rem;
+  --density-bubble-y: 0.5rem;
+  --density-row: 1.875rem;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
 
 /* ── The glass panel, spelled once (Phase L2 item 5) ─────────────────────────
@@ -499,8 +607,8 @@
 @utility brand-headline {
   background-image: linear-gradient(
     to bottom right,
-    oklch(100% 0 0),
-    var(--ember-50),
+    light-dark(var(--ink-950), oklch(100% 0 0)),
+    light-dark(var(--ember-900), var(--ember-50)),
     var(--ink-500)
   );
   -webkit-background-clip: text;
@@ -527,10 +635,10 @@
    that components may not do this still holds — this is the token layer. */
 
 @utility brand-action {
-  background-image: linear-gradient(to right, var(--ember-500), var(--crimson-600));
+  background-image: linear-gradient(to right, var(--action-from), var(--action-to));
 
   &:hover {
-    background-image: linear-gradient(to right, var(--ember-400), var(--crimson-500));
+    background-image: linear-gradient(to right, var(--action-from-hover), var(--action-to-hover));
   }
 }
 
@@ -666,7 +774,7 @@
      reader just made, which ADR-0010 counts as active state. */
   ::selection {
     background: color-mix(in oklab, var(--brand) 34%, transparent);
-    color: var(--ember-50);
+    color: light-dark(var(--ember-950), var(--ember-50));
   }
 
   /* Neutral, not ember. ADR-0010 reserves the brand for the primary action,
@@ -748,7 +856,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--brand-text-strong);
-  box-shadow: 0 18px 44px -24px oklch(0% 0 0 / 0.9);
+  box-shadow: var(--shadow-elevation-md);
   transition: transform 160ms ease;
 }
 
@@ -843,7 +951,7 @@
   background: var(--glass-fill);
   color: var(--fg-strong);
   box-shadow:
-    0 14px 34px -26px oklch(0% 0 0 / 0.9),
+    0 14px 34px -26px color-mix(in oklab, var(--elevation-shade) 90%, transparent),
     inset 0 1px 0 var(--glass-highlight);
   transition:
     transform 200ms ease,
