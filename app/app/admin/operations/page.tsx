@@ -86,7 +86,7 @@ async function SloPanel() {
   return (
     <section className="flex flex-col gap-3" aria-label="Service level objectives">
       <SectionHeading
-        icon={<Gauge className="h-4 w-4 text-orange-300" aria-hidden />}
+        icon={<Gauge className="h-4 w-4 text-brand-text" aria-hidden />}
         title="Service objectives"
         detail={`Last ${String(report.windowMinutes)} minutes${report.paging ? " · paging" : ""}`}
       />
@@ -105,24 +105,24 @@ function SloCard({ objective }: { objective: SloEvaluationDto }) {
     <Card className={cn("rounded-2xl", brandGlassCardClass)}>
       <CardContent className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
-          <span className="text-sm font-medium text-zinc-200">{objective.title}</span>
+          <span className="text-sm font-medium text-fg">{objective.title}</span>
           <StatusPill status={objective.status} />
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tabular-nums text-white">
+          <span className="text-2xl font-semibold tabular-nums text-fg-bright">
             {formatSloValue(objective)}
           </span>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-fg-subtle">
             target {formatMeasure(objective.unit, objective.objective)} · page at{" "}
             {formatMeasure(objective.unit, objective.pageAt)}
           </span>
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-fg-subtle">
           {objective.sample.toLocaleString("en-US")} observations ·{" "}
           {objective.scope === "fleet" ? "all instances" : "this instance only"}
         </p>
         {objective.status === "healthy" || objective.status === "insufficient_data" ? null : (
-          <p className="text-xs leading-relaxed text-amber-200/80">{objective.runbook}</p>
+          <p className="text-xs leading-relaxed text-warning-text/80">{objective.runbook}</p>
         )}
       </CardContent>
     </Card>
@@ -142,7 +142,7 @@ function InstanceScopeNote({ report }: { report: SloReportResponse }) {
   if (instanceScoped.length === 0) return null;
 
   return (
-    <p className="text-xs leading-relaxed text-zinc-500">
+    <p className="text-xs leading-relaxed text-fg-subtle">
       Counted in this process&apos;s memory, not in the database:{" "}
       {instanceScoped.map((objective) => objective.title).join("; ")}. Nothing durable records an
       HTTP response, a usage ingest, or a frame of interaction — writing a row per thread switch to
@@ -160,7 +160,7 @@ async function CostPanel() {
   return (
     <section className="flex flex-col gap-3" aria-label="Cost">
       <SectionHeading
-        icon={<DollarSign className="h-4 w-4 text-orange-300" aria-hidden />}
+        icon={<DollarSign className="h-4 w-4 text-brand-text" aria-hidden />}
         title="Spend"
         detail={`Last ${String(report.windowDays)} days · list prices`}
       />
@@ -180,7 +180,7 @@ async function CostPanel() {
       </Card>
 
       {report.truncated ? (
-        <p className="flex items-center gap-2 text-xs text-amber-200/80">
+        <p className="flex items-center gap-2 text-xs text-warning-text/80">
           <AlertTriangle className="h-3 w-3" aria-hidden />
           The row cap was reached — these totals are a floor, not a total.
         </p>
@@ -189,7 +189,7 @@ async function CostPanel() {
       <ModelTable models={report.byModel} />
       <UserTable users={report.topUsers} />
       <DayTable days={report.byDay} />
-      <p className="text-xs leading-relaxed text-zinc-500">
+      <p className="text-xs leading-relaxed text-fg-subtle">
         Costs are provider list prices from the model registry, applied to the token counts
         persisted on each message. They are not an invoice: discounts, cached-input rates and batch
         pricing are not modelled, and Polar remains the billing record.
@@ -232,7 +232,7 @@ function UserTable({ users }: { users: CostByUserDto[] }) {
           value={formatUsd(user.costUsd)}
           badge={
             user.anomaly.anomalous ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+              <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning-text">
                 <Activity className="h-3 w-3" aria-hidden />
                 {user.anomaly.ratio === null
                   ? "anomaly"
@@ -267,7 +267,7 @@ function EmptyRow({ label }: { label: string }) {
   return (
     <Card className={cn("rounded-2xl", brandGlassCardClass)}>
       <CardContent>
-        <p className="text-sm text-zinc-500">{label}</p>
+        <p className="text-sm text-fg-subtle">{label}</p>
       </CardContent>
     </Card>
   );
@@ -277,7 +277,7 @@ function DataCard({ title, children }: { title: string; children: React.ReactNod
   return (
     <Card className={cn("rounded-2xl", brandGlassCardClass)}>
       <CardContent className="flex flex-col gap-1">
-        <h3 className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+        <h3 className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-fg-subtle">
           {title}
         </h3>
         {children}
@@ -298,15 +298,15 @@ function Row({
   badge?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-white/5 py-2 first:border-t-0">
+    <div className="flex items-center justify-between gap-3 border-t border-hairline-subtle py-2 first:border-t-0">
       <div className="flex min-w-0 flex-col">
-        <span className="flex items-center gap-2 truncate text-sm text-zinc-200">
+        <span className="flex items-center gap-2 truncate text-sm text-fg">
           {label}
           {badge}
         </span>
-        <span className="truncate text-xs text-zinc-500">{sublabel}</span>
+        <span className="truncate text-xs text-fg-subtle">{sublabel}</span>
       </div>
-      <span className="shrink-0 text-sm font-medium tabular-nums text-white">{value}</span>
+      <span className="shrink-0 text-sm font-medium tabular-nums text-fg-bright">{value}</span>
     </div>
   );
 }
@@ -314,8 +314,8 @@ function Row({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</span>
-      <span className="text-2xl font-semibold tabular-nums text-white">{value}</span>
+      <span className="text-xs uppercase tracking-[0.14em] text-fg-subtle">{label}</span>
+      <span className="text-2xl font-semibold tabular-nums text-fg-bright">{value}</span>
     </div>
   );
 }
@@ -323,12 +323,12 @@ function Metric({ label, value }: { label: string; value: string }) {
 function StatusPill({ status }: { status: SloEvaluationDto["status"] }) {
   const tone =
     status === "paging"
-      ? "border-red-400/30 bg-red-400/10 text-red-200"
+      ? "border-destructive/30 bg-destructive/10 text-danger-text"
       : status === "degraded"
-        ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+        ? "border-warning/30 bg-warning/10 text-warning-text"
         : status === "healthy"
-          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-          : "border-white/10 bg-white/[0.06] text-zinc-400";
+          ? "border-success/30 bg-success/10 text-success-text"
+          : "border-hairline bg-glass text-fg-muted";
 
   const label = status === "insufficient_data" ? "not enough data" : status.replace("_", " ");
 
@@ -357,9 +357,9 @@ function SectionHeading({
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         {icon}
-        <h2 className="text-lg font-semibold tracking-tight text-white">{title}</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-fg-bright">{title}</h2>
       </div>
-      <span className="text-xs text-zinc-500">{detail}</span>
+      <span className="text-xs text-fg-subtle">{detail}</span>
     </div>
   );
 }
@@ -368,14 +368,14 @@ function Header() {
   return (
     <Card className={cn("shrink-0 rounded-2xl", brandGlassCardClass)}>
       <CardContent>
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400">
-          <Gauge className="size-3 text-orange-300" aria-hidden />
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-hairline bg-glass px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-fg-muted">
+          <Gauge className="size-3 text-brand-text" aria-hidden />
           Operations
         </div>
-        <h1 className="text-xl font-semibold tracking-tight text-white">Cost and reliability</h1>
-        <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-zinc-400">
+        <h1 className="text-xl font-semibold tracking-tight text-fg-bright">Cost and reliability</h1>
+        <p className="mt-1 max-w-2xl text-[15px] leading-relaxed text-fg-muted">
           What the product is spending, and how it is standing against its service objectives.
-          Visible only to the user ids in <code className="text-zinc-300">ADMIN_USER_IDS</code>.
+          Visible only to the user ids in <code className="text-fg-soft">ADMIN_USER_IDS</code>.
         </p>
       </CardContent>
     </Card>
@@ -388,8 +388,8 @@ function PanelFallback({ label, rows }: { label: string; rows: number }) {
       {Array.from({ length: rows }, (_, index) => index).map((index) => (
         <Card key={index} className={cn("rounded-2xl", brandGlassCardClass)}>
           <CardContent className="flex flex-col gap-3">
-            <Skeleton className="h-4 w-1/3 bg-white/5" />
-            <Skeleton className="h-4 w-2/3 bg-white/5" />
+            <Skeleton className="h-4 w-1/3 bg-glass" />
+            <Skeleton className="h-4 w-2/3 bg-glass" />
           </CardContent>
         </Card>
       ))}

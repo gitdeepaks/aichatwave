@@ -17,8 +17,6 @@
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // admin — 44 across 1 file
-  "app/app/admin/operations/page.tsx", // 44
   // workspace — 99 across 5 files
   "app/app/layout.tsx", // 7
   "app/app/memories/page.tsx", // 9
