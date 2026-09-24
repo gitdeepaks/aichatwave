@@ -17,9 +17,6 @@
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // gen-ui — 26 across 2 files
-  "components/gen-ui/product-carousel.tsx", // 3
-  "components/gen-ui/weather-card.tsx", // 23
   // admin — 44 across 1 file
   "app/app/admin/operations/page.tsx", // 44
   // workspace — 99 across 5 files

@@ -30,7 +30,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
   const renderStars = (rating: number) => {
     return (
       <div className="flex items-center gap-0.5">
-        <Star className="size-3.5 fill-yellow-400 text-yellow-400" />
+        <Star className="size-3.5 fill-rating text-rating" />
         <span className="text-xs font-medium ml-1">{rating.toFixed(1)}</span>
       </div>
     );
@@ -43,7 +43,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
           Top shopping results for{" "}
           <span className="font-semibold text-primary">&quot;{query}&quot;</span>
         </h3>
-        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-semibold">
+        <Badge variant="secondary" className="text-2xs uppercase tracking-wider font-semibold">
           Sponsored
         </Badge>
       </div>
@@ -59,7 +59,7 @@ export function ProductCarousel({ query, products, error }: DisplayProductsResul
             >
               {/* Image Container - White background to act like a lightbox for product images */}
               <a href={product.productLink} target="_blank" rel="noreferrer">
-                <div className="relative h-45 w-full bg-white flex items-center justify-center p-6 border-b border-border/50 overflow-hidden">
+                <div className="relative h-45 w-full bg-media-canvas flex items-center justify-center p-6 border-b border-border/50 overflow-hidden">
                   {imageUrl ? (
                     <Image
                       src={imageUrl}
