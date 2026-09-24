@@ -31,7 +31,7 @@ export default function GlobalError({
 
   return (
     <html lang="en" className="dark">
-      <body className="bg-zinc-950 text-zinc-100 antialiased">
+      <body className="bg-surface-sunken text-fg-strong antialiased">
         <ErrorSurface
           title="The app failed to load"
           description="Something broke before the interface could start. This is on our side, not yours."

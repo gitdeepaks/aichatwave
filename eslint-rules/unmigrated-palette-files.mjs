@@ -17,8 +17,6 @@
  * written, so a migration commit can be checked against it.
  */
 export const UNMIGRATED_PALETTE_FILES = [
-  // auth — 30 across 1 file
-  "components/auth/auth-screen-shell.tsx", // 30
   // gen-ui — 26 across 2 files
   "components/gen-ui/product-carousel.tsx", // 3
   "components/gen-ui/weather-card.tsx", // 23
@@ -34,13 +32,9 @@ export const UNMIGRATED_PALETTE_FILES = [
   "components/command-palette/command-palette.tsx", // 21
   "components/custom/message-attribution.tsx", // 1
   "components/custom/message-renderer.tsx", // 19
-  "components/error/error-surface.tsx", // 22
   "components/memory/memory-consent-card.tsx", // 20
   "components/model-selector.tsx", // 8
   "components/onboarding/onboarding-dialog.tsx", // 33
   "components/pro-upgrade-cta.tsx", // 8
   "components/profile/delete-account-card.tsx", // 12
-  // app shell — 4 across 2 files
-  "app/global-error.tsx", // 2
-  "app/layout.tsx", // 2
 ];

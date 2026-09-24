@@ -151,7 +151,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${sora.variable} ${geistMono.variable} bg-zinc-950 font-sans text-zinc-100 antialiased`}
+        className={`${sora.variable} ${geistMono.variable} bg-surface-sunken font-sans text-fg-strong antialiased`}
         suppressHydrationWarning
       >
         <ClerkProvider
@@ -201,10 +201,13 @@ export default function RootLayout({
             // above is what makes those selectors safe to depend on.
             theme: clerkTheme,
             variables: {
-              colorPrimary: "#fb923c",
+              // Roles, not values: Clerk resolves `var()` at render, so its
+              // widget follows the token layer — and the theme — with the
+              // rest of the app instead of pinning a second copy of ember.
+              colorPrimary: "var(--brand)",
               colorBackground: "transparent",
-              colorForeground: "#fafafa",
-              colorMutedForeground: "#a1a1aa",
+              colorForeground: "var(--fg-bright)",
+              colorMutedForeground: "var(--fg-muted)",
               borderRadius: "1rem",
             },
           }}

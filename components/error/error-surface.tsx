@@ -40,26 +40,26 @@ export function ErrorSurface({
   hrefLabel,
 }: ErrorSurfaceProps) {
   return (
-    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_-10%,#31200f_0%,#09090b_42%,#050505_100%)] px-6 py-16">
+    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden atmosphere-ground px-6 py-16">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_55%_at_48%_-16%,rgba(249,115,22,0.28),transparent_58%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_55%_at_48%_-16%,var(--bloom-ember),transparent_58%)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.28] [background-image:linear-gradient(to_right,rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:64px_64px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.28] [background-image:linear-gradient(to_right,var(--hairline-subtle)_1px,transparent_1px),linear-gradient(to_bottom,var(--glass-fill)_1px,transparent_1px)] [background-size:64px_64px]"
         aria-hidden
       />
 
       <div
         className={cn(
           "relative z-10 w-full max-w-lg rounded-2xl p-8 sm:p-10",
-          "border border-white/10 bg-zinc-900/75 text-zinc-50 backdrop-blur-2xl",
-          "shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_24px_80px_-12px_rgba(0,0,0,0.65)]",
-          "supports-[backdrop-filter]:bg-zinc-900/55",
+          "border border-hairline bg-surface-raised/75 text-fg-bright backdrop-blur-glass-heavy",
+          "shadow-elevation-xl",
+          "supports-[backdrop-filter]:bg-surface-raised/55",
         )}
       >
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">{title}</h1>
-        <p className="mt-3 text-sm leading-relaxed text-zinc-400">{description}</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-fg-bright sm:text-3xl">{title}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-fg-muted">{description}</p>
 
         {digest ? <DigestBlock digest={digest} /> : null}
 
@@ -67,7 +67,7 @@ export function ErrorSurface({
           {onRetry ? (
             <Button
               onClick={onRetry}
-              className="bg-orange-500 text-zinc-950 hover:bg-orange-400 focus-visible:ring-orange-400/60"
+              className="bg-brand-strong text-brand-foreground hover:bg-brand focus-visible:ring-brand/60"
             >
               Try again
             </Button>
@@ -76,7 +76,7 @@ export function ErrorSurface({
             <Button
               asChild
               variant="ghost"
-              className="border border-white/10 text-zinc-300 hover:bg-white/5 hover:text-zinc-50"
+              className="border border-hairline text-fg-soft hover:bg-glass hover:text-fg-bright"
             >
               <a href={href}>{hrefLabel ?? "Go back"}</a>
             </Button>
@@ -108,9 +108,9 @@ function DigestBlock({ digest }: { digest: string }) {
   }, [digest]);
 
   return (
-    <div className="mt-6 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
+    <div className="mt-6 rounded-xl border border-hairline bg-surface-sunken/60 p-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[0.7rem] font-medium tracking-[0.14em] text-zinc-500 uppercase">
+        <span className="text-[0.7rem] font-medium tracking-[0.14em] text-fg-subtle uppercase">
           Error reference
         </span>
         <Button
@@ -118,7 +118,7 @@ function DigestBlock({ digest }: { digest: string }) {
           onClick={copy}
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 px-2 text-xs text-zinc-400 hover:bg-white/5 hover:text-zinc-100"
+          className="h-7 gap-1.5 px-2 text-xs text-fg-muted hover:bg-glass hover:text-fg-strong"
           aria-label={copied ? "Error reference copied" : "Copy error reference"}
         >
           {copied ? (
@@ -129,8 +129,8 @@ function DigestBlock({ digest }: { digest: string }) {
           {copied ? "Copied" : "Copy"}
         </Button>
       </div>
-      <code className="mt-2 block font-mono text-sm break-all text-orange-300/90">{digest}</code>
-      <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+      <code className="mt-2 block font-mono text-sm break-all text-brand-text/90">{digest}</code>
+      <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
         Include this when reporting the problem — it maps to the exact server log line.
       </p>
       <output className="sr-only" aria-live="polite">

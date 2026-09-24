@@ -62,26 +62,26 @@ export function AuthScreenShell({
   panelHint: string;
 }>) {
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#08080a] text-zinc-100">
+    <div className="relative min-h-dvh overflow-hidden bg-surface-sunken text-fg-strong">
       {/* Ember bloom from the top, a low amber floor, and a fine technical grid. */}
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_50%_at_50%_-10%,rgba(249,115,22,0.28),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_50%_at_50%_-10%,var(--bloom-ember),transparent_62%)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_45%_at_88%_18%,rgba(220,38,38,0.14),transparent_60%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_45%_at_88%_18%,var(--bloom-crimson),transparent_60%)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_40%_at_10%_100%,rgba(251,191,36,0.10),transparent_58%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_40%_at_10%_100%,var(--bloom-amber),transparent_58%)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:72px_72px] [mask-image:radial-gradient(ellipse_80%_70%_at_50%_40%,black,transparent)]"
+        className="pointer-events-none absolute inset-0 opacity-[0.22] [background-image:linear-gradient(to_right,var(--hairline-subtle)_1px,transparent_1px),linear-gradient(to_bottom,var(--glass-fill)_1px,transparent_1px)] [background-size:72px_72px] [mask-image:radial-gradient(ellipse_80%_70%_at_50%_40%,black,transparent)]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,transparent_55%,rgba(0,0,0,0.65)_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,transparent_55%,var(--vignette-deep)_100%)]"
         aria-hidden
       />
 
@@ -90,7 +90,7 @@ export function AuthScreenShell({
           {/* Left: the product argument. Hidden below lg so the panel stays centred. */}
           <div className="auth-reveal hidden lg:flex lg:flex-col lg:gap-10">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-orange-300/20 via-white/[0.06] to-red-500/10">
+              <div className="flex size-11 items-center justify-center rounded-2xl border border-hairline brand-glass">
                 <Image
                   src={BRAND_LOGO_SRC}
                   className="size-7 object-contain"
@@ -100,33 +100,33 @@ export function AuthScreenShell({
                   priority
                 />
               </div>
-              <span className="text-[15px] font-semibold tracking-[-0.02em] text-white">
+              <span className="text-[15px] font-semibold tracking-[-0.02em] text-fg-bright">
                 AIChatWave
               </span>
             </div>
 
             <div className="space-y-5">
-              <h1 className="max-w-[15ch] text-balance text-[3.25rem] font-semibold leading-[1.03] tracking-[-0.05em] text-white">
+              <h1 className="max-w-[15ch] text-balance text-[3.25rem] font-semibold leading-[1.03] tracking-[-0.05em] text-fg-bright">
                 {headline}
               </h1>
-              <p className="max-w-[38ch] text-[17px] leading-8 text-zinc-300">{tagline}</p>
+              <p className="max-w-[38ch] text-[17px] leading-8 text-fg-soft">{tagline}</p>
             </div>
 
             {/* The rule is the list's spine; each marker is centred on it. */}
-            <ul className="space-y-6 border-l border-white/[0.07] pl-6">
+            <ul className="space-y-6 border-l border-hairline pl-6">
               {HIGHLIGHTS.map((item) => (
                 <li key={item.label} className="relative">
                   <span
-                    className="absolute -left-[26px] top-1 size-1.5 rounded-full bg-orange-400/70 shadow-[0_0_14px_rgba(251,146,60,0.9)]"
+                    className="absolute -left-[26px] top-1 size-1.5 rounded-full bg-brand/70 shadow-glow-ring"
                     aria-hidden
                   />
-                  <p className="font-mono text-[10px] uppercase leading-4 tracking-[0.28em] text-orange-200/55">
+                  <p className="font-mono text-[10px] uppercase leading-4 tracking-[0.28em] text-brand-text-strong/55">
                     {item.label}
                   </p>
-                  <p className="mt-2 text-[15px] font-medium leading-5 text-zinc-100">
+                  <p className="mt-2 text-[15px] font-medium leading-5 text-fg-strong">
                     {item.title}
                   </p>
-                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-zinc-400">
+                  <p className="mt-1.5 max-w-[42ch] text-[14px] leading-6 text-fg-muted">
                     {item.body}
                   </p>
                 </li>
@@ -137,14 +137,14 @@ export function AuthScreenShell({
           {/* Right: the auth panel. `--auth-gutter` is the single horizontal
               rail every child of the card lines up on, Clerk's included. */}
           <div className="auth-reveal auth-reveal-delayed mx-auto w-full max-w-[440px]">
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-zinc-950/55 shadow-[0_40px_120px_-48px_rgba(0,0,0,1),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-2xl [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-zinc-950/40 sm:[--auth-gutter:2rem]">
+            <div className="relative overflow-hidden rounded-[1.75rem] border border-hairline bg-surface-sunken/55 shadow-elevation-xl inset-shadow-highlight backdrop-blur-glass-heavy [--auth-gutter:1.5rem] supports-[backdrop-filter]:bg-surface-sunken/40 sm:[--auth-gutter:2rem]">
               <div
-                className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-orange-200/50 to-transparent"
+                className="pointer-events-none absolute inset-x-10 top-0 h-px brand-rule"
                 aria-hidden
               />
 
               <div className="flex flex-col items-center gap-4 px-[var(--auth-gutter)] pt-9 text-center">
-                <div className="flex size-14 items-center justify-center rounded-[1.2rem] border border-white/10 bg-gradient-to-br from-orange-300/20 via-white/[0.06] to-red-500/10 shadow-[0_18px_44px_-26px_rgba(251,146,60,0.85)] lg:hidden">
+                <div className="flex size-14 items-center justify-center rounded-[1.2rem] border border-hairline brand-glass shadow-glow-md lg:hidden">
                   <Image
                     src={BRAND_LOGO_SRC}
                     className="size-9 object-contain"
@@ -155,9 +155,9 @@ export function AuthScreenShell({
                   />
                 </div>
 
-                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-orange-200/65">
+                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-brand-text-strong/65">
                   <span
-                    className="size-1 rounded-full bg-orange-400/80 shadow-[0_0_10px_rgba(251,146,60,0.9)]"
+                    className="size-1 rounded-full bg-brand/80 shadow-glow-ring"
                     aria-hidden
                   />
                   {eyebrow}
@@ -165,11 +165,11 @@ export function AuthScreenShell({
 
                 {/* The left column carries the headline on desktop; on small
                     screens it is hidden, so the panel takes over that job. */}
-                <h2 className="text-balance text-[1.55rem] font-semibold leading-tight tracking-[-0.035em] text-white lg:hidden">
+                <h2 className="text-balance text-[1.55rem] font-semibold leading-tight tracking-[-0.035em] text-fg-bright lg:hidden">
                   {headline}
                 </h2>
 
-                <p className="text-balance text-[14px] leading-6 text-zinc-400">{panelHint}</p>
+                <p className="text-balance text-[14px] leading-6 text-fg-muted">{panelHint}</p>
               </div>
 
               {/* Clerk's widget. De-chromed and stretched by `.auth-clerk` rules;
@@ -180,14 +180,14 @@ export function AuthScreenShell({
             {/* Caption below the card, so the card itself ends on Clerk's rule
                 rather than a third stacked hairline. */}
             <div className="mt-6 flex items-center gap-4" aria-hidden>
-              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-zinc-400">
+              <span className="h-px flex-1 bg-gradient-to-r from-transparent to-glass-strong" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-muted">
                 Encrypted session handoff
               </p>
-              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.08]" />
+              <span className="h-px flex-1 bg-gradient-to-l from-transparent to-glass-strong" />
             </div>
 
-            <p className="mt-5 text-center text-[13px] leading-6 text-zinc-400 lg:hidden">
+            <p className="mt-5 text-center text-[13px] leading-6 text-fg-muted lg:hidden">
               Threads, long-term memory, and tool-powered answers.
             </p>
           </div>
