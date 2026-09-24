@@ -228,9 +228,13 @@ function sourceFiles(): string[] {
 test("the scale rule rejects arbitrary and stock steps and accepts named ones", () => {
   tester.run("no-arbitrary-scale", noRawPalette.rules["no-arbitrary-scale"], {
     valid: [
-      { code: 'const c = "text-2xs text-sm text-base text-5xl leading-[1.05] tracking-[-0.04em]";' },
+      {
+        code: 'const c = "text-2xs text-sm text-base text-5xl leading-[1.05] tracking-[-0.04em]";',
+      },
       { code: 'const c = "rounded-3xl rounded-br-md shadow-elevation-md inset-shadow-highlight";' },
-      { code: 'const c = "backdrop-blur-glass backdrop-blur-glass-heavy duration-base ease-emphasis";' },
+      {
+        code: 'const c = "backdrop-blur-glass backdrop-blur-glass-heavy duration-base ease-emphasis";',
+      },
       // Spinners turn at a constant rate; linear is not a second curve.
       { code: 'const c = "animate-spin ease-linear";' },
       // Widths and heights are layout, not type.
@@ -243,7 +247,10 @@ test("the scale rule rejects arbitrary and stock steps and accepts named ones", 
         code: 'const c = "group-[.is-user]:rounded-[1.45rem] rounded-br-[6px]";',
         errors: [{ messageId: "offScale" }, { messageId: "offScale" }],
       },
-      { code: 'const c = "shadow-[0_18px_50px_-34px_var(--shade)]";', errors: [{ messageId: "offScale" }] },
+      {
+        code: 'const c = "shadow-[0_18px_50px_-34px_var(--shade)]";',
+        errors: [{ messageId: "offScale" }],
+      },
       {
         code: 'const c = "backdrop-blur-md blur-2xl";',
         errors: [{ messageId: "offScale" }, { messageId: "offScale" }],

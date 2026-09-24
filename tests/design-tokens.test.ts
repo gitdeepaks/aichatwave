@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { type OklchColor, parseOklch, parseTokenLayer, resolveColor } from "@/lib/design/tokens";
+import { THEMES } from "@/lib/appearance";
+import {
+  type OklchColor,
+  type TokenValue,
+  parseOklch,
+  parseTokenLayer,
+  resolveColor,
+} from "@/lib/design/tokens";
 
 const CSS = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const LAYER = parseTokenLayer(CSS);
@@ -54,6 +61,18 @@ const ROLES = [
  * `--font-sora` and `--font-geist-mono` onto <html> at render time, so they
  * are legitimately undeclared here.
  */
+/**
+ * A value that points into the token layer rather than holding a number: a
+ * `var()`, or a `light-dark()` whose two sides are both `var()`s. The second
+ * form is how a role differs between themes without writing a colour twice.
+ */
+function isReference(value: TokenValue): boolean {
+  return (
+    value.kind === "reference" ||
+    (value.kind === "themed" && isReference(value.light) && isReference(value.dark))
+  );
+}
+
 const EXTERNALLY_PROVIDED = new Set(["--font-sora", "--font-geist-mono"]);
 
 test("every @theme alias points at a token that exists", () => {
@@ -93,7 +112,7 @@ test("every role is exposed to Tailwind as a utility", () => {
 });
 
 test("the ember value is written in exactly one place", () => {
-  const brand = resolveColor(LAYER, "--brand");
+  const brand = resolveColor(LAYER, "--brand", "dark");
   assert.ok(brand.ok);
 
   // Not "no orange appears twice" — two ramp steps may legitimately share a
@@ -107,6 +126,17 @@ test("the ember value is written in exactly one place", () => {
   assert.deepEqual(
     literals.map(({ name }) => name),
     ["--ember-400"],
+  );
+
+  // And the light theme's brand is the same kind of thing: one ramp step,
+  // reached through `--brand`, not a second ember written into a role.
+  const light = resolveColor(LAYER, "--brand", "light");
+  assert.ok(light.ok);
+  assert.deepEqual(
+    [...LAYER.tokens.values()]
+      .filter(({ value }) => value.kind === "color" && sameColor(value.color, light.color))
+      .map(({ name }) => name),
+    ["--ember-600"],
   );
 });
 
@@ -125,9 +155,8 @@ test("the brand roles all derive from the ramp", () => {
   for (const role of ROLES.filter((name) => name.startsWith("--brand"))) {
     const token = LAYER.tokens.get(role);
     assert.ok(token !== undefined, `${role} is not declared`);
-    assert.equal(
-      token.value.kind,
-      "reference",
+    assert.ok(
+      isReference(token.value),
       `${role} holds a literal colour; it must be a var() into a ramp`,
     );
   }
@@ -144,19 +173,21 @@ test("the shadcn tokens read from the roles rather than holding their own values
   for (const name of ["--primary", "--primary-foreground", "--ring", "--border", "--destructive"]) {
     const token = LAYER.tokens.get(name);
     assert.ok(token !== undefined, `${name} is not declared`);
-    assert.equal(token.value.kind, "reference", `${name} still holds a literal colour`);
+    assert.ok(isReference(token.value), `${name} still holds a literal colour`);
   }
 });
 
 test("--primary is the brand, so a primary button is the action colour", () => {
-  const primary = resolveColor(LAYER, "--primary");
-  const brand = resolveColor(LAYER, "--brand");
+  for (const theme of THEMES) {
+    const primary = resolveColor(LAYER, "--primary", theme);
+    const brand = resolveColor(LAYER, "--brand", theme);
 
-  assert.ok(primary.ok && brand.ok);
-  assert.deepEqual(primary.color, brand.color);
+    assert.ok(primary.ok && brand.ok);
+    assert.deepEqual(primary.color, brand.color, theme);
+  }
 });
 
-test("the text roles descend in lightness without a tie", () => {
+test("the text roles step away from the page without a tie, in both themes", () => {
   const weights = [
     "--fg-bright",
     "--fg-strong",
@@ -167,20 +198,26 @@ test("the text roles descend in lightness without a tie", () => {
     "--fg-faint",
   ] as const;
 
-  const lightnesses = weights.map((name) => {
-    const resolution = resolveColor(LAYER, name);
-    assert.ok(resolution.ok, `${name} does not resolve`);
-    return resolution.color.lightness;
-  });
+  // "Bright" means most emphatic: the lightest text on a dark page and the
+  // darkest on a light one. Each step is further toward the page than the
+  // last, in whichever direction the page is.
+  for (const theme of THEMES) {
+    const toward = theme === "dark" ? -1 : 1;
+    const lightnesses = weights.map((name) => {
+      const resolution = resolveColor(LAYER, name, theme);
+      assert.ok(resolution.ok, `${name} does not resolve in ${theme}`);
+      return resolution.color.lightness;
+    });
 
-  for (let index = 1; index < lightnesses.length; index += 1) {
-    const previous = lightnesses[index - 1];
-    const current = lightnesses[index];
-    assert.ok(previous !== undefined && current !== undefined);
-    assert.ok(
-      current < previous,
-      `${weights[index]} is not darker than ${weights[index - 1]}; the scale has a step that says nothing`,
-    );
+    for (let index = 1; index < lightnesses.length; index += 1) {
+      const previous = lightnesses[index - 1];
+      const current = lightnesses[index];
+      assert.ok(previous !== undefined && current !== undefined);
+      assert.ok(
+        (current - previous) * toward > 0,
+        `${weights[index]} is no fainter than ${weights[index - 1]} in ${theme}; the scale has a step that says nothing`,
+      );
+    }
   }
 });
 
@@ -249,7 +286,11 @@ test("the elevation scale is four black lifts and nothing coloured", () => {
     const token = LAYER.tokens.get(step);
     assert.ok(token !== undefined, `${step} is not declared`);
     assert.equal(token.value.kind, "other", `${step} should be a shadow, not a colour`);
-    assert.ok(token.value.kind === "other" && token.value.raw.includes("oklch(0% 0 0"));
+    assert.ok(token.value.kind === "other" && token.value.raw.includes("var(--elevation-shade)"));
+    for (const theme of THEMES) {
+      const shade = resolveColor(LAYER, "--elevation-shade", theme);
+      assert.ok(shade.ok && shade.color.lightness === 0 && shade.color.chroma === 0, theme);
+    }
     assert.ok(
       token.value.kind === "other" && !token.value.raw.includes("--brand"),
       `${step} carries the brand; a coloured shadow is a glow and belongs on the other scale`,
