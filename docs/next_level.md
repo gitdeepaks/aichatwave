@@ -31,7 +31,7 @@ criteria that are checkable rather than aspirational.
 | ---------------------------------- | ---------- | --------------------------------------------------------------- |
 | **K — Close the launch gap**       | `WIP`      | Stop shipping a dev instance to a real domain                   |
 | **L — Instant**                    | `WIP`      | Sub-100ms thread switches and a measured TTFT budget            |
-| **L2 — The design system**         | `NOT DONE` | One token layer, a real type scale, and a light theme           |
+| **L2 — The design system**         | `WIP`      | One token layer, a real type scale, and a light theme           |
 | **M — The conversation is a tree** | `NOT DONE` | Edit, branch, alternates, and shareable threads                 |
 | **N — Breadth and BYOK**           | `NOT DONE` | More models, user-supplied keys, per-turn model controls        |
 | **O — Real capabilities**          | `NOT DONE` | Web search with citations, document RAG, artifacts, MCP         |
@@ -706,36 +706,60 @@ the light theme the ADR called "a project" is a second block of variable declara
 
 ### Phase L2 status
 
-> **`WIP`** — the system exists and is enforced; the migration is 4 files of 40 done.
+> **`WIP`** — items 1–9 are shipped and gated by `pnpm lint` and `pnpm test`. The phase stays
+> open on two things that need a signed-in browser: the axe run in both themes and the
+> before/after screenshots of the workspace. Item 10 is half-done.
 >
-> **Shipped.** Items 1, 2, 4 and 5, and the first slice of item 3.
+> **Shipped (2026-09-24).**
 >
-> - The token layer: ember and neutral ramps, and roles on top of them for brand, seven text
->   weights, four surface elevations, glass, hairlines and the state trio. `--primary`, `--ring`,
->   `--border`, `--destructive` and the sidebar tokens read from those roles. Zero `rgb()` literals
->   remain in `app/globals.css`.
-> - ADR-0010 records the identity decision — keep ember-on-zinc, reserve it for the primary action,
->   the focus ring and active state — and the scrollbar thumb has returned to neutral.
-> - Type, radius, elevation, glow, blur and motion scales, and eight composed utilities replacing 18
->   hand-rolled glass treatments and 20 hand-rolled brand gradients.
-> - `design/no-raw-palette` rejects every palette literal and arbitrary colour outside
->   `components/ui/`, with a named ratchet of the files not yet migrated. A test runs the rule over
->   every `.tsx` and asserts the offending set equals the list exactly, so the number can only go
->   down.
-> - `pnpm design:verify` checks the built stylesheet for every design-system class the source uses,
->   which is the one failure mode nothing else catches: a theme key that is not there compiles to no
->   class at all, with no error.
-> - `docs/design-system.md` is the substitution table the remaining files are migrated against.
+> - **Item 3, the migration: the ratchet is `[]`.** The last 20 files — auth, gen-UI, the
+>   operations dashboard, the workspace pages, the shared components, the app shell — 360 literals
+>   to zero, one commit per area. Two holes in the gate were found and closed on the way: a hex
+>   followed by Tailwind's `_` slipped past the rule's `\b`, which is how `BrandAtmosphere`'s
+>   ground gradient sat unreported in a "migrated" file; and `components/ai-elements/` was
+>   globally ignored, which is how the chat message bubble carried fourteen literals no rule had
+>   seen. That directory is now under the **full** rule set — nine type and promise findings fixed,
+>   none exempted — which also closes constraint **C1a** ahead of Phase M.
+> - **Item 5, finished.** Zero arbitrary font sizes, radii or shadows in `app/` or `components/`.
+>   `design/no-arbitrary-scale` rejects the next one, along with stock blur steps, numeric
+>   durations and every easing but `ease-emphasis` and `ease-linear`.
+> - **Item 6, the light theme, and [ADR-0011](adr/0011-two-themes-from-one-token-layer.md)**
+>   superseding ADR-0005. Each role is one `light-dark()` declaration; `System` is the default and
+>   renders no class; a pin is a cookie the root layout turns into `<html class>`, so there is no
+>   flash. Toggle in the account menu and the command palette. `lib/appearance.ts` owns it (C8).
+> - **Item 7, contrast as a test.** `tests/design-contrast.test.ts`: 108 pairs, both themes, WCAG
+>   AA, from the stylesheet. It failed the dark theme as shipped, and the fixes are deliberate
+>   visual changes, listed below.
+> - **Item 8, density.** Comfortable and compact switch five spacing utilities over four tokens —
+>   the transcript gap, bubble padding and sidebar row height — and a test holds them to lengths
+>   only.
+> - **Item 9, the chart ramp.** Series one is the brand; the rest were placed by a search, and a
+>   test holds every pair apart under protanopia, deuteranopia and tritanopia, at 3:1 against the
+>   page in both themes.
+> - **Item 10, partly.** The error surfaces, empty state, skeletons and marketing pages are on the
+>   system and render in both themes. The OG image and favicon set are raster files and were not
+>   revisited.
 >
-> **Not done.** Item 3 for the other 36 files (567 literals: chat, marketing, auth, admin,
-> workspace, gen-UI and the shared components), and items 6 through 10 — the light theme and the
-> ADR-0005 supersession, the automated contrast audit, the density control, the chart ramp, and the
-> pass over the marketing, OG, empty-state and error surfaces. No exit criterion is met yet: the
-> ratchet is at 36, not 0.
+> **Deliberate visual changes, all from item 7.** The dark theme moved where it had always failed
+> AA: `fg-subtle` is lighter (new `--ink-450`; `zinc-500` measured 3.5–4.2:1); `fg-faint` is
+> lighter (`--ink-550`; was 2.3–2.6:1); the filled call to action is now a dark label on
+> `ember-400 → crimson-500` (white on ember-500 was 2.9:1); `danger` is crimson-600. Everything
+> else in item 3 is substitution.
 >
-> **Two deliberate visual changes so far**, both from item 2 rather than from the migration:
-> repointing `--primary` from the stock shadcn grey to the brand, which moved 21 uses — most of
-> them inside `components/ui/` — and the scrollbar thumb going neutral.
+> **Exit criteria.**
+>
+> - [x] Zero raw palette literals, and a lint rule fails the build on the next one.
+> - [x] `--brand` is the only place the ember value is written (both themes, tested).
+> - [x] Zero `text-[…]` arbitrary values in `app/` and `components/` outside `components/ui/`.
+> - [x] Radius, elevation, blur and motion each come from a named scale, lint-enforced.
+> - [x] A light theme ships, toggles, follows system preference by default, and persists.
+> - [x] Every token pair meets WCAG AA in both themes, checked in CI by `pnpm test`.
+> - [ ] axe-core 0 violations in both themes — `tests/e2e/accessibility.spec.ts` now runs every
+>       audit once per theme; **not yet run**, as it needs the signed-in E2E environment.
+> - [x] Density changes spacing only (tested); visual check at compact still to do by hand.
+> - [x] ADR-0005 is superseded by ADR-0011.
+> - [ ] Before/after screenshots per migration commit — the marketing and auth pages were
+>       checked in both themes; the workspace needs a session and was not.
 
 ---
 
@@ -1178,6 +1202,6 @@ working tree at `2fa2bc0` — four models in `MODEL_REGISTRY`, three tools in `t
 twenty route handlers, `message` with no parent pointer, `attachment.data` as `bytea`,
 467 raw palette literals against 279 semantic token uses, 129 arbitrary font sizes in 24 distinct
 values, `--primary` still the stock shadcn grey while the ember accent appears only as literals,
-`--chart-1`…`--chart-5` declared and used by nothing,
+`--chart-1`…`--chart-5` declared and used by nothing (all resolved in Phase L2 by 2026-09-24),
 `MessageBranch` present in `components/ai-elements/message.tsx` and rendered nowhere, no share table,
 no projects table, no BYOK storage — and from `pro_plan.md`'s four open Deployment state items.

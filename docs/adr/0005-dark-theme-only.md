@@ -1,6 +1,6 @@
 # ADR-0005 — One theme, dark
 
-**Status:** Accepted · **Date:** 2026-09-19 · **Deciders:** owner
+**Status:** Superseded by [ADR-0011](0011-two-themes-from-one-token-layer.md) · **Date:** 2026-09-19 · **Deciders:** owner
 
 ## Context
 
